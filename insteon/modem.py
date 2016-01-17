@@ -552,31 +552,3 @@ class Modem(Root_Insteon):
     def rcvd_all_link_start(self, msg):
         if msg.plm_resp_ack:
             self._last_sent_msg.plm_ack = True
-
-###################################################################
-#
-# User Accessible functions
-#
-###################################################################
-
-
-    def get_linked_devices(self):
-        '''Returns a dictionary of all devices linked to the modem'''
-        dev_cat_record = self.get_device_category(dev_cat)
-        if dev_cat_record and 'name' in dev_cat_record:
-            dev_cat_name = dev_cat_record['name']
-            dev_cat_type = dev_cat_record['type']
-        else:
-            dev_cat_name = 'unknown'
-            dev_cat_type = 'unknown'
-
-        linked_dev_model = self.get_device_model(dev_cat, dev_sub_cat)
-        if 'name' in linked_dev_model:
-            dev_model_name = linked_dev_model['name']
-        else:
-            dev_model_name = 'unknown'
-
-        if 'sku' in linked_dev_model:
-            dev_sku = linked_dev_model['sku']
-        else:
-            dev_sku = 'unknown'

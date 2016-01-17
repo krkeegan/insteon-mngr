@@ -135,3 +135,67 @@ class Insteon_Core(object):
                     self.add_plm(attributes=modem_data, device_id=modem_id)
                 elif modem_data['type'] == 'hub':
                     self.add_hub(attributes=modem_data, device_id=modem_id)
+
+    def get_device_category(self, cat):
+        """Return the device category and name given the category id"""
+        cat = '{:02x}'.format(cat, 'x').upper()
+        if cat in self.device_categories:
+            return self.device_categories[cat]
+        else:
+            return False
+
+
+    def get_device_model(self, cat, sub_cat, key=''):
+        """Return the model name given cat/subcat or product key"""
+        cat = '{:02x}'.format(cat, 'x').upper()
+        sub_cat = '{:02x}'.format(sub_cat, 'x').upper()
+        if cat + ':' + sub_cat in self.device_models:
+            return self.device_models[cat + ':' + sub_cat]
+        else:
+            for i_key, i_val in self.device_models.items():
+                if 'key' in i_val:
+                    if i_val['key'] == key:
+                        return i_val
+            return False
+
+###################################################################
+#
+# User Accessible functions
+#
+###################################################################
+
+    def get_linked_devices(self):
+        linked_devices = {}
+        for modem in self.get_all_modems():
+            for device in modem.get_all_devices():
+                '''Returns a dictionary of all devices linked to the modem'''
+                dev_cat_record = self.get_device_category(device.dev_cat)
+                if dev_cat_record and 'name' in dev_cat_record:
+                    dev_cat_name = dev_cat_record['name']
+                    dev_cat_type = dev_cat_record['type']
+                else:
+                    dev_cat_name = 'unknown'
+                    dev_cat_type = 'unknown'
+
+                linked_dev_model = self.get_device_model(device.dev_cat, device.sub_cat)
+                if 'name' in linked_dev_model:
+                    dev_model_name = linked_dev_model['name']
+                else:
+                    dev_model_name = 'unknown'
+
+                if 'sku' in linked_dev_model:
+                    dev_sku = linked_dev_model['sku']
+                else:
+                    dev_sku = 'unknown'
+
+                linked_devices[device.dev_addr_str] = {
+                    'cat_name': dev_cat_name,
+                    'cat_type': dev_cat_type,
+                    'model_name' : dev_model_name,
+                    'cat': device.dev_cat,
+                    'sub_cat': device.sub_cat,
+                    'sku': dev_sku,
+                    'group': []
+                }
+
+        return linked_devices
