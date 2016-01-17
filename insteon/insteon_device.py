@@ -9,10 +9,10 @@ from .msg_schema import EXT_DIRECT_SCHEMA, COMMAND_SCHEMA, \
     STD_DIRECT_ACK_SCHEMA
 from .plm_message import PLM_Message
 from .helpers import BYTE_TO_HEX, ID_STR_TO_BYTES
-from .trigger import Trigger_Manager, Trigger
+from .trigger import Trigger
 
 
-class Insteon_Device(Root_Insteon):
+class InsteonDevice(Root_Insteon):
 
     def __init__(self, core, plm, **kwargs):
         self._aldb = Device_ALDB(self)
@@ -46,7 +46,7 @@ class Insteon_Device(Root_Insteon):
             }
             trigger = Trigger(trigger_attributes)
             trigger.trigger_function = lambda: self.send_command('light_status_request')
-            self.plm._trigger_mngr.add_trigger(self.dev_addr_str + 'init_step_2', trigger)
+            self.plm.trigger_mngr.add_trigger(self.dev_addr_str + 'init_step_2', trigger)
             self.send_command('id_request')
         else:
             self._init_step_3()
@@ -222,7 +222,7 @@ class Insteon_Device(Root_Insteon):
         if not self._is_valid_direct_ack(msg):
             return
         elif (self.last_sent_msg.get_byte_by_name('cmd_1') ==
-                msg.get_byte_by_name('cmd_1')):
+              msg.get_byte_by_name('cmd_1')):
             if (self.attribute('engine_version') == 0x02 or
                     self.attribute('engine_version') is None):
                 cmd_2 = msg.get_byte_by_name('cmd_2')
@@ -342,8 +342,8 @@ class Insteon_Device(Root_Insteon):
     def ack_set_msb(self, msg):
         '''currently called when set_address_msb ack received'''
         if (self.last_sent_msg.insteon_msg.device_cmd_name == 'set_address_msb'
-            and (self.last_sent_msg.get_byte_by_name('cmd_2') ==
-                 msg.get_byte_by_name('cmd_2'))):
+                and (self.last_sent_msg.get_byte_by_name('cmd_2') ==
+                     msg.get_byte_by_name('cmd_2'))):
             ret = True
         else:
             ret = False
@@ -351,27 +351,27 @@ class Insteon_Device(Root_Insteon):
 
     def ack_peek_aldb(self, msg):
         if (self.last_sent_msg.insteon_msg.device_cmd_name == 'peek_one_byte'
-                and not (self.last_sent_msg.insteon_msg.device_ack)):
+                and not self.last_sent_msg.insteon_msg.device_ack):
             peek_msg = self.search_last_sent_msg(insteon_cmd='peek_one_byte')
             lsb = peek_msg.get_byte_by_name('cmd_2')
             msb_msg = self.search_last_sent_msg(insteon_cmd='set_address_msb')
             msb = msb_msg.get_byte_by_name('cmd_2')
             if (lsb % 8) == 0:
                 self._aldb.edit_record(
-                    self._aldb._get_aldb_key(msb, lsb), bytearray(8))
+                    self._aldb.get_aldb_key(msb, lsb), bytearray(8))
             self._aldb.edit_record_byte(
-                self._aldb._get_aldb_key(msb, lsb),
+                self._aldb.get_aldb_key(msb, lsb),
                 lsb % 8,
                 msg.get_byte_by_name('cmd_2')
             )
-            if self._aldb.is_last_aldb(self._aldb._get_aldb_key(msb, lsb)):
+            if self._aldb.is_last_aldb(self._aldb.get_aldb_key(msb, lsb)):
                 # this is the last entry on this device
                 records = self._aldb.get_all_records()
                 for key in sorted(records):
                     print(key, ":", BYTE_TO_HEX(records[key]))
                 self.remove_state_machine('query_aldb')
                 self.send_command('light_status_request', 'set_aldb_delta')
-            elif self._aldb.is_empty_aldb(self._aldb._get_aldb_key(msb, lsb)):
+            elif self._aldb.is_empty_aldb(self._aldb.get_aldb_key(msb, lsb)):
                 # this is an empty record
                 print('empty record')
                 lsb = lsb - (8 + (lsb % 8))
@@ -398,7 +398,6 @@ class Insteon_Device(Root_Insteon):
         return False  # Never set ack
 
     def _ext_aldb_rcvd(self, msg):
-        # Duplicate messages will not cause errors, so we don't check for them
         if (self.last_sent_msg.insteon_msg.device_prelim_ack is True and
                 self.last_sent_msg.insteon_msg.device_ack is False):
             last_msg = self.search_last_sent_msg(insteon_cmd='read_aldb')
@@ -418,7 +417,7 @@ class Insteon_Device(Root_Insteon):
                     msg.get_byte_by_name('usr_12'),
                     msg.get_byte_by_name('usr_13')
                 ])
-                self._aldb.edit_record(self._aldb._get_aldb_key(msg_msb, msg_lsb),
+                self._aldb.edit_record(self._aldb.get_aldb_key(msg_msb, msg_lsb),
                                        aldb_entry)
                 self.last_sent_msg.insteon_msg.device_ack = True
         else:
@@ -449,9 +448,9 @@ class Insteon_Device(Root_Insteon):
     def send_command(self, command_name, state='', dev_bytes={}):
         message = self.create_message(command_name)
         if message is not None:
-            message._insert_bytes_into_raw(dev_bytes)
+            message.insert_bytes_into_raw(dev_bytes)
             message.state_machine = state
-            self._queue_device_msg(message)
+            self.queue_device_msg(message)
 
     def create_message(self, command_name):
         ret = None
@@ -511,11 +510,11 @@ class Insteon_Device(Root_Insteon):
             'link_code': 0x01,
             'group': 0x00,
         }
-        message._insert_bytes_into_raw(plm_bytes)
+        message.insert_bytes_into_raw(plm_bytes)
         message.plm_success_callback = self.add_plm_to_dev_link_step2
         message.msg_failure_callback = self.add_plm_to_dev_link_fail
         message.state_machine = 'link plm->device'
-        self.plm._queue_device_msg(message)
+        self.plm.queue_device_msg(message)
 
     def add_plm_to_dev_link_step2(self):
         # Put Device in linking mode
@@ -523,13 +522,13 @@ class Insteon_Device(Root_Insteon):
         dev_bytes = {
             'cmd_2': 0x00
         }
-        message._insert_bytes_into_raw(dev_bytes)
+        message.insert_bytes_into_raw(dev_bytes)
         message.insteon_msg.device_success_callback = (
             self.add_plm_to_dev_link_step3
         )
         message.msg_failure_callback = self.add_plm_to_dev_link_fail
         message.state_machine = 'link plm->device'
-        self._queue_device_msg(message)
+        self.queue_device_msg(message)
 
     def add_plm_to_dev_link_step3(self):
         print('device in linking mode')

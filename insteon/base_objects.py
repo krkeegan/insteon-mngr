@@ -74,7 +74,7 @@ class Base_Device(object):
         else:
             print(value, 'was not the active state_machine')
 
-    def _queue_device_msg(self, message):
+    def queue_device_msg(self, message):
         if message.state_machine not in self._device_msg_queue:
             self._device_msg_queue[message.state_machine] = []
         self._device_msg_queue[message.state_machine].append(message)

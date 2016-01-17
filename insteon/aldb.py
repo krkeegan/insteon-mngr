@@ -97,7 +97,7 @@ class Device_ALDB(ALDB):
     def __init__(self, parent):
         super().__init__(parent)
 
-    def _get_aldb_key(self, msb, lsb):
+    def get_aldb_key(self, msb, lsb):
         offset = 7 - (lsb % 8)
         highest_byte = lsb + offset
         key = bytes([msb, highest_byte])
@@ -124,13 +124,13 @@ class Device_ALDB(ALDB):
             trigger = Trigger(trigger_attributes)
             trigger.trigger_function = lambda: self.i2_next_aldb()
             trigger_name = self._parent.dev_addr_str + 'query_aldb'
-            self._parent.plm._trigger_mngr.add_trigger(trigger_name, trigger)
+            self._parent.plm.trigger_mngr.add_trigger(trigger_name, trigger)
 
     def i2_next_aldb(self):
         # TODO parse by real names on incomming
         msb = self._parent.last_rcvd_msg.get_byte_by_name('usr_3')
         lsb = self._parent.last_rcvd_msg.get_byte_by_name('usr_4')
-        if self.is_last_aldb(self._get_aldb_key(msb, lsb)):
+        if self.is_last_aldb(self.get_aldb_key(msb, lsb)):
             self._parent.remove_state_machine('query_aldb')
             records = self.get_all_records()
             for key in sorted(records):
@@ -159,11 +159,11 @@ class Device_ALDB(ALDB):
             trigger = Trigger(trigger_attributes)
             trigger.trigger_function = lambda: self.i2_next_aldb()
             trigger_name = self._parent.dev_addr_str + 'query_aldb'
-            self._parent.plm._trigger_mngr.add_trigger(trigger_name, trigger)
+            self._parent.plm.trigger_mngr.add_trigger(trigger_name, trigger)
 
     def i1_start_aldb_entry_query(self, msb, lsb):
         message = self._parent.create_message('set_address_msb')
-        message._insert_bytes_into_raw({'msb': msb})
+        message.insert_bytes_into_raw({'msb': msb})
         message.insteon_msg.device_success_callback = \
             lambda: \
             self.peek_aldb(lsb)
@@ -172,7 +172,7 @@ class Device_ALDB(ALDB):
 
     def peek_aldb(self, lsb):
         message = self._parent.create_message('peek_one_byte')
-        message._insert_bytes_into_raw({'lsb': lsb})
+        message.insert_bytes_into_raw({'lsb': lsb})
         message.state_machine = 'query_aldb'
         self._parent._queue_device_msg(message)
 

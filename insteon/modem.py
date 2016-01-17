@@ -1,7 +1,7 @@
 import time
 import datetime
 
-from .insteon_device import Insteon_Device
+from .insteon_device import InsteonDevice
 from .base_objects import Root_Insteon
 from .aldb import PLM_ALDB
 from .trigger import Trigger_Manager, Trigger
@@ -17,7 +17,7 @@ class Modem(Root_Insteon):
     def __init__(self, core, **kwargs):
         self._devices = {}
         self._aldb = PLM_ALDB(self)
-        self._trigger_mngr = Trigger_Manager(self)
+        self.trigger_mngr = Trigger_Manager(self)
         super().__init__(core, self, **kwargs)
         self._read_buffer = bytearray()
         self._last_sent_msg = None
@@ -86,7 +86,7 @@ class Modem(Root_Insteon):
     def add_device(self, device_id, **kwargs):
         device_id = device_id.upper()
         if device_id not in self._devices:
-            self._devices[device_id] = Insteon_Device(self.core,
+            self._devices[device_id] = InsteonDevice(self.core,
                                                       self,
                                                       device_id=device_id,
                                                       **kwargs)
@@ -172,7 +172,7 @@ class Modem(Root_Insteon):
         print(now, 'found legitimate msg', BYTE_TO_HEX(raw_msg))
         msg = PLM_Message(self, raw_data=raw_msg, is_incomming=True)
         self._msg_dispatcher(msg)
-        self._trigger_mngr.match_msg(msg)
+        self.trigger_mngr.match_msg(msg)
         # TODO clean up expired triggers?
 
     def _msg_dispatcher(self, msg):
@@ -260,9 +260,9 @@ class Modem(Root_Insteon):
 
     def send_command(self, command, state='', plm_bytes={}):
         message = self.create_message(command)
-        message._insert_bytes_into_raw(plm_bytes)
+        message.insert_bytes_into_raw(plm_bytes)
         message.state_machine = state
-        self._queue_device_msg(message)
+        self.queue_device_msg(message)
 
     def create_message(self, command):
         message = PLM_Message(
@@ -439,7 +439,7 @@ class Modem(Root_Insteon):
                 msg.get_byte_by_name('group'))
         trigger.trigger_function = lambda: plm._aldb._write_link(
             device, is_controller)
-        self._trigger_mngr.add_trigger('rcvd_all_link_manage_nack', trigger)
+        self.trigger_mngr.add_trigger('rcvd_all_link_manage_nack', trigger)
 
     def rcvd_insteon_msg(self, msg):
         insteon_obj = self.get_device_by_addr(msg.insteon_msg.from_addr_str)
