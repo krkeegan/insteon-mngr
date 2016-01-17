@@ -49,10 +49,7 @@ class InsteonDevice(Root_Insteon):
             self.plm.trigger_mngr.add_trigger(self.dev_addr_str + 'init_step_2', trigger)
             self.send_command('id_request')
         else:
-            self._init_step_3()
-
-    def _init_step_3(self):
-        self.send_command('light_status_request')
+            self.send_command('light_status_request')
 
     @property
     def dev_addr_hi(self):
@@ -423,7 +420,6 @@ class InsteonDevice(Root_Insteon):
         else:
             msg.allow_trigger = False
             print('received spurious ext_aldb record')
-
 
     def _set_engine_version(self, msg):
         version = msg.get_byte_by_name('cmd_2')
