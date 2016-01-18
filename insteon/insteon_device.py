@@ -34,9 +34,9 @@ class InsteonDevice(Root_Insteon):
             self._init_step_2()
 
     def _init_step_2(self):
-        if (self.attribute('dev_cat') is None or
-                self.attribute('sub_cat') is None or
-                self.attribute('firmware') is None):
+        if (self.dev_cat is None or
+                self.sub_cat is None or
+                self.firmware is None):
             trigger_attributes = {
                 'from_addr_hi': self.dev_addr_hi,
                 'from_addr_mid': self.dev_addr_mid,
@@ -73,13 +73,26 @@ class InsteonDevice(Root_Insteon):
     def dev_cat(self):
         return self.attribute('dev_cat')
 
+    @dev_cat.setter
+    def dev_cat(self, value):
+        self.attribute('dev_cat', value)
+        self._update_commands()
+
     @property
     def sub_cat(self):
         return self.attribute('sub_cat')
 
+    @sub_cat.setter
+    def sub_cat(self, value):
+        self.attribute('sub_cat', value)
+
     @property
     def firmware(self):
         return self.attribute('firmware')
+
+    @firmware.setter
+    def firmware(self, value):
+        self.attribute('firmware', value)
 
     @property
     def smart_hops(self):
@@ -112,9 +125,9 @@ class InsteonDevice(Root_Insteon):
         elif msg.insteon_msg.message_type == 'direct_nack':
             self._process_direct_nack(msg)
         elif msg.insteon_msg.message_type == 'broadcast':
-            self.attribute('dev_cat', msg.get_byte_by_name('to_addr_hi'))
-            self.attribute('sub_cat', msg.get_byte_by_name('to_addr_mid'))
-            self.attribute('firmware', msg.get_byte_by_name('to_addr_low'))
+            self.dev_cat = msg.get_byte_by_name('to_addr_hi')
+            self.sub_cat = msg.get_byte_by_name('to_addr_mid')
+            self.firmware = msg.get_byte_by_name('to_addr_low')
             print('rcvd, broadcast updated devcat, subcat, and firmware')
         elif msg.insteon_msg.message_type == 'alllink_cleanup_ack':
             # TODO set state of the device based on cmd acked
@@ -150,9 +163,9 @@ class InsteonDevice(Root_Insteon):
                 msg.get_byte_by_name('cmd_1') in EXT_DIRECT_SCHEMA):
             command = EXT_DIRECT_SCHEMA[msg.get_byte_by_name('cmd_1')]
             search_list = [
-                ['DevCat', self.attribute('dev_cat')],
-                ['SubCat', self.attribute('sub_cat')],
-                ['Firmware', self.attribute('firmware')],
+                ['DevCat', self.dev_cat],
+                ['SubCat', self.sub_cat],
+                ['Firmware', self.firmware],
                 ['Cmd2', msg.get_byte_by_name('cmd_2')]
             ]
             for search_item in search_list:
@@ -189,9 +202,9 @@ class InsteonDevice(Root_Insteon):
             if msg.get_byte_by_name('cmd_1') in STD_DIRECT_ACK_SCHEMA:
                 command = STD_DIRECT_ACK_SCHEMA[msg.get_byte_by_name('cmd_1')]
                 search_list = [
-                    ['DevCat', self.attribute('dev_cat')],
-                    ['SubCat', self.attribute('sub_cat')],
-                    ['Firmware', self.attribute('firmware')],
+                    ['DevCat', self.dev_cat],
+                    ['SubCat', self.sub_cat],
+                    ['Firmware', self.firmware],
                     ['Cmd2', self.last_sent_msg.get_byte_by_name('cmd_2')]
                 ]
                 for search_item in search_list:
@@ -456,9 +469,9 @@ class InsteonDevice(Root_Insteon):
             print('command not found', e)
         else:
             search_list = [
-                ['DevCat', self.attribute('dev_cat')],
-                ['SubCat', self.attribute('sub_cat')],
-                ['Firmware', self.attribute('firmware')]
+                ['DevCat', self.dev_cat],
+                ['SubCat', self.sub_cat],
+                ['Firmware', self.firmware]
             ]
             for search_item in search_list:
                 cmd_schema = self._recursive_search_cmd(
