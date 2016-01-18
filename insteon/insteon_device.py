@@ -10,6 +10,9 @@ from .msg_schema import EXT_DIRECT_SCHEMA, COMMAND_SCHEMA, \
 from .plm_message import PLM_Message
 from .helpers import BYTE_TO_HEX, ID_STR_TO_BYTES
 from .trigger import Trigger
+from .commands.base import BaseCommands
+from .commands.switch import SwitchCommands
+from .commands.dimmer import DimmerCommands
 
 
 class InsteonDevice(Root_Insteon):
@@ -25,6 +28,8 @@ class InsteonDevice(Root_Insteon):
         self.last_rcvd_msg = None
         self._recent_inc_msgs = {}
         self.create_group(1, Insteon_Group)
+        self.commands = BaseCommands(self)
+        self._update_commands()
         self._init_step_1()
 
     def _init_step_1(self):
@@ -50,6 +55,21 @@ class InsteonDevice(Root_Insteon):
             self.send_command('id_request')
         else:
             self.send_command('light_status_request')
+
+    def _update_commands(self):
+        dev_cat_type = None
+        if self.dev_cat is not None:
+            dev_cat_type = self.core.get_device_category(self.dev_cat)['type']
+        print ('dev_cat', self.dev_cat, 'type', dev_cat_type)
+        if dev_cat_type == 'switch':
+            print('updated device to switch')
+            self.commands = SwitchCommands(self)
+        elif dev_cat_type == 'dimmer':
+            print('updated device to dimmer')
+            self.commands = DimmerCommands(self)
+        else:
+            print('updated device to base')
+            self.commands = BaseCommands(self)
 
     @property
     def dev_addr_hi(self):
