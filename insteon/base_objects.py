@@ -2,6 +2,8 @@ import time
 import datetime
 import pprint
 
+from insteon.helpers import BYTE_TO_HEX, ID_STR_TO_BYTES
+
 
 class Base_Device(object):
 
@@ -158,14 +160,63 @@ class Base_Device(object):
             self.add_device(id, attributes=attributes)
 
 
-class Root_Insteon(Base_Device):
+class Base_Insteon(Base_Device):
+
+    def __init__(self, core, plm, **kwargs):
+        self._id_bytes = bytearray(3)
+        if 'device_id' in kwargs:
+            self._id_bytes = ID_STR_TO_BYTES(kwargs['device_id'])
+        super().__init__(core, plm, **kwargs)
+
+    @property
+    def dev_addr_hi(self):
+        return self._id_bytes[0]
+
+    @property
+    def dev_addr_mid(self):
+        return self._id_bytes[1]
+
+    @property
+    def dev_addr_low(self):
+        return self._id_bytes[2]
+
+    @property
+    def dev_addr_str(self):
+        ret = BYTE_TO_HEX(
+            bytes([self.dev_addr_hi, self.dev_addr_mid, self.dev_addr_low]))
+        return ret
+
+    @property
+    def dev_cat(self):
+        return self.attribute('dev_cat')
+
+    @property
+    def sub_cat(self):
+        return self.attribute('sub_cat')
+    @property
+    def firmware(self):
+        return self.attribute('firmware')
+
+    def set_dev_addr(self, addr):
+        self._id_bytes = ID_STR_TO_BYTES(addr)
+        return
+
+    def set_dev_version(self, dev_cat=None, sub_cat=None, firmware=None):
+        self.attribute('dev_cat', dev_cat)
+        self.attribute('sub_cat', sub_cat)
+        self.attribute('firmware', firmware)
+        return
+
+class Root_Insteon(Base_Insteon):
+    '''The base of the primary group'''
 
     def __init__(self, core, plm, **kwargs):
         self._groups = []
         super().__init__(core, plm, **kwargs)
 
     def create_group(self, group_num, Group_Class):
-        self._groups.append(Group_Class(self, group_num))
+        device_id = self.dev_addr_str
+        self._groups.append(Group_Class(self, group_num, device_id=device_id))
 
     def get_object_by_group_num(self, search_num):
         ret = None

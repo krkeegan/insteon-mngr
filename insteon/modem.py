@@ -25,9 +25,6 @@ class Modem(Root_Insteon):
         self._wait_to_send = 0
         self._last_x10_house = None
         self._last_x10_unit = None
-        self._dev_addr_hi = None
-        self._dev_addr_mid = None
-        self._dev_addr_low = None
         self.port_active = True
         self.ack_time = 75
         for group_num in range(0x01, 0xFF):
@@ -39,49 +36,13 @@ class Modem(Root_Insteon):
         if self._aldb.have_aldb_cache() is False:
             self._aldb.query_aldb()
 
+    def set_ack_time(self,milliseconds):
+        self.ack_time = milliseconds
+        return
+
     @property
     def type(self):
         return self.attribute('type')
-
-    @property
-    def dev_cat(self):
-        return self.attribute('dev_cat')
-
-    @property
-    def sub_cat(self):
-        return self.attribute('sub_cat')
-
-    @property
-    def firmware(self):
-        return self.attribute('firmware')
-
-    @property
-    def port(self):
-        return self.attribute('port')
-
-    @property
-    def dev_addr_hi(self):
-        return self._dev_addr_hi
-
-    @property
-    def dev_addr_mid(self):
-        return self._dev_addr_mid
-
-    @property
-    def dev_addr_low(self):
-        return self._dev_addr_low
-
-    @property
-    def dev_addr_str(self):
-        ret = ''
-        try:
-            ret = BYTE_TO_HEX(
-                bytes([self.dev_addr_hi,
-                       self.dev_addr_mid,
-                       self.dev_addr_low]))
-        except TypeError:
-            pass
-        return ret
 
     def add_device(self, device_id, **kwargs):
         device_id = device_id.upper()
@@ -239,10 +200,15 @@ class Modem(Root_Insteon):
             self._write(msg.raw_msg)
         else:
             msg.failed = True
+            port = None
+            if self.type == 'plm':
+                port = self.port
+            elif self.type =='hub':
+                port = self.tcp_port
             print(
                 now,
-                'Error: the port',
-                self.port,
+                'Error: the modem on port',
+                port,
                 'is not active, unable to send message'
             )
         return
@@ -251,12 +217,17 @@ class Modem(Root_Insteon):
         if (self._last_sent_msg.plm_cmd_type == 'plm_info' and
                 msg_obj.plm_resp_ack):
             self._last_sent_msg.plm_ack = True
-            self._dev_addr_hi = msg_obj.get_byte_by_name('plm_addr_hi')
-            self._dev_addr_mid = msg_obj.get_byte_by_name('plm_addr_mid')
-            self._dev_addr_low = msg_obj.get_byte_by_name('plm_addr_low')
-            self.attribute('dev_cat', msg_obj.get_byte_by_name('dev_cat'))
-            self.attribute('sub_cat', msg_obj.get_byte_by_name('sub_cat'))
-            self.attribute('firmware', msg_obj.get_byte_by_name('firmware'))
+            dev_addr_hi = msg_obj.get_byte_by_name('plm_addr_hi')
+            dev_addr_mid = msg_obj.get_byte_by_name('plm_addr_mid')
+            dev_addr_low = msg_obj.get_byte_by_name('plm_addr_low')
+            self.set_dev_addr(BYTE_TO_ID(dev_addr_hi,
+                                         dev_addr_mid,
+                                         dev_addr_low))
+            dev_cat = msg_obj.get_byte_by_name('dev_cat')
+            sub_cat = msg_obj.get_byte_by_name('sub_cat')
+            firmware = msg_obj.get_byte_by_name('firmware')
+            self.set_dev_version(dev_cat,sub_cat,firmware)
+
 
     def send_command(self, command, state='', plm_bytes={}):
         message = self.create_message(command)

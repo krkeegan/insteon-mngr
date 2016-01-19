@@ -3,10 +3,9 @@ import time
 import atexit
 import threading
 
-from .plm import PLM
-from .hub import Hub
-from .config_server import start, stop
-
+from insteon.plm import PLM
+from insteon.hub import Hub
+from insteon.config_server import start, stop
 
 class Insteon_Core(object):
     '''Provides global management functions'''
@@ -15,7 +14,7 @@ class Insteon_Core(object):
         self._modems = []
         self._last_saved_time = 0
         self._load_state()
-        threading.Thread(target=self.core_loop).start()
+        threading.Thread(target=self._core_loop).start()
         # Be sure to save before exiting
         atexit.register(self._save_state, True)
 
@@ -28,13 +27,13 @@ class Insteon_Core(object):
             json_models = myfile.read()
         self.device_models = json.loads(json_models)
 
-    def core_loop(self):
+    def _core_loop(self):
         server = start(self)
         while threading.main_thread().is_alive():
-            self.loop_once()
+            self._loop_once()
         stop(server)
 
-    def loop_once(self):
+    def _loop_once(self):
         '''Perform one loop of processing the data waiting to be
         handled by the Insteon Core'''
         for modem in self._modems:

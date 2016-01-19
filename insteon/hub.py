@@ -5,8 +5,8 @@ import queue
 
 import requests
 
-from .helpers import BYTE_TO_HEX, ID_STR_TO_BYTES
-from .plm import Modem
+from insteon.helpers import BYTE_TO_HEX
+from insteon.plm import Modem
 
 
 def hub_thread(hub):
@@ -90,13 +90,8 @@ class Hub(Modem):
 
     def __init__(self, core, **kwargs):
         super().__init__(core, **kwargs)
-        self.ack_time = 3000
+        self.set_ack_time(3000)
         self.attribute('type', 'hub')
-        if 'device_id' in kwargs:
-            id_bytes = ID_STR_TO_BYTES(kwargs['device_id'])
-            self._dev_addr_hi = id_bytes[0]
-            self._dev_addr_mid = id_bytes[1]
-            self._dev_addr_low = id_bytes[2]
         self._read_queue = queue.Queue()
         self._write_queue = queue.Queue()
         threading.Thread(target=hub_thread, args=[self]).start()

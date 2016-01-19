@@ -1,11 +1,12 @@
-from .helpers import BYTE_TO_HEX
-from .plm_message import PLM_Message
+from insteon.plm_message import PLM_Message
+from insteon.base_objects import Base_Insteon
 
 
-class Insteon_Group(object):
+class Insteon_Group(Base_Insteon):
 
-    def __init__(self, parent, group_number):
+    def __init__(self, parent, group_number, **kwargs):
         self._parent = parent
+        super().__init__(self._parent.core, self._parent.plm, **kwargs)
         self._group_number = group_number
 
     @property
@@ -16,46 +17,21 @@ class Insteon_Group(object):
     def parent(self):
         return self._parent
 
-    @property
-    def dev_addr_hi(self):
-        return self.parent._dev_addr_hi
-
-    @property
-    def dev_addr_mid(self):
-        return self.parent._dev_addr_mid
-
-    @property
-    def dev_addr_low(self):
-        return self.parent._dev_addr_low
-
-    @property
-    def dev_addr_str(self):
-        ret = BYTE_TO_HEX(
-            bytes([self.dev_addr_hi, self.dev_addr_mid, self.dev_addr_low]))
-        return ret
-
-    @property
-    def dev_cat(self):
-        return self.parent.attribute('dev_cat')
-
-    @property
-    def sub_cat(self):
-        return self.parent.attribute('sub_cat')
-
-    @property
-    def firmware(self):
-        return self.parent.attribute('firmware')
-
     def create_link(self, responder, d1, d2, d3):
         pass
         self.parent._aldb.create_controller(responder)
         responder._aldb.create_responder(self, d1, d2, d3)
 
+    def set_dev_addr(*args, **kwargs):
+        return NotImplemented
+
+    def set_dev_version(*args, **kwargs):
+        return NotImplemented
 
 class PLM_Group(Insteon_Group):
 
-    def __init__(self, parent, group_number):
-        super().__init__(parent, group_number)
+    def __init__(self, parent, group_number, **kwargs):
+        super().__init__(parent, group_number,  **kwargs)
 
     def send_command(self, command_name, state='', plm_bytes={}):
         # TODO are the state and plm_bytes needed?

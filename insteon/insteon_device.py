@@ -2,14 +2,14 @@ import math
 import time
 import pprint
 
-from .aldb import Device_ALDB
-from .base_objects import Root_Insteon
-from .group import Insteon_Group
-from .msg_schema import EXT_DIRECT_SCHEMA, COMMAND_SCHEMA, \
+from insteon.aldb import Device_ALDB
+from insteon.base_objects import Root_Insteon
+from insteon.group import Insteon_Group
+from insteon.msg_schema import EXT_DIRECT_SCHEMA, COMMAND_SCHEMA, \
     STD_DIRECT_ACK_SCHEMA
-from .plm_message import PLM_Message
-from .helpers import BYTE_TO_HEX, ID_STR_TO_BYTES
-from .trigger import Trigger
+from insteon.plm_message import PLM_Message
+from insteon.helpers import BYTE_TO_HEX
+from insteon.trigger import Trigger
 
 
 class InsteonDevice(Root_Insteon):
@@ -17,14 +17,11 @@ class InsteonDevice(Root_Insteon):
     def __init__(self, core, plm, **kwargs):
         self._aldb = Device_ALDB(self)
         super().__init__(core, plm, **kwargs)
-        id_bytes = ID_STR_TO_BYTES(kwargs['device_id'])
-        self._dev_addr_hi = id_bytes[0]
-        self._dev_addr_mid = id_bytes[1]
-        self._dev_addr_low = id_bytes[2]
         self.last_sent_msg = None
         self.last_rcvd_msg = None
         self._recent_inc_msgs = {}
         self.create_group(1, Insteon_Group)
+
         self._init_step_1()
 
     def _init_step_1(self):
@@ -50,49 +47,6 @@ class InsteonDevice(Root_Insteon):
             self.send_command('id_request')
         else:
             self.send_command('light_status_request')
-
-    @property
-    def dev_addr_hi(self):
-        return self._dev_addr_hi
-
-    @property
-    def dev_addr_mid(self):
-        return self._dev_addr_mid
-
-    @property
-    def dev_addr_low(self):
-        return self._dev_addr_low
-
-    @property
-    def dev_addr_str(self):
-        ret = BYTE_TO_HEX(
-            bytes([self.dev_addr_hi, self.dev_addr_mid, self.dev_addr_low]))
-        return ret
-
-    @property
-    def dev_cat(self):
-        return self.attribute('dev_cat')
-
-    @dev_cat.setter
-    def dev_cat(self, value):
-        self.attribute('dev_cat', value)
-        self._update_commands()
-
-    @property
-    def sub_cat(self):
-        return self.attribute('sub_cat')
-
-    @sub_cat.setter
-    def sub_cat(self, value):
-        self.attribute('sub_cat', value)
-
-    @property
-    def firmware(self):
-        return self.attribute('firmware')
-
-    @firmware.setter
-    def firmware(self, value):
-        self.attribute('firmware', value)
 
     @property
     def smart_hops(self):
@@ -125,9 +79,10 @@ class InsteonDevice(Root_Insteon):
         elif msg.insteon_msg.message_type == 'direct_nack':
             self._process_direct_nack(msg)
         elif msg.insteon_msg.message_type == 'broadcast':
-            self.dev_cat = msg.get_byte_by_name('to_addr_hi')
-            self.sub_cat = msg.get_byte_by_name('to_addr_mid')
-            self.firmware = msg.get_byte_by_name('to_addr_low')
+            dev_cat = msg.get_byte_by_name('to_addr_hi')
+            sub_cat = msg.get_byte_by_name('to_addr_mid')
+            firmware = msg.get_byte_by_name('to_addr_low')
+            self.set_dev_version(dev_cat,sub_cat,firmware)
             print('rcvd, broadcast updated devcat, subcat, and firmware')
         elif msg.insteon_msg.message_type == 'alllink_cleanup_ack':
             # TODO set state of the device based on cmd acked
