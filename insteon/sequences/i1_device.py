@@ -1,5 +1,5 @@
 from insteon.trigger import InsteonTrigger
-
+from insteon.sequences.common import SetALDBDelta
 
 class ScanDeviceALDBi1(object):
 
@@ -35,7 +35,8 @@ class ScanDeviceALDBi1(object):
         if self._device.aldb.is_last_aldb(aldb_key):
             self._device.aldb.print_records()
             self._device.remove_state_machine('query_aldb')
-            self._device.send_handler.set_aldb_delta()
+            aldb_sequence = SetALDBDelta(self._device)
+            aldb_sequence.send_request()
         else:
             dev_bytes = self._device.aldb.get_next_aldb_address(msb, lsb)
             send_handler = self._device.send_handler
@@ -46,7 +47,7 @@ class ScanDeviceALDBi1(object):
                 self.send_peek_request(dev_bytes['lsb'])
 
     def send_peek_request(self, lsb):
-        trigger = InsteonTrigger(device=self._device, 
+        trigger = InsteonTrigger(device=self._device,
                                  command_name='peek_one_byte')
         trigger.trigger_function = lambda: self.get_byte_address()
         self._device.plm.trigger_mngr.add_trigger(self._device.dev_addr_str +

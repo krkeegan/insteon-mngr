@@ -147,7 +147,9 @@ class InsteonDevice(Root_Insteon):
     def _process_direct_ack(self, msg):
         '''processes an incomming direct ack message, sets the
         allow_tigger flags and device_acks flags'''
-        if not self._is_valid_direct_resp(msg):
+        if self._rcvd_handler.is_status_resp():
+            self.last_sent_msg.insteon_msg.device_ack = True
+        elif not self._is_valid_direct_resp(msg):
             msg.allow_trigger = False
         elif self._rcvd_handler.dispatch_direct_ack(msg) is False:
             msg.allow_trigger = False
@@ -190,19 +192,16 @@ class InsteonDevice(Root_Insteon):
 
     def _is_valid_direct_resp(self, msg):
         ret = True
-        if self.last_sent_msg.plm_ack is not True:
+        if (self.last_sent_msg.get_byte_by_name('cmd_1') !=
+                msg.get_byte_by_name('cmd_1')):
+            print('unexpected cmd_1 ignoring')
+            ret = False
+        elif self.last_sent_msg.plm_ack is not True:
             print('ignoring a device response received before PLM ack')
             ret = False
         elif self.last_sent_msg.insteon_msg.device_ack is not False:
             print('ignoring an unexpected device response')
             ret = False
-        elif (self.last_sent_msg.get_byte_by_name('cmd_1') !=
-                msg.get_byte_by_name('cmd_1')):
-            # This may be a status response STUPID INSTEON
-            ret = False
-            status = self._rcvd_handler.dispatch_status_resp(msg)
-            if status is False:
-                print('ignoring an unmatched response')
         return ret
 
     def _process_hops(self, msg):
@@ -276,17 +275,8 @@ class InsteonDevice(Root_Insteon):
     def set_cached_state(self, state):
         self.attribute('status', state)
 
-    def check_aldb_delta(self, aldb_delta):
-        '''Checks and updates the cached aldb delta as necessary.  If device
-        is in the correct state_machine, will update cache, otherwise will
-        cause an ALDB rescan if the delta doesn't match the cache'''
-        if self.state_machine == 'set_aldb_delta':
-            # TODO, we want to change aldb_deltas that are at 0x00
-            self.attribute('aldb_delta', aldb_delta)
-            self.remove_state_machine('set_aldb_delta')
-        elif self.attribute('aldb_delta') != aldb_delta:
-            print('aldb has changed, rescanning')
-            self.send_handler.query_aldb()
+    def set_aldb_delta(self, delta):
+        self.attribute('aldb_delta', delta)
 
     def set_engine_version(self, version):
         if version >= 0xFB:

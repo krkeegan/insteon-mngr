@@ -1,6 +1,8 @@
 from insteon.plm_message import PLM_Message
-from insteon.trigger import InsteonTrigger, PLMTrigger
+from insteon.trigger import PLMTrigger
 from insteon.sequences.i1_device import ScanDeviceALDBi1
+from insteon.sequences.i2_device import ScanDeviceALDBi2
+from insteon.sequences.common import StatusRequest
 
 
 class GenericRcvdHandler(object):
@@ -51,13 +53,12 @@ class GenericRcvdHandler(object):
                 self._ext_aldb_rcvd(msg)
         return ret
 
-    def dispatch_status_resp(self, msg):
-        '''Checks to see if the device is expecting a status response, if it
-        is, then treat this message as such'''
+    def is_status_resp(self):
+        '''Checks to see if the device is expecting a status response'''
         ret = False
         if (self._device.last_sent_msg.insteon_msg.device_cmd_name ==
                 'light_status_request'):
-            self._status_response(msg)
+            print('was status response')
             ret = True
         return ret
 
@@ -181,12 +182,6 @@ class GenericRcvdHandler(object):
             msg.allow_trigger = False
             print('received spurious ext_aldb record')
 
-    def _status_response(self, msg):
-        print('was status response')
-        self._device.check_aldb_delta(msg.get_byte_by_name('cmd_1'))
-        self._device.set_cached_state(msg.get_byte_by_name('cmd_2'))
-        self._device.last_sent_msg.insteon_msg.device_ack = True
-
     def _ack_set_msb(self, msg):
         '''Returns true if the MSB Byte returned matches what we asked for'''
         if (self._device.last_sent_msg.get_byte_by_name('cmd_2') ==
@@ -283,17 +278,15 @@ class GenericSendHandler(object):
     #
     #################################################################
 
-    def get_status(self):
-        self.send_command('light_status_request')
+    def get_status(self, state_machine=''):
+        status_sequence = StatusRequest(self._device)
+        status_sequence.send_request()
 
-    def set_aldb_delta(self):
-        self.send_command('light_status_request', 'set_aldb_delta')
+    def get_engine_version(self, state_machine=''):
+        self.send_command('get_engine_version', state_machine)
 
-    def get_engine_version(self):
-        self.send_command('get_engine_version')
-
-    def get_device_version(self):
-        self.send_command('id_request')
+    def get_device_version(self, state_machine=''):
+        self.send_command('id_request', state_machine)
 
     # Create PLM->Device Link
     #########################
@@ -361,50 +354,14 @@ class GenericSendHandler(object):
             scan_object = ScanDeviceALDBi1(self._device)
             scan_object.start_query_aldb()
         else:
-            self._device.aldb.clear_all_records()
-            dev_bytes = {'msb': 0x00, 'lsb': 0x00}
-            message = self.create_message('read_aldb')
-            message.insert_bytes_into_raw(dev_bytes)
-            message.state_machine = 'query_aldb'
-            self._device.queue_device_msg(message)
-            # It would be nice to link the trigger to the msb and lsb, but we
-            # don't technically have that yet at this point
-            trigger_attributes = {'msg_type': 'direct'}
-            trigger = InsteonTrigger(device = self._device,
-                                     command_name = 'read_aldb',
-                                     attributes=trigger_attributes)
-            trigger.trigger_function = lambda: self.i2_next_aldb()
-            trigger_name = self._device.dev_addr_str + 'query_aldb'
-            self._device.plm.trigger_mngr.add_trigger(trigger_name, trigger)
+            scan_obect = ScanDeviceALDBi2(self._device)
+            scan_obect.start_query_aldb()
 
-    def i2_next_aldb(self):
-        # TODO parse by real names on incomming
-        rcvd_handler = self._device._rcvd_handler
-        msb = rcvd_handler.last_rcvd_msg.get_byte_by_name('usr_3')
-        lsb = rcvd_handler.last_rcvd_msg.get_byte_by_name('usr_4')
-        aldb_key = self._device.aldb.get_aldb_key(msb, lsb)
-        if self._device.aldb.is_last_aldb(aldb_key):
-            self._device.remove_state_machine('query_aldb')
-            self._device.aldb.print_records()
-            self.set_aldb_delta()
-        else:
-            dev_bytes = self._device.aldb.get_next_aldb_address(msb, lsb)
-            message = self.create_message('read_aldb')
-            message.insert_bytes_into_raw(dev_bytes)
-            message.state_machine = 'query_aldb'
-            self._device.queue_device_msg(message)
-            # Set Trigger
-            trigger_attributes = {
-                'usr_3': dev_bytes['msb'],
-                'usr_4': dev_bytes['lsb'],
-                'msg_type': 'direct'
-            }
-            trigger = InsteonTrigger(device=self._device,
-                                     command_name='read_aldb',
-                                     attributes=trigger_attributes)
-            trigger.trigger_function = lambda: self.i2_next_aldb()
-            trigger_name = self._device.dev_addr_str + 'query_aldb'
-            self._device.plm.trigger_mngr.add_trigger(trigger_name, trigger)
+    def i2_get_aldb(self, dev_bytes, state_machine=''):
+        message = self.create_message('read_aldb')
+        message.insert_bytes_into_raw(dev_bytes)
+        message.state_machine = state_machine
+        self._device.queue_device_msg(message)
 
     def peek_aldb(self, lsb, state_machine=''):
         '''Sends a peek_one_byte command to the device for the lsb'''
