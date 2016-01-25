@@ -1,7 +1,7 @@
-from insteon.trigger import Trigger
+from insteon.trigger import InsteonTrigger
 
 
-class ScanDeviceALDB(object):
+class ScanDeviceALDBi1(object):
 
     def __init__(self, device):
         self._device = device
@@ -13,15 +13,10 @@ class ScanDeviceALDB(object):
     def i1_start_aldb_entry_query(self, msb, lsb):
         # TODO do we need to add device ack as a field too? wouldn't a nack
         # cause this to trip?
-        trigger_attributes = {
-            'plm_cmd': 0x50,
-            'from_addr_hi': self._device.dev_addr_hi,
-            'from_addr_mid': self._device.dev_addr_mid,
-            'from_addr_low': self._device.dev_addr_low,
-            'cmd_1': 0x28,
-            'cmd_2': msb
-        }
-        trigger = Trigger(trigger_attributes)
+        trigger_attributes = {'cmd_2': msb}
+        trigger = InsteonTrigger(device=self._device,
+                                 command_name='set_address_msb',
+                                 attributes=trigger_attributes)
         trigger.trigger_function = lambda: self.send_peek_request(lsb)
         self._device.plm.trigger_mngr.add_trigger(self._device.dev_addr_str +
                                                   'query_aldb',
@@ -31,7 +26,7 @@ class ScanDeviceALDB(object):
         message.state_machine = 'query_aldb'
         self._device.queue_device_msg(message)
 
-    def peek_response(self):
+    def get_byte_address(self):
         lsb = self._device.last_sent_msg.get_byte_by_name('cmd_2')
         msb_msg = self._device.search_last_sent_msg(
             insteon_cmd='set_address_msb')
@@ -51,17 +46,9 @@ class ScanDeviceALDB(object):
                 self.send_peek_request(dev_bytes['lsb'])
 
     def send_peek_request(self, lsb):
-        # TODO do we need to add device ack as a field too? wouldn't a nack
-        # cause this to trip?
-        trigger_attributes = {
-            'plm_cmd': 0x50,
-            'from_addr_hi': self._device.dev_addr_hi,
-            'from_addr_mid': self._device.dev_addr_mid,
-            'from_addr_low': self._device.dev_addr_low,
-            'cmd_1': 0x2B
-        }
-        trigger = Trigger(trigger_attributes)
-        trigger.trigger_function = lambda: self.peek_response()
+        trigger = InsteonTrigger(device=self._device, 
+                                 command_name='peek_one_byte')
+        trigger.trigger_function = lambda: self.get_byte_address()
         self._device.plm.trigger_mngr.add_trigger(self._device.dev_addr_str +
                                                   'query_aldb',
                                                   trigger)

@@ -5,9 +5,8 @@ import pprint
 from insteon.aldb import ALDB
 from insteon.base_objects import Root_Insteon
 from insteon.group import Insteon_Group
-from insteon.plm_message import PLM_Message
 from insteon.helpers import BYTE_TO_HEX
-from insteon.trigger import Trigger
+from insteon.trigger import InsteonTrigger
 from insteon.devices.generic import GenericRcvdHandler, GenericSendHandler
 
 
@@ -81,13 +80,11 @@ class InsteonDevice(Root_Insteon):
                 self.sub_cat is None or
                 self.firmware is None):
             trigger_attributes = {
-                'from_addr_hi': self.dev_addr_hi,
-                'from_addr_mid': self.dev_addr_mid,
-                'from_addr_low': self.dev_addr_low,
                 'cmd_1': 0x01,
                 'insteon_msg_type': 'broadcast'
             }
-            trigger = Trigger(trigger_attributes)
+            trigger = InsteonTrigger(device=self,
+                                     attributes=trigger_attributes)
             trigger.trigger_function = lambda: self.send_handler.get_status()
             trigger_name = self.dev_addr_str + 'init_step_2'
             self.plm.trigger_mngr.add_trigger(trigger_name, trigger)

@@ -1,15 +1,15 @@
 import time
 import datetime
 
-from .insteon_device import InsteonDevice
-from .base_objects import Root_Insteon
-from .aldb import ALDB
-from .trigger import Trigger_Manager, Trigger
-from .plm_message import PLM_Message
-from .helpers import BYTE_TO_HEX, BYTE_TO_ID, HOUSE_TO_BYTE, UNIT_TO_BYTE
-from .plm_schema import PLM_SCHEMA
-from .x10_device import X10_Device
-from .group import PLM_Group
+from insteon.insteon_device import InsteonDevice
+from insteon.base_objects import Root_Insteon
+from insteon.aldb import ALDB
+from insteon.trigger import Trigger_Manager, PLMTrigger
+from insteon.plm_message import PLM_Message
+from insteon.helpers import BYTE_TO_HEX, BYTE_TO_ID, HOUSE_TO_BYTE, UNIT_TO_BYTE
+from insteon.plm_schema import PLM_SCHEMA
+from insteon.x10_device import X10_Device
+from insteon.group import PLM_Group
 
 
 class Modem_ALDB(ALDB):
@@ -201,7 +201,7 @@ class Modem(Root_Insteon):
         print(now, 'found legitimate msg', BYTE_TO_HEX(raw_msg))
         msg = PLM_Message(self, raw_data=raw_msg, is_incomming=True)
         self._msg_dispatcher(msg)
-        self.trigger_mngr.match_msg(msg)
+        self.trigger_mngr.test_triggers(msg)
         # TODO clean up expired triggers?
 
     def _msg_dispatcher(self, msg):
@@ -463,7 +463,7 @@ class Modem(Root_Insteon):
             'plm_cmd': 0x6A,
             'plm_resp': 0x15
         }
-        trigger = Trigger(trigger_attributes)
+        trigger = PLMTrigger(trigger_attributes)
         dev_addr_hi = msg.get_byte_by_name('dev_addr_hi')
         dev_addr_mid = msg.get_byte_by_name('dev_addr_mid')
         dev_addr_low = msg.get_byte_by_name('dev_addr_low')

@@ -1,6 +1,6 @@
 from insteon.plm_message import PLM_Message
-from insteon.trigger import Trigger
-from insteon.sequences.device import ScanDeviceALDB
+from insteon.trigger import InsteonTrigger, PLMTrigger
+from insteon.sequences.i1_device import ScanDeviceALDBi1
 
 
 class GenericRcvdHandler(object):
@@ -334,7 +334,7 @@ class GenericSendHandler(object):
             'link_code': 0x01,
             'plm_cmd': 0x53
         }
-        trigger = Trigger(trigger_attributes)
+        trigger = PLMTrigger(trigger_attributes)
         trigger.trigger_function = lambda: self._add_plm_to_dev_link_step4()
         self._device.plm.trigger_mngr.add_trigger(self._device.dev_addr_str +
                                                   'add_plm_step_3',
@@ -358,7 +358,7 @@ class GenericSendHandler(object):
 
     def query_aldb(self):
         if self._device.attribute('engine_version') == 0:
-            scan_object = ScanDeviceALDB(self._device)
+            scan_object = ScanDeviceALDBi1(self._device)
             scan_object.start_query_aldb()
         else:
             self._device.aldb.clear_all_records()
@@ -369,14 +369,10 @@ class GenericSendHandler(object):
             self._device.queue_device_msg(message)
             # It would be nice to link the trigger to the msb and lsb, but we
             # don't technically have that yet at this point
-            trigger_attributes = {
-                'plm_cmd': 0x51,
-                'cmd_1': 0x2F,
-                'from_addr_hi': self._device.dev_addr_hi,
-                'from_addr_mid': self._device.dev_addr_mid,
-                'from_addr_low': self._device.dev_addr_low,
-            }
-            trigger = Trigger(trigger_attributes)
+            trigger_attributes = {'msg_type': 'direct'}
+            trigger = InsteonTrigger(device = self._device,
+                                     command_name = 'read_aldb',
+                                     attributes=trigger_attributes)
             trigger.trigger_function = lambda: self.i2_next_aldb()
             trigger_name = self._device.dev_addr_str + 'query_aldb'
             self._device.plm.trigger_mngr.add_trigger(trigger_name, trigger)
@@ -399,15 +395,13 @@ class GenericSendHandler(object):
             self._device.queue_device_msg(message)
             # Set Trigger
             trigger_attributes = {
-                'plm_cmd': 0x51,
-                'cmd_1': 0x2F,
                 'usr_3': dev_bytes['msb'],
                 'usr_4': dev_bytes['lsb'],
-                'from_addr_hi': self._device.dev_addr_hi,
-                'from_addr_mid': self._device.dev_addr_mid,
-                'from_addr_low': self._device.dev_addr_low,
+                'msg_type': 'direct'
             }
-            trigger = Trigger(trigger_attributes)
+            trigger = InsteonTrigger(device=self._device,
+                                     command_name='read_aldb',
+                                     attributes=trigger_attributes)
             trigger.trigger_function = lambda: self.i2_next_aldb()
             trigger_name = self._device.dev_addr_str + 'query_aldb'
             self._device.plm.trigger_mngr.add_trigger(trigger_name, trigger)
