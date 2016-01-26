@@ -340,13 +340,22 @@ class GenericSendHandler(object):
 
     def get_status(self, state_machine=''):
         status_sequence = StatusRequest(self._device)
-        status_sequence.send_request()
+        status_sequence.start()
 
     def get_engine_version(self, state_machine=''):
         self.send_command('get_engine_version', state_machine)
 
     def get_device_version(self, state_machine=''):
         self.send_command('id_request', state_machine)
+
+    def query_aldb(self, success=None, failure=None):
+        if self._device.attribute('engine_version') == 0:
+            scan_object = ScanDeviceALDBi1(self._device)
+        else:
+            scan_object = ScanDeviceALDBi2(self._device)
+        scan_object.success_callback = success
+        scan_object.failure_callback = failure
+        scan_object.start()
 
     # Create PLM->Device Link
     #########################
@@ -411,14 +420,6 @@ class GenericSendHandler(object):
     # ALDB commands
     ######################
 
-    def query_aldb(self):
-        if self._device.attribute('engine_version') == 0:
-            scan_object = ScanDeviceALDBi1(self._device)
-            scan_object.start_query_aldb()
-        else:
-            scan_obect = ScanDeviceALDBi2(self._device)
-            scan_obect.start_query_aldb()
-
     def i2_get_aldb(self, dev_bytes, state_machine=''):
         message = self.create_message('read_aldb')
         message.insert_bytes_into_raw(dev_bytes)
@@ -432,15 +433,23 @@ class GenericSendHandler(object):
         message.state_machine = state_machine
         self._device.queue_device_msg(message)
 
-    def create_responder(self, controller, d1, d2, d3):
-                # Device Responder
-                # D1 On Level D2 Ramp Rate D3 Group of responding device i1 00
-                # i2 01
-        pass
+    def create_responder(self, controller, d1, d2):
+        # Device Responder
+        # D1 On Level D2 Ramp Rate D3 Group of responding device i1 00
+        # i2 01
+        key = self._device.aldb.get_first_empty_addr()
+        print('key', key)
+        # controller.group
+        # controller.hi
+        # controller.mid
+        # controller.low
+        # self._device on Level
+        # self._device ramprate
+        # self._device group
 
     def create_controller(self, responder):
-                # Device controller
-                # D1 03 Hops?? D2 00 D3 Group 01 of responding device??
+        # Device controller
+        # D1 03 Hops?? D2 00 D3 Group 01 of responding device??
         pass
 
     def _write_link(self, linked_obj, is_controller):

@@ -2,7 +2,7 @@ from insteon.trigger import InsteonTrigger
 from insteon.sequences.common import SetALDBDelta, BaseSequence
 
 class ScanDeviceALDBi2(BaseSequence):
-    def start_query_aldb(self):
+    def start(self):
         self._device.aldb.clear_all_records()
         dev_bytes = {'msb': 0x00, 'lsb': 0x00}
         message = self._device.send_handler.create_message('read_aldb')
@@ -15,11 +15,11 @@ class ScanDeviceALDBi2(BaseSequence):
         trigger = InsteonTrigger(device=self._device,
                                  command_name='read_aldb',
                                  attributes=trigger_attributes)
-        trigger.trigger_function = lambda: self.i2_next_aldb()
+        trigger.trigger_function = lambda: self._i2_next_aldb()
         trigger_name = self._device.dev_addr_str + 'query_aldb'
         self._device.plm.trigger_mngr.add_trigger(trigger_name, trigger)
 
-    def i2_next_aldb(self):
+    def _i2_next_aldb(self):
         rcvd_handler = self._device._rcvd_handler
         msb = rcvd_handler.last_rcvd_msg.get_byte_by_name('usr_3')
         lsb = rcvd_handler.last_rcvd_msg.get_byte_by_name('usr_4')
@@ -30,7 +30,7 @@ class ScanDeviceALDBi2(BaseSequence):
             aldb_sequence = SetALDBDelta(self._device)
             aldb_sequence.success_callback = self.success_callback
             aldb_sequence.failure_callback = self.failure_callback
-            aldb_sequence.send_request()
+            aldb_sequence.start()
         else:
             dev_bytes = self._device.aldb.get_next_aldb_address(msb, lsb)
             self._device.send_handler.i2_get_aldb(dev_bytes, 'query_aldb')
@@ -42,6 +42,22 @@ class ScanDeviceALDBi2(BaseSequence):
             trigger = InsteonTrigger(device=self._device,
                                      command_name='read_aldb',
                                      attributes=trigger_attributes)
-            trigger.trigger_function = lambda: self.i2_next_aldb()
+            trigger.trigger_function = lambda: self._i2_next_aldb()
             trigger_name = self._device.dev_addr_str + 'query_aldb'
             self._device.plm.trigger_mngr.add_trigger(trigger_name, trigger)
+
+
+class WriteALDBRecordi2(BaseSequence):
+    def write_record(self):
+        pass
+        # check if aldb delta is accurate
+        # requires running StatusRequest but needs a success and failure
+        # callback
+
+    def perform_write(self):
+        pass
+        # do the stuff
+
+    def write_failure(self):
+        pass
+        #

@@ -94,3 +94,12 @@ class ALDB(object):
         records = self.get_all_records()
         for key in sorted(records):
             print(key, ":", BYTE_TO_HEX(records[key]))
+
+    def get_first_empty_addr(self):
+        records = self.get_all_records()
+        ret = None
+        for key in sorted(records, reverse=True):
+            if self.is_empty_aldb(key):
+                ret = key
+                break
+        return ret
