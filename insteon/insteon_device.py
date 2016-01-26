@@ -121,88 +121,7 @@ class InsteonDevice(Root_Insteon):
             ret = None
         else:
             self._process_hops(msg)
-            self._rcvd_handler.last_rcvd_msg = msg
-            ret = self._dispatch_msg_rcvd(msg)
-
-    def _dispatch_msg_rcvd(self, msg):
-        '''Selects the proper message path based on the message type.'''
-        if msg.insteon_msg.message_type == 'direct':
-            self._process_direct_msg(msg)
-        elif msg.insteon_msg.message_type == 'direct_ack':
-            self._process_direct_ack(msg)
-        elif msg.insteon_msg.message_type == 'direct_nack':
-            self._process_direct_nack(msg)
-        elif msg.insteon_msg.message_type == 'broadcast':
-            self._process_broadcast(msg)
-        elif msg.insteon_msg.message_type == 'alllink_cleanup_ack':
-            self._process_alllink_cleanup(msg)
-
-    def _process_direct_msg(self, msg):
-        '''processes an incomming direct message'''
-        processed = self._rcvd_handler.dispatch_direct(msg)
-        if not processed:
-            print('unhandled direct message, perhaps dev_cat is wrong')
-            pprint.pprint(msg.__dict__)
-
-    def _process_direct_ack(self, msg):
-        '''processes an incomming direct ack message, sets the
-        allow_tigger flags and device_acks flags'''
-        if self._rcvd_handler.is_status_resp():
-            self.last_sent_msg.insteon_msg.device_ack = True
-        elif not self._is_valid_direct_resp(msg):
-            msg.allow_trigger = False
-        elif self._rcvd_handler.dispatch_direct_ack(msg) is False:
-            msg.allow_trigger = False
-        else:
-            self.last_sent_msg.insteon_msg.device_ack = True
-
-    def _process_direct_nack(self, msg):
-        '''processes an incomming direct nack message'''
-        if self._is_valid_direct_resp(msg):
-            self._rcvd_handler.dispatch_direct_nack(msg)
-
-    def _process_broadcast(self,msg):
-        self._rcvd_handler.dispatch_broadcast(msg)
-
-    def _process_alllink_cleanup(self,msg):
-        # TODO set state of the device based on cmd acked
-        # Clear queued cleanup messages if they exist
-        self._remove_cleanup_msgs(msg)
-        if (self.last_sent_msg and
-                self.last_sent_msg.get_byte_by_name('cmd_1') ==
-                msg.get_byte_by_name('cmd_1') and
-                self.last_sent_msg.get_byte_by_name('cmd_2') ==
-                msg.get_byte_by_name('cmd_2')):
-            # Only set ack if this was sent by this device
-            self.last_sent_msg.insteon_msg.device_ack = True
-
-    def _remove_cleanup_msgs(self, msg):
-        cmd_1 = msg.get_byte_by_name('cmd_1')
-        cmd_2 = msg.get_byte_by_name('cmd_2')
-        for state, msgs in self._device_msg_queue.items():
-            i = 0
-            to_delete = []
-            for msg in msgs:
-                if msg.get_byte_by_name('cmd_1') == cmd_1 and \
-                        msg.get_byte_by_name('cmd_2') == cmd_2:
-                    to_delete.append(i)
-                i += 1
-            for position in reversed(to_delete):
-                del self._device_msg_queue[state][position]
-
-    def _is_valid_direct_resp(self, msg):
-        ret = True
-        if (self.last_sent_msg.get_byte_by_name('cmd_1') !=
-                msg.get_byte_by_name('cmd_1')):
-            print('unexpected cmd_1 ignoring')
-            ret = False
-        elif self.last_sent_msg.plm_ack is not True:
-            print('ignoring a device response received before PLM ack')
-            ret = False
-        elif self.last_sent_msg.insteon_msg.device_ack is not False:
-            print('ignoring an unexpected device response')
-            ret = False
-        return ret
+            ret = self._rcvd_handler.dispatch_msg_rcvd(msg)
 
     def _process_hops(self, msg):
         if (msg.insteon_msg.message_type == 'direct' or
@@ -265,6 +184,20 @@ class InsteonDevice(Root_Insteon):
         total_delay = hop_delay * msg.insteon_msg.hops_left
         expire_time = time.time() + (total_delay / 1000)
         self._recent_inc_msgs[search_key] = expire_time
+
+    def remove_cleanup_msgs(self, msg):
+        cmd_1 = msg.get_byte_by_name('cmd_1')
+        cmd_2 = msg.get_byte_by_name('cmd_2')
+        for state, msgs in self._device_msg_queue.items():
+            i = 0
+            to_delete = []
+            for msg in msgs:
+                if msg.get_byte_by_name('cmd_1') == cmd_1 and \
+                        msg.get_byte_by_name('cmd_2') == cmd_2:
+                    to_delete.append(i)
+                i += 1
+            for position in reversed(to_delete):
+                del self._device_msg_queue[state][position]
 
     ###################################################################
     #

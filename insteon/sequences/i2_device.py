@@ -16,8 +16,8 @@ class ScanDeviceALDBi2(object):
         # It would be nice to link the trigger to the msb and lsb, but we
         # don't technically have that yet at this point
         trigger_attributes = {'msg_type': 'direct'}
-        trigger = InsteonTrigger(device = self._device,
-                                 command_name = 'read_aldb',
+        trigger = InsteonTrigger(device=self._device,
+                                 command_name='read_aldb',
                                  attributes=trigger_attributes)
         trigger.trigger_function = lambda: self.i2_next_aldb()
         trigger_name = self._device.dev_addr_str + 'query_aldb'

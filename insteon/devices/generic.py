@@ -37,7 +37,22 @@ class GenericRcvdHandler(object):
     #
     ###################################################
 
-    def dispatch_direct(self, msg):
+    def dispatch_msg_rcvd(self, msg):
+        '''Selects the proper message path based on the message type.'''
+        self.last_rcvd_msg = msg
+        if msg.insteon_msg.message_type == 'direct':
+            if not self._dispatch_direct(msg):
+                print('unhandled direct message, perhaps dev_cat is wrong')
+        elif msg.insteon_msg.message_type == 'direct_ack':
+            self._process_direct_ack(msg)
+        elif msg.insteon_msg.message_type == 'direct_nack':
+            self._process_direct_nack(msg)
+        elif msg.insteon_msg.message_type == 'broadcast':
+            self._dispatch_broadcast(msg)
+        elif msg.insteon_msg.message_type == 'alllink_cleanup_ack':
+            self._process_alllink_cleanup(msg)
+
+    def _dispatch_direct(self, msg):
         '''Dispatchs an incomming direct message to the correct function.
         Only extended messages are processed because the modem handles
         all standard direct messages.
@@ -62,7 +77,33 @@ class GenericRcvdHandler(object):
             ret = True
         return ret
 
-    def dispatch_direct_ack(self, msg):
+    def _process_direct_ack(self, msg):
+        '''processes an incomming direct ack message, sets the
+        allow_tigger flags and device_acks flags'''
+        if self.is_status_resp():
+            self._device.last_sent_msg.insteon_msg.device_ack = True
+        elif not self._is_valid_direct_resp(msg):
+            msg.allow_trigger = False
+        elif self._dispatch_direct_ack(msg) is False:
+            msg.allow_trigger = False
+        else:
+            self._device.last_sent_msg.insteon_msg.device_ack = True
+
+    def _is_valid_direct_resp(self, msg):
+        ret = True
+        if (self._device.last_sent_msg.get_byte_by_name('cmd_1') !=
+                msg.get_byte_by_name('cmd_1')):
+            print('unexpected cmd_1 ignoring')
+            ret = False
+        elif self._device.last_sent_msg.plm_ack is not True:
+            print('ignoring a device response received before PLM ack')
+            ret = False
+        elif self._device.last_sent_msg.insteon_msg.device_ack is not False:
+            print('ignoring an unexpected device response')
+            ret = False
+        return ret
+
+    def _dispatch_direct_ack(self, msg):
         '''processes an incomming direct ack message'''
         ret = False
         cmd_byte = msg.get_byte_by_name('cmd_1')
@@ -81,7 +122,12 @@ class GenericRcvdHandler(object):
             ret = self._ext_aldb_ack(msg)
         return ret
 
-    def dispatch_direct_nack(self, msg):
+    def _process_direct_nack(self, msg):
+        '''processes an incomming direct nack message'''
+        if self._is_valid_direct_resp(msg):
+            self._dispatch_direct_nack(msg)
+
+    def _dispatch_direct_nack(self, msg):
         engine_version = self._device.attribute('engine_version')
         if (engine_version == 0x02 or engine_version is None):
             cmd_2 = msg.get_byte_by_name('cmd_2')
@@ -121,12 +167,26 @@ class GenericRcvdHandler(object):
             self._device.plm.wait_to_send = 1
             self._device._resend_msg(self._device.last_sent_msg)
 
-    def dispatch_broadcast(self, msg):
+    def _dispatch_broadcast(self, msg):
         cmd_byte = msg.get_byte_by_name('cmd_1')
         if cmd_byte == 0X01:
             self._set_button_responder(msg)
         else:
             print('rcvd broadcast message of unknown type')
+
+    def _process_alllink_cleanup(self,msg):
+        # TODO is this actually received??  isn't the modem the only one who
+        # get this message and doesn't it convert these to a special PLM Msg?
+        # TODO set state of the device based on cmd acked
+        # Clear queued cleanup messages if they exist
+        self._device.remove_cleanup_msgs(msg)
+        if (self._device.last_sent_msg and
+                self._device.last_sent_msg.get_byte_by_name('cmd_1') ==
+                msg.get_byte_by_name('cmd_1') and
+                self._device.last_sent_msg.get_byte_by_name('cmd_2') ==
+                msg.get_byte_by_name('cmd_2')):
+            # Only set ack if this was sent by this device
+            self._device.last_sent_msg.insteon_msg.device_ack = True
 
     ###################################################
     #
@@ -290,6 +350,8 @@ class GenericSendHandler(object):
 
     # Create PLM->Device Link
     #########################
+
+    # TODO I think this should become a sequence too
 
     def add_plm_to_dev_link(self):
         # Put the PLM in Linking Mode
