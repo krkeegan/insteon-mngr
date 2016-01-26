@@ -1,11 +1,7 @@
 from insteon.trigger import InsteonTrigger
-from insteon.sequences.common import SetALDBDelta
+from insteon.sequences.common import SetALDBDelta, BaseSequence
 
-
-class ScanDeviceALDBi2(object):
-    def __init__(self, device):
-        self._device = device
-
+class ScanDeviceALDBi2(BaseSequence):
     def start_query_aldb(self):
         self._device.aldb.clear_all_records()
         dev_bytes = {'msb': 0x00, 'lsb': 0x00}
@@ -32,6 +28,8 @@ class ScanDeviceALDBi2(object):
             self._device.remove_state_machine('query_aldb')
             self._device.aldb.print_records()
             aldb_sequence = SetALDBDelta(self._device)
+            aldb_sequence.success_callback = self.success_callback
+            aldb_sequence.failure_callback = self.failure_callback
             aldb_sequence.send_request()
         else:
             dev_bytes = self._device.aldb.get_next_aldb_address(msb, lsb)
