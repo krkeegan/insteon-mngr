@@ -33,12 +33,14 @@ class Trigger_Manager(object):
 
 class PLMTrigger(object):
 
-    def __init__(self, attributes=None):
+    def __init__(self, plm=None, attributes=None):
         '''Trigger functions will be called when a message matching all of the
         identified attributes is received the trigger is then deleted.'''
         if attributes is not None:
             self._attributes = attributes
         self._trigger_function = lambda: None
+        self._name = None
+        self._plm = plm
 
     @property
     def trigger_function(self):
@@ -66,17 +68,29 @@ class PLMTrigger(object):
                 break
         return trigger_match
 
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        self._name = name
+
+    def queue(self):
+        self._plm.trigger_mngr.add_trigger(self.name, self)
 
 class InsteonTrigger(PLMTrigger):
-    def __init__(self, device=None, command_name=None, attributes=None):
+    def __init__(self, plm=None, device=None, command_name=None, attributes=None):
         # pylint: disable=W0231
         '''device if defined will set the dev_from address
         command_name if defined will set the msg_length, plm_cmd,
         msg_type, and cmd_1
         attributes will override any of the above'''
         self._attributes = {}
+        self._plm = plm
         if device is not None:
             self._set_dev_from_addr(device)
+            self._plm = device.plm
         if command_name is not None:
             self._set_cmd(device, command_name)
         if attributes is not None:

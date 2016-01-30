@@ -20,8 +20,8 @@ class ScanDeviceALDBi2(BaseSequence):
                                  command_name='read_aldb',
                                  attributes=trigger_attributes)
         trigger.trigger_function = lambda: self._i2_next_aldb()
-        trigger_name = self._device.dev_addr_str + 'query_aldb'
-        self._device.plm.trigger_mngr.add_trigger(trigger_name, trigger)
+        trigger.name = self._device.dev_addr_str + 'query_aldb'
+        trigger.queue()
 
     def _i2_next_aldb(self):
         rcvd_handler = self._device._rcvd_handler
@@ -48,8 +48,8 @@ class ScanDeviceALDBi2(BaseSequence):
                                      command_name='read_aldb',
                                      attributes=trigger_attributes)
             trigger.trigger_function = lambda: self._i2_next_aldb()
-            trigger_name = self._device.dev_addr_str + 'query_aldb'
-            self._device.plm.trigger_mngr.add_trigger(trigger_name, trigger)
+            trigger.name = self._device.dev_addr_str + 'query_aldb'
+            trigger.queue()
 
 
 class WriteALDBRecordi2(WriteALDBRecord):
@@ -64,8 +64,8 @@ class WriteALDBRecordi2(WriteALDBRecord):
                                  attributes=trigger_attributes)
         aldb_sequence = SetALDBDelta(self._device)
         trigger.trigger_function = lambda: aldb_sequence.start()
-        trigger_name = self._device.dev_addr_str + 'write_aldb'
-        self._device.plm.trigger_mngr.add_trigger(trigger_name, trigger)
+        trigger.name = self._device.dev_addr_str + 'write_aldb'
+        trigger.queue()
         msg = self._device.send_handler.create_message('write_aldb')
         msg.insert_bytes_into_raw(msg_attributes)
         self._device.queue_device_msg(msg)

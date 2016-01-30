@@ -26,6 +26,7 @@ class BaseSequence(object):
     def start(self):
         return NotImplemented
 
+
 class StatusRequest(BaseSequence):
     '''Used to request the status of a device.  The neither cmd_1 nor cmd_2 of the
     return message can be predicted so we just hope it is the next direct_ack that
@@ -39,9 +40,8 @@ class StatusRequest(BaseSequence):
         trigger = InsteonTrigger(device=self._device,
                                  attributes=trigger_attributes)
         trigger.trigger_function = lambda: self._process_status_response()
-        self._device.plm.trigger_mngr.add_trigger(self._device.dev_addr_str +
-                                                  'status_request',
-                                                  trigger)
+        trigger.name = self._device.dev_addr_str + 'status_request'
+        trigger.queue()
         self._device.send_handler.send_command('light_status_request')
 
     def _process_status_response(self):
@@ -53,6 +53,7 @@ class StatusRequest(BaseSequence):
             self._device.send_handler.query_aldb()
         elif self.success_callback is not None:
             self._success()
+
 
 class SetALDBDelta(StatusRequest):
     '''Used to get and store the tracking value for the ALDB Delta'''
@@ -164,3 +165,6 @@ class WriteALDBRecord(BaseSequence):
             callback = lambda: self._perform_write()  # pylint: disable=W0108
             status_sequence.success_callback = callback
             status_sequence.start()
+
+    def _perform_write(self):
+        return NotImplemented

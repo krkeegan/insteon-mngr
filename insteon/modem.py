@@ -463,7 +463,7 @@ class Modem(Root_Insteon):
             'plm_cmd': 0x6A,
             'plm_resp': 0x15
         }
-        trigger = PLMTrigger(trigger_attributes)
+        trigger = PLMTrigger(plm=self, attributes=trigger_attributes)
         dev_addr_hi = msg.get_byte_by_name('dev_addr_hi')
         dev_addr_mid = msg.get_byte_by_name('dev_addr_mid')
         dev_addr_low = msg.get_byte_by_name('dev_addr_low')
@@ -478,7 +478,8 @@ class Modem(Root_Insteon):
                 msg.get_byte_by_name('group'))
         trigger.trigger_function = lambda: plm.aldb._write_link(
             device, is_controller)
-        self.trigger_mngr.add_trigger('rcvd_all_link_manage_nack', trigger)
+        trigger.name = 'rcvd_all_link_manage_nack'
+        trigger.queue()
 
     def rcvd_insteon_msg(self, msg):
         insteon_obj = self.get_device_by_addr(msg.insteon_msg.from_addr_str)

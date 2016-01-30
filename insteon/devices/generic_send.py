@@ -109,11 +109,11 @@ class GenericSendHandler(object):
             'link_code': 0x01,
             'plm_cmd': 0x53
         }
-        trigger = PLMTrigger(trigger_attributes)
+        trigger = PLMTrigger(plm=self._device.plm,
+                             attributes=trigger_attributes)
         trigger.trigger_function = lambda: self._add_plm_to_dev_link_step4()
-        self._device.plm.trigger_mngr.add_trigger(self._device.dev_addr_str +
-                                                  'add_plm_step_3',
-                                                  trigger)
+        trigger.name = self._device.dev_addr_str + 'add_plm_step_3'
+        trigger.queue()
         print('device in linking mode')
 
     def _add_plm_to_dev_link_step4(self):

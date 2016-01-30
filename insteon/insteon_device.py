@@ -86,8 +86,8 @@ class InsteonDevice(Root_Insteon):
             trigger = InsteonTrigger(device=self,
                                      attributes=trigger_attributes)
             trigger.trigger_function = lambda: self.send_handler.get_status()
-            trigger_name = self.dev_addr_str + 'init_step_2'
-            self.plm.trigger_mngr.add_trigger(trigger_name, trigger)
+            trigger.name = self.dev_addr_str + 'init_step_2'
+            trigger.queue()
             self.send_handler.get_device_version()
         else:
             self._update_device_classes()
