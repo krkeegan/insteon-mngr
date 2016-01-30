@@ -108,9 +108,11 @@ class GenericRcvdHandler(object):
             ret = True
         elif cmd_byte == 0x10:
             ret = self._common_prelim_ack(msg)
-        elif cmd_byte == 0x28:
+        elif cmd_byte == 0x28:  # set_address_msb
             ret = self._ack_set_msb(msg)
-        elif cmd_byte == 0x2B:
+        elif cmd_byte == 0x29:  # poke_one_byte
+            ret = True
+        elif cmd_byte == 0x2B:  # peek_one_byte
             ret = True
             self._ack_peek_aldb(msg)
         elif cmd_byte == 0x2F:

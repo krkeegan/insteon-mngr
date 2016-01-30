@@ -1,4 +1,4 @@
-from insteon.sequences import WriteALDBRecordi2
+from insteon.sequences import WriteALDBRecordi2, WriteALDBRecordi1
 
 
 class GenericFunctions(object):
@@ -12,7 +12,10 @@ class GenericFunctions(object):
         return ret
 
     def create_responder_link(self, linked_device, is_on=True):
-        link_sequence = WriteALDBRecordi2(self._device)
+        if self._device.engine_version > 0x00:
+            link_sequence = WriteALDBRecordi2(self._device)
+        else:
+            link_sequence = WriteALDBRecordi1(self._device)
         link_sequence.controller = False
         link_sequence.linked_device = linked_device
         on_level = 0x00
@@ -23,7 +26,10 @@ class GenericFunctions(object):
         link_sequence.start()
 
     def create_controller_link(self, linked_device):
-        link_sequence = WriteALDBRecordi2(self._device)
+        if self._device.engine_version > 0x00:
+            link_sequence = WriteALDBRecordi2(self._device)
+        else:
+            link_sequence = WriteALDBRecordi1(self._device)
         link_sequence.controller = True
         link_sequence.linked_device = linked_device
         link_sequence.data1 = 0x03

@@ -224,6 +224,13 @@ class GenericSendHandler(object):
                 'msg_length': 'standard',
                 'message_type': 'direct'
             },
+            'poke_one_byte': {
+                'cmd_1': {'default': 0x29},
+                'cmd_2': {'default': 0x00,
+                          'name': 'lsb'},
+                'msg_length': 'standard',
+                'message_type': 'direct'
+            },
             'peek_one_byte': {
                 'cmd_1': {'default': 0x2B},
                 'cmd_2': {'default': 0x00,
