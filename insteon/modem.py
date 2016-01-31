@@ -94,10 +94,10 @@ class Modem(Root_Insteon):
             self.create_group(group_num, PLM_Group)
 
     def _load_devices(self, devices):
-        for id, attributes in devices.items():
-            self.add_device(id, attributes=attributes)
+        for dev_id, attributes in devices.items():
+            self.add_device(dev_id, attributes=attributes)
 
-    def setup(self):
+    def _setup(self):
         if self.dev_addr_str == '000000':
             self.send_command('plm_info')
         if self.aldb.have_aldb_cache() is False:
@@ -135,9 +135,9 @@ class Modem(Root_Insteon):
             into a message'''
         self._read()
         self._advance_to_msg_start()
-        bytes = self._parse_read_buffer()
-        if bytes:
-            self.process_inc_msg(bytes)
+        read_bytes = self._parse_read_buffer()
+        if read_bytes:
+            self.process_inc_msg(read_bytes)
 
     def _advance_to_msg_start(self):
         '''Removes extraneous bytes from start of read buffer'''
@@ -184,6 +184,19 @@ class Modem(Root_Insteon):
                 index = self._read_buffer.find(bytes.fromhex('02'))
                 del self._read_buffer[0:index]
         return ret
+
+    def _read(self):
+        return NotImplemented
+
+    def _write(self, msg):
+        return NotImplemented
+
+    def port(self):
+        return NotImplemented
+
+    def tcp_port(self):
+        # TODO should port and tcp_port be merged?
+        return NotImplemented
 
     @property
     def wait_to_send(self):
@@ -235,7 +248,7 @@ class Modem(Root_Insteon):
 
     def get_all_devices(self):
         ret = []
-        for addr, device in self._devices.items():
+        for device in self._devices.values():
             ret.append(device)
         return ret
 
@@ -295,10 +308,10 @@ class Modem(Root_Insteon):
             firmware = msg_obj.get_byte_by_name('firmware')
             self.set_dev_version(dev_cat,sub_cat,firmware)
 
-
-    def send_command(self, command, state='', plm_bytes={}):
+    def send_command(self, command, state='', plm_bytes=None):
         message = self.create_message(command)
-        message.insert_bytes_into_raw(plm_bytes)
+        if plm_bytes is not None:
+            message.insert_bytes_into_raw(plm_bytes)
         message.state_machine = state
         self.queue_device_msg(message)
 
@@ -364,13 +377,9 @@ class Modem(Root_Insteon):
         if (not self._is_ack_pending() and
                 time.time() > self.wait_to_send):
             last_device = None
-            last_state = None
-            next_state = None
             send_msg = None
             if self._last_sent_msg:
                 last_device = self._last_sent_msg.device
-                last_state = self._last_sent_msg.state_machine
-                next_state = last_device._get_next_state_machine()
             if (last_device is not None and
                     last_device.next_msg_create_time() is not None):
                 send_msg = last_device.pop_device_queue()
@@ -378,7 +387,7 @@ class Modem(Root_Insteon):
                 devices = [self, ]
                 msg_time = 0
                 sending_device = False
-                for id, device in self._devices.items():
+                for device in self._devices.values():
                     devices.append(device)
                 for device in devices:
                     dev_msg_time = device.next_msg_create_time()
@@ -502,6 +511,7 @@ class Modem(Root_Insteon):
             print('received spurious plm aldb record')
 
     def end_of_aldb(self, msg):
+        # pylint: disable=W0613
         self._last_sent_msg.plm_ack = True
         self.remove_state_machine('query_aldb')
         print('reached the end of the PLMs ALDB')
@@ -532,10 +542,12 @@ class Modem(Root_Insteon):
                 device.set_dev_version(dev_cat, sub_cat, firmware)
 
     def rcvd_btn_event(self, msg):
+        # pylint: disable=W0613
         print("The PLM Button was pressed")
         # Currently there is no processing of this event
 
     def rcvd_plm_reset(self, msg):
+        # pylint: disable=W0613
         self.aldb.clear_all_records()
         print("The PLM was manually reset")
 

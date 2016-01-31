@@ -105,7 +105,7 @@ class Hub(Modem):
         self._read_queue = queue.Queue()
         self._write_queue = queue.Queue()
         threading.Thread(target=hub_thread, args=[self]).start()
-        self.setup()
+        self._setup()
 
     @property
     def ip(self):

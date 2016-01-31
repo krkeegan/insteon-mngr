@@ -213,18 +213,21 @@ class Insteon_Core(object):
         linked_devices = {}
         for modem in self.get_all_modems():
             for device in modem.get_all_devices():
-                records = []
+                records = {}
                 for key in device.aldb.get_all_records().keys():
                     parsed = device.aldb.parse_record(key)
                     if parsed['in_use'] and parsed['controller']:
-                        # TODO need to handle groupS!!!!!
+                        # TODO need to handle groups!!!!!
                         name = device.aldb.get_linked_device_str(key)
-                        records.append({
-                            name :
+                        group = parsed['group']
+                        if group not in records.keys():
+                            records[group] = []
+                        records[group].append({
+                            name:
                                 {
-                                'data_1' : parsed['data_1'],
-                                'data_2' : parsed['data_2'],
-                                'data_3' : parsed['data_3']
+                                'data_1': parsed['data_1'],
+                                'data_2': parsed['data_2'],
+                                'data_3': parsed['data_3']
                                 }
                         })
                 linked_devices[device.dev_addr_str] = records

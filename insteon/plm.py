@@ -29,7 +29,7 @@ class PLM(Modem):
         except serial.serialutil.SerialException:
             print('unable to connect to port', port)
             self.port_active = False
-        self.setup()
+        self._setup()
 
     @property
     def port(self):
