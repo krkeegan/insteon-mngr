@@ -5,7 +5,7 @@ import queue
 
 import requests
 
-from insteon.helpers import BYTE_TO_HEX
+from insteon.base_objects import BYTE_TO_HEX
 from insteon.plm import Modem
 
 

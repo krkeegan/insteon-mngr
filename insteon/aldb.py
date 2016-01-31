@@ -1,4 +1,4 @@
-from .helpers import BYTE_TO_HEX, BYTE_TO_ID
+from insteon.base_objects import BYTE_TO_HEX, BYTE_TO_ID
 
 
 class ALDB(object):

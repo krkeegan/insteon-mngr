@@ -1,4 +1,4 @@
-from .helpers import BYTE_TO_HEX
+from insteon.base_objects import BYTE_TO_HEX
 
 
 class Insteon_Message(object):
