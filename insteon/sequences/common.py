@@ -1,4 +1,4 @@
-from insteon.trigger import InsteonTrigger
+from insteon.trigger import InsteonTrigger, PLMTrigger
 
 
 class BaseSequence(object):
@@ -168,3 +168,88 @@ class WriteALDBRecord(BaseSequence):
 
     def _perform_write(self):
         return NotImplemented
+
+
+class AddPLMtoDevice(BaseSequence):
+    def start(self):
+        # Put the PLM in Linking Mode
+        # queues a message on the PLM
+        message = self._device.plm.create_message('all_link_start')
+        plm_bytes = {
+            'link_code': 0x01,
+            'group': 0x00,
+        }
+        message.insert_bytes_into_raw(plm_bytes)
+        message.plm_success_callback = self._add_plm_to_dev_link_step2
+        message.msg_failure_callback = self._add_plm_to_dev_link_fail
+        message.state_machine = 'link plm->device'
+        self._device.plm.queue_device_msg(message)
+
+    def _add_plm_to_dev_link_step2(self):
+        # Put Device in linking mode
+        message = self._device.send_handler.create_message('enter_link_mode')
+        dev_bytes = {
+            'cmd_2': 0x00
+        }
+        message.insert_bytes_into_raw(dev_bytes)
+        message.insteon_msg.device_success_callback = (
+            self._add_plm_to_dev_link_step3
+        )
+        message.msg_failure_callback = self._add_plm_to_dev_link_fail
+        message.state_machine = 'link plm->device'
+        self._device.queue_device_msg(message)
+
+    def _add_plm_to_dev_link_step3(self):
+        trigger_attributes = {
+            'from_addr_hi': self._device.dev_addr_hi,
+            'from_addr_mid': self._device.dev_addr_mid,
+            'from_addr_low': self._device.dev_addr_low,
+            'link_code': 0x01,
+            'plm_cmd': 0x53
+        }
+        trigger = PLMTrigger(plm=self._device.plm,
+                             attributes=trigger_attributes)
+        trigger.trigger_function = lambda: self._add_plm_to_dev_link_step4()
+        trigger.name = self._device.dev_addr_str + 'add_plm_step_3'
+        trigger.queue()
+        print('device in linking mode')
+
+    def _add_plm_to_dev_link_step4(self):
+        print('plm->device link created')
+        self._device.plm.remove_state_machine('link plm->device')
+        self._device.remove_state_machine('link plm->device')
+        self._device.send_handler.initialize_device()
+
+    def _add_plm_to_dev_link_fail(self):
+        print('Error, unable to create plm->device link')
+        self._device.plm.remove_state_machine('link plm->device')
+        self._device.remove_state_machine('link plm->device')
+
+
+class InitializeDevice(BaseSequence):
+    def start(self):
+        if self._device.attribute('engine_version') is None:
+            self._device.send_handler.get_engine_version()
+        else:
+            self._init_step_2()
+
+    def _init_step_2(self):
+        # TODO consider whether getting status is always necessary or desired
+        # results in get engine version or get dev_cat always causing a status
+        # request
+        if (self._device.dev_cat is None or
+                self._device.sub_cat is None or
+                self._device.firmware is None):
+            trigger_attributes = {
+                'cmd_1': 0x01,
+                'insteon_msg_type': 'broadcast'
+            }
+            trigger = InsteonTrigger(device=self,
+                                     attributes=trigger_attributes)
+            trigger.trigger_function = lambda: self._device.send_handler.get_status()
+            trigger.name = self._device.dev_addr_str + 'init_step_2'
+            trigger.queue()
+            self._device.send_handler.get_device_version()
+        else:
+            self._device.update_device_classes()
+            self._device.send_handler.get_status()

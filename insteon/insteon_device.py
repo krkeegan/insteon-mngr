@@ -66,31 +66,7 @@ class InsteonDevice(Root_Insteon):
         self._rcvd_handler = GenericRcvdHandler(self)
         self.send_handler = GenericSendHandler(self)
         self.functions = GenericFunctions(self)
-        self._init_step_1()
-
-    def _init_step_1(self):
-        if self.attribute('engine_version') is None:
-            self.send_handler.get_engine_version()
-        else:
-            self._init_step_2()
-
-    def _init_step_2(self):
-        if (self.dev_cat is None or
-                self.sub_cat is None or
-                self.firmware is None):
-            trigger_attributes = {
-                'cmd_1': 0x01,
-                'insteon_msg_type': 'broadcast'
-            }
-            trigger = InsteonTrigger(device=self,
-                                     attributes=trigger_attributes)
-            trigger.trigger_function = lambda: self.send_handler.get_status()
-            trigger.name = self.dev_addr_str + 'init_step_2'
-            trigger.queue()
-            self.send_handler.get_device_version()
-        else:
-            self._update_device_classes()
-            self.send_handler.get_status()
+        self.send_handler.initialize_device()
 
     @property
     def smart_hops(self):
@@ -224,10 +200,11 @@ class InsteonDevice(Root_Insteon):
             self.attribute('engine_version', 0x02)
             self.send_handler.add_plm_to_dev_link()
         else:
+            # requesting an engine version will always cause a status request
+            # this is more likely an error in the init_sequence than anything
+            # else
             self.attribute('engine_version', version)
-            # TODO handle this with a trigger?
-            # Continue init step
-            self._init_step_2()
+            self.send_handler.initialize_device()
 
     def get_last_rcvd_msg(self):
         return self._rcvd_handler.last_rcvd_msg
@@ -244,10 +221,10 @@ class InsteonDevice(Root_Insteon):
     def set_dev_version(self, dev_cat=None, sub_cat=None, firmware=None):
         super().set_dev_version(dev_cat=dev_cat,
                                 sub_cat=sub_cat, firmware=firmware)
-        self._update_device_classes()
+        self.update_device_classes()
         return
 
-    def _update_device_classes(self):
+    def update_device_classes(self):
         classes = select_device(device=self, dev_cat=self.dev_cat,
                                 sub_cat=self.sub_cat, firmware=self.firmware,
                                 engine_version=self.engine_version)

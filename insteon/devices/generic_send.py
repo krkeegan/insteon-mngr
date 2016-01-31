@@ -1,6 +1,7 @@
 from insteon.plm_message import PLM_Message
 from insteon.trigger import PLMTrigger
-from insteon.sequences import ScanDeviceALDBi1, ScanDeviceALDBi2, StatusRequest
+from insteon.sequences import (ScanDeviceALDBi1, ScanDeviceALDBi2,
+    StatusRequest, AddPLMtoDevice, InitializeDevice)
 
 
 class GenericSendHandler(object):
@@ -68,65 +69,22 @@ class GenericSendHandler(object):
         scan_object.failure_callback = failure
         scan_object.start()
 
-    # Create PLM->Device Link
-    #########################
-
-    # TODO I think this should become a sequence too
-
     def add_plm_to_dev_link(self):
-        # Put the PLM in Linking Mode
-        # queues a message on the PLM
-        message = self._device.plm.create_message('all_link_start')
-        plm_bytes = {
-            'link_code': 0x01,
-            'group': 0x00,
-        }
-        message.insert_bytes_into_raw(plm_bytes)
-        message.plm_success_callback = self._add_plm_to_dev_link_step2
-        message.msg_failure_callback = self._add_plm_to_dev_link_fail
-        message.state_machine = 'link plm->device'
-        self._device.plm.queue_device_msg(message)
+        '''Create a plm->device link using the manual method, rather than
+        inserting the ALDB record into the device.  Generally this needs
+        to be used for i2 devices before the modem can talk to them'''
+        link_object = AddPLMtoDevice(self._device)
+        link_object.start()
 
-    def _add_plm_to_dev_link_step2(self):
-        # Put Device in linking mode
-        message = self.create_message('enter_link_mode')
-        dev_bytes = {
-            'cmd_2': 0x00
-        }
-        message.insert_bytes_into_raw(dev_bytes)
-        message.insteon_msg.device_success_callback = (
-            self._add_plm_to_dev_link_step3
-        )
-        message.msg_failure_callback = self._add_plm_to_dev_link_fail
-        message.state_machine = 'link plm->device'
-        self._device.queue_device_msg(message)
+    def initialize_device(self):
+        '''Automatically called whenever a device is added or the core starts.
+        Checks the engine version, whether the device responds to the modem,
+        and the device version if they have not previously been requested.
+        Always checks the status of the device and sets the proper rcvd, send
+        and function handlers.'''
+        init_sequence = InitializeDevice(self._device)
+        init_sequence.start()
 
-    def _add_plm_to_dev_link_step3(self):
-        trigger_attributes = {
-            'from_addr_hi': self._device.dev_addr_hi,
-            'from_addr_mid': self._device.dev_addr_mid,
-            'from_addr_low': self._device.dev_addr_low,
-            'link_code': 0x01,
-            'plm_cmd': 0x53
-        }
-        trigger = PLMTrigger(plm=self._device.plm,
-                             attributes=trigger_attributes)
-        trigger.trigger_function = lambda: self._add_plm_to_dev_link_step4()
-        trigger.name = self._device.dev_addr_str + 'add_plm_step_3'
-        trigger.queue()
-        print('device in linking mode')
-
-    def _add_plm_to_dev_link_step4(self):
-        print('plm->device link created')
-        self._device.plm.remove_state_machine('link plm->device')
-        self._device.remove_state_machine('link plm->device')
-        # Next init step
-        self._device._init_step_2()
-
-    def _add_plm_to_dev_link_fail(self):
-        print('Error, unable to create plm->device link')
-        self._device.plm.remove_state_machine('link plm->device')
-        self._device.remove_state_machine('link plm->device')
 
     # ALDB commands
     ######################
