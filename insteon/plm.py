@@ -35,11 +35,11 @@ class PLM(Modem):
     def port(self):
         return self.attribute('port')
 
-    def _read(self):
+    def _read_from_port(self):
         '''Reads bytes from PLM and loads them into a buffer'''
         if self.port_active:
             while self._serial.inWaiting() > 0:
                 self._read_buffer.extend(self._serial.read())
 
-    def _write(self, msg):
+    def _write_to_port(self, msg):
         self._serial.write(msg)

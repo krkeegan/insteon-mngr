@@ -143,9 +143,9 @@ class Hub(Modem):
         self.attribute('password', value)
         return self.attribute('password')
 
-    def _read(self):
+    def _read_from_port(self):
         if not self._read_queue.empty():
             self._read_buffer.extend(self._read_queue.get())
 
-    def _write(self, msg):
+    def _write_to_port(self, msg):
         self._write_queue.put(msg)
