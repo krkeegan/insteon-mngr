@@ -219,7 +219,7 @@ PLM_SCHEMA = {
         'rcvd_len': (6,),
         'send_len': (5,),
         'name': 'all_link_send',
-        'ack_act': lambda obj, msg: obj._rcvd_plm_ack(msg),
+        'ack_act': lambda obj, msg: obj._rcvd_prelim_plm_ack(msg),
         'recv_byte_pos': {
             'plm_cmd': 1,
             'group': 2,

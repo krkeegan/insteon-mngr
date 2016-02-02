@@ -202,7 +202,7 @@ class Modem(Root_Insteon):
         now = datetime.datetime.now().strftime("%M:%S.%f")
         # allow 75 milliseconds for the PLM to ack a message
         if msg.plm_ack is False:
-            if msg.time_sent < time.time() - (self.ack_time / 1000):
+            if msg.time_due < time.time() - (self.ack_time / 1000):
                 print(now, 'PLM failed to ack the last message')
                 if msg.plm_retry >= 3:
                     print(now, 'PLM retries exceeded, abandoning this message')
@@ -571,6 +571,7 @@ class Modem(Root_Insteon):
         if self._last_sent_msg.plm_cmd_type == 'all_link_send':
             self._last_sent_msg.seq_lock = False
             if msg.plm_resp_ack:
+                self._last_sent_msg.plm_ack = True
                 print('Send All Link - Success')
                 self.remove_state_machine('all_link_send')
                 # TODO do we update the device state here? or rely on arrival
@@ -579,8 +580,13 @@ class Modem(Root_Insteon):
                 # device alllink cleanup arrives
             elif msg.plm_resp_nack:
                 print('Send All Link - Error')
+                self._last_sent_msg.plm_ack = True
                 # We don't resend, instead we rely on individual device
                 # alllink cleanups to do the work
+                # TODO is the right?  When does a NACK acutally occur?
+                # It doesn't seem to happen when a destination device sends a
+                # NACK, possibly only when PLM is interrupted, in which case do
+                # we want to try and send again?
                 self.remove_state_machine('all_link_send')
         else:
             msg.allow_trigger = False

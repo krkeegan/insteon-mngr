@@ -49,5 +49,7 @@ class PLMGroupSendHandler(object):
         message.seq_lock = True
         # Time with retries for failed objects, plus we actively end it on
         # success
-        message.seq_time = (len(records) + 1) * (87 / 1000 * 18)
+        wait_time = (len(records) + 1) * (87 / 1000 * 18)
+        message.seq_time = wait_time
+        message.extra_ack_time = wait_time
         self._group.plm.queue_device_msg(message)

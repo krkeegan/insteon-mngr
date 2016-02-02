@@ -1,6 +1,6 @@
 import time
-from .plm_schema import PLM_SCHEMA
-from .insteon_message import Insteon_Message
+from insteon.plm_schema import PLM_SCHEMA
+from insteon.insteon_message import Insteon_Message
 
 
 class PLM_Message(object):
@@ -9,6 +9,8 @@ class PLM_Message(object):
     def __init__(self, plm, **kwargs):
         self._plm = plm
         self._plm_ack = False
+        self._time_plm_ack = 0
+        self._extra_ack_time = 0
         self._plm_prelim_ack = False
         self._allow_trigger = True
         self._seq_time = 0
@@ -60,6 +62,18 @@ class PLM_Message(object):
     @time_plm_ack.setter
     def time_plm_ack(self, value):
         self._time_plm_ack = value
+
+    @property
+    def extra_ack_time(self):
+        return self._extra_ack_time
+
+    @extra_ack_time.setter
+    def extra_ack_time(self, value):
+        self._extra_ack_time = value
+
+    @property
+    def time_due(self):
+        return (self.time_sent + self.extra_ack_time)
 
     def msg_from_raw(self, **kwargs):
         if 'raw_data' not in kwargs:

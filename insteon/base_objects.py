@@ -120,9 +120,10 @@ class Base_Device(object):
     def next_msg_create_time(self):
         '''Returns the creation time of the message to be sent in the queue'''
         ret = None
-        if self.state_machine in self._device_msg_queue and \
-                self._device_msg_queue[self.state_machine]:
+        try:
             ret = self._device_msg_queue[self.state_machine][0].creation_time
+        except (KeyError, IndexError):
+            pass
         return ret
 
     def _update_message_history(self, msg):
