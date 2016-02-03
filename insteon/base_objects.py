@@ -254,6 +254,22 @@ class Root_Insteon(Base_Insteon):
     def group(self):
         return 0x01
 
+    @property
+    def user_links(self):
+        ret = None
+        if self.attribute('user_links') is not None:
+            ret = {}
+            records = self.attribute('user_links')
+            for device in records.keys():
+                ret[device] = {}
+                for group in records[device].keys():
+                    ret[device][int(group)] = records[device][group]
+        return ret
+
+    @user_links.setter
+    def user_links(self, records):
+        self.attribute('user_links', records)
+
     def set_dev_addr(self, addr):
         self._id_bytes = ID_STR_TO_BYTES(addr)
         return
@@ -267,6 +283,39 @@ class Root_Insteon(Base_Insteon):
 
     def update_device_classes(self):
         return NotImplemented
+
+    def export_links(self):
+        records = {}
+        for key in self.aldb.get_all_records().keys():
+            parsed = self.aldb.parse_record(key)
+            if parsed['in_use'] and not parsed['controller']:
+                linked_device = self.aldb.get_linked_obj(key)
+                name = self.aldb.get_linked_device_str(key)
+                group = parsed['group']
+                group = 0x01 if group == 0x00 else group
+                if group == 0x01 and linked_device is self.plm:
+                    # ignore i2cs required links
+                    continue
+                if name not in records.keys():
+                    records[name] = {}
+                if group not in records[name].keys():
+                    records[name][group] = []
+                for entry in records[name][group]:
+                    # ignore duplicates
+                    if (entry['data_1'] == parsed['data_1'] and
+                            entry['data_2'] == parsed['data_2'] and
+                            entry['data_3'] == parsed['data_3']):
+                        continue
+                records[name][group].append({
+                        'data_1': parsed['data_1'],
+                        'data_2': parsed['data_2'],
+                        'data_3': parsed['data_3']
+                        })
+        if self.user_links is not None:
+            new_records = records
+            records = self.user_links
+            records.update(new_records)
+        self.user_links = records
 
 
 class InsteonGroup(Base_Insteon):

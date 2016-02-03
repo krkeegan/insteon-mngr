@@ -208,27 +208,10 @@ class Insteon_Core(object):
             ret.append(plm)
         return ret
 
-    def import_links(self):
-        '''Initial test of import links from devices.'''
-        linked_devices = {}
+    def export_all_links(self):
+        '''Convert all links found on devices to User Defined Links.'''
         for modem in self.get_all_modems():
-            for device in modem.get_all_devices():
-                records = {}
-                for key in device.aldb.get_all_records().keys():
-                    parsed = device.aldb.parse_record(key)
-                    if parsed['in_use'] and parsed['controller']:
-                        # TODO need to handle groups!!!!!
-                        name = device.aldb.get_linked_device_str(key)
-                        group = parsed['group']
-                        if group not in records.keys():
-                            records[group] = []
-                        records[group].append({
-                            name:
-                                {
-                                'data_1': parsed['data_1'],
-                                'data_2': parsed['data_2'],
-                                'data_3': parsed['data_3']
-                                }
-                        })
-                linked_devices[device.dev_addr_str] = records
-        return linked_devices
+            all_devices = modem.get_all_devices()
+            all_devices.append(modem)
+            for device in all_devices:
+                device.export_links()

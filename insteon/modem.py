@@ -156,10 +156,13 @@ class Modem(Root_Insteon):
 
     def get_device_by_addr(self, addr):
         ret = None
-        try:
-            ret = self._devices[addr]
-        except KeyError:
-            print('error, unknown device address=', addr)
+        if addr.lower() == self.dev_addr_str.lower():
+            ret = self
+        else:
+            try:
+                ret = self._devices[addr]
+            except KeyError:
+                print('error, unknown device address=', addr)
         return ret
 
     def get_all_devices(self):
@@ -341,7 +344,7 @@ class Modem(Root_Insteon):
                 msg.plm_schema['ack_act'](self, msg)
             else:
                 # Attempting default action
-                self.rcvd_plm_ack(msg)
+                self._rcvd_plm_ack(msg)
         elif msg.plm_resp_nack:
             self.wait_to_send = .5
             if 'nack_act' in msg.plm_schema:
