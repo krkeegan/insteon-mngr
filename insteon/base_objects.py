@@ -22,6 +22,8 @@ def ID_STR_TO_BYTES(dev_id_str):
     ret[2] = (int(dev_id_str[4:6], 16))
     return ret
 
+from insteon.devices import (GroupSendHandler, GroupFunctions)
+
 class Base_Device(object):
 
     def __init__(self, core, plm, **kwargs):
@@ -118,9 +120,10 @@ class Base_Device(object):
     def next_msg_create_time(self):
         '''Returns the creation time of the message to be sent in the queue'''
         ret = None
-        if self.state_machine in self._device_msg_queue and \
-                self._device_msg_queue[self.state_machine]:
+        try:
             ret = self._device_msg_queue[self.state_machine][0].creation_time
+        except (KeyError, IndexError):
+            pass
         return ret
 
     def _update_message_history(self, msg):
@@ -212,6 +215,10 @@ class Base_Insteon(Base_Device):
         return self.attribute('firmware')
 
     @property
+    def engine_version(self):
+        return self.attribute('engine_version')
+
+    @property
     def group(self):
         return NotImplemented
 
@@ -223,9 +230,11 @@ class Root_Insteon(Base_Insteon):
         self._groups = []
         super().__init__(core, plm, **kwargs)
 
-    def create_group(self, group_num, Group_Class):
+    def create_group(self, group_num, group):
         device_id = self.dev_addr_str
-        self._groups.append(Group_Class(self, group_num, device_id=device_id))
+        if group_num > 0x01 and group_num <= 0xFF:
+            self._groups.append(group(
+                                    self, group_num, device_id=device_id))
 
     def get_object_by_group_num(self, search_num):
         ret = None
@@ -238,9 +247,28 @@ class Root_Insteon(Base_Insteon):
                     break
         return ret
 
+    def get_all_groups(self):
+        return self._groups.copy()
+
     @property
     def group(self):
         return 0x01
+
+    @property
+    def user_links(self):
+        ret = None
+        if self.attribute('user_links') is not None:
+            ret = {}
+            records = self.attribute('user_links')
+            for device in records.keys():
+                ret[device] = {}
+                for group in records[device].keys():
+                    ret[device][int(group)] = records[device][group]
+        return ret
+
+    @user_links.setter
+    def user_links(self, records):
+        self.attribute('user_links', records)
 
     def set_dev_addr(self, addr):
         self._id_bytes = ID_STR_TO_BYTES(addr)
@@ -250,4 +278,86 @@ class Root_Insteon(Base_Insteon):
         self.attribute('dev_cat', dev_cat)
         self.attribute('sub_cat', sub_cat)
         self.attribute('firmware', firmware)
+        self.update_device_classes()
         return
+
+    def update_device_classes(self):
+        return NotImplemented
+
+    def export_links(self):
+        records = {}
+        for key in self.aldb.get_all_records().keys():
+            parsed = self.aldb.parse_record(key)
+            if parsed['in_use'] and not parsed['controller']:
+                linked_device = self.aldb.get_linked_obj(key)
+                name = self.aldb.get_linked_device_str(key)
+                group = parsed['group']
+                group = 0x01 if group == 0x00 else group
+                if group == 0x01 and linked_device is self.plm:
+                    # ignore i2cs required links
+                    continue
+                if name not in records.keys():
+                    records[name] = {}
+                if group not in records[name].keys():
+                    records[name][group] = []
+                for entry in records[name][group]:
+                    # ignore duplicates
+                    if (entry['data_1'] == parsed['data_1'] and
+                            entry['data_2'] == parsed['data_2'] and
+                            entry['data_3'] == parsed['data_3']):
+                        continue
+                records[name][group].append({
+                        'data_1': parsed['data_1'],
+                        'data_2': parsed['data_2'],
+                        'data_3': parsed['data_3']
+                        })
+        if self.user_links is not None:
+            new_records = records
+            records = self.user_links
+            records.update(new_records)
+        self.user_links = records
+
+
+class InsteonGroup(Base_Insteon):
+
+    def __init__(self, parent, group_number, **kwargs):
+        self._parent = parent
+        super().__init__(self._parent.core, self._parent.plm, **kwargs)
+        self._group_number = group_number
+        self.send_handler = GroupSendHandler(self)
+        self.functions = GroupFunctions(self)
+
+    @property
+    def group_number(self):
+        return self._group_number
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @property
+    def dev_cat(self):
+        return self._parent.dev_cat
+
+    @property
+    def sub_cat(self):
+        return self._parent.sub_cat
+
+    @property
+    def firmware(self):
+        return self._parent.firmware
+
+    @property
+    def engine_version(self):
+        return self._parent.engine_version
+
+    def create_link(self, responder, d1, d2, d3):
+        pass
+        self.parent.aldb.create_controller(responder)
+        responder.aldb.create_responder(self, d1, d2, d3)
+
+    def set_dev_addr(*args, **kwargs):
+        return NotImplemented
+
+    def set_dev_version(*args, **kwargs):
+        return NotImplemented

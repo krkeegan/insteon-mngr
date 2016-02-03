@@ -76,6 +76,15 @@ class WriteALDBRecord(BaseSequence):
         self._d1 = 0x00
         self._d2 = 0x00
         self._address = None
+        self._in_use = True
+
+    @property
+    def in_use(self):
+        return self._in_use
+
+    @in_use.setter
+    def in_use(self, use):
+        self._in_use = use
 
     @property
     def controller(self):
@@ -135,18 +144,28 @@ class WriteALDBRecord(BaseSequence):
     def _compiled_record(self):
         msg_attributes = {
             'msb': self.address[0],
-            'lsb': self.address[1],
-            'dev_addr_hi': self._linked_device.dev_addr_hi,
-            'dev_addr_mid': self._linked_device.dev_addr_mid,
-            'dev_addr_low': self._linked_device.dev_addr_low
+            'lsb': self.address[1]
         }
-        if self.controller:
+        if not self.in_use:
+            msg_attributes['link_flags'] = 0x02
+            msg_attributes['group'] = 0x00
+            msg_attributes['data_1'] = 0x00
+            msg_attributes['data_2'] = 0x00
+            msg_attributes['data_3'] = 0x00
+            msg_attributes['dev_addr_hi'] = 0x00
+            msg_attributes['dev_addr_mid'] = 0x00
+            msg_attributes['dev_addr_low'] = 0x00
+
+        elif self.controller:
             msg_attributes['link_flags'] = 0xE2
             msg_attributes['group'] = self._device.group
             msg_attributes['data_1'] = self.data1  # hops I think
             msg_attributes['data_2'] = self.data2  # unkown always 0x00
             # group of responding device
             msg_attributes['data_3'] = self._linked_device.group
+            msg_attributes['dev_addr_hi'] = self._linked_device.dev_addr_hi
+            msg_attributes['dev_addr_mid'] = self._linked_device.dev_addr_mid
+            msg_attributes['dev_addr_low'] = self._linked_device.dev_addr_low
         else:
             msg_attributes['link_flags'] = 0xA2
             msg_attributes['group'] = self._linked_device.group
@@ -154,11 +173,14 @@ class WriteALDBRecord(BaseSequence):
             msg_attributes['data_2'] = self.data2  # ramp rate
             # group of responder, i1 = 00, i2 = 01
             msg_attributes['data_3'] = self._device.get_responder_data3()
+            msg_attributes['dev_addr_hi'] = self._linked_device.dev_addr_hi
+            msg_attributes['dev_addr_mid'] = self._linked_device.dev_addr_mid
+            msg_attributes['dev_addr_low'] = self._linked_device.dev_addr_low
         return msg_attributes
 
     def start(self):
         '''Starts the sequence to write the aldb record'''
-        if self.linked_device is None:
+        if self.linked_device is None and self.in_use:
             print('error no linked_device defined')
         else:
             status_sequence = StatusRequest(self._device)

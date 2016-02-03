@@ -2,9 +2,9 @@ import math
 import time
 
 from insteon.aldb import ALDB
-from insteon.base_objects import Root_Insteon, BYTE_TO_HEX
-from insteon.group import Insteon_Group
-from insteon.devices import GenericRcvdHandler, GenericSendHandler, GenericFunctions, select_device
+from insteon.base_objects import Root_Insteon, BYTE_TO_HEX, InsteonGroup
+from insteon.devices import (GenericRcvdHandler, GenericSendHandler,
+    GenericFunctions, select_device, select_group)
 
 
 class Device_ALDB(ALDB):
@@ -61,7 +61,6 @@ class InsteonDevice(Root_Insteon):
         # TODO move this to command handler?
         self.last_sent_msg = None
         self._recent_inc_msgs = {}
-        self.create_group(1, Insteon_Group)
         self._rcvd_handler = GenericRcvdHandler(self)
         self.send_handler = GenericSendHandler(self)
         self.functions = GenericFunctions(self)
@@ -217,12 +216,6 @@ class InsteonDevice(Root_Insteon):
     def get_responder_data3(self):
         return self.functions.get_responder_data3()
 
-    def set_dev_version(self, dev_cat=None, sub_cat=None, firmware=None):
-        super().set_dev_version(dev_cat=dev_cat,
-                                sub_cat=sub_cat, firmware=firmware)
-        self.update_device_classes()
-        return
-
     def update_device_classes(self):
         classes = select_device(device=self, dev_cat=self.dev_cat,
                                 sub_cat=self.sub_cat, firmware=self.firmware,
@@ -230,3 +223,10 @@ class InsteonDevice(Root_Insteon):
         self._rcvd_handler = classes['rcvd_handler']
         self.send_handler = classes['send_handler']
         self.functions = classes['functions']
+        for group in self.get_all_groups():
+            classes = select_group(device=group, dev_cat=group.dev_cat,
+                                    sub_cat=group.sub_cat,
+                                    firmware=group.firmware,
+                                    engine_version=group.engine_version)
+            group.send_handler = classes['send_handler']
+            group.functions = classes['functions']

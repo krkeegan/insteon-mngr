@@ -2,13 +2,14 @@ import time
 import datetime
 
 from insteon.insteon_device import InsteonDevice
-from insteon.base_objects import Root_Insteon, BYTE_TO_HEX, BYTE_TO_ID
+from insteon.base_objects import (Root_Insteon, BYTE_TO_HEX, BYTE_TO_ID,
+    InsteonGroup)
 from insteon.aldb import ALDB
 from insteon.trigger import Trigger_Manager, PLMTrigger
 from insteon.plm_message import PLM_Message
 from insteon.plm_schema import PLM_SCHEMA
 from insteon.x10_device import X10_Device, HOUSE_TO_BYTE, UNIT_TO_BYTE
-from insteon.group import PLM_Group
+from insteon.devices import select_group
 
 
 class Modem_ALDB(ALDB):
@@ -74,7 +75,6 @@ class Modem_ALDB(ALDB):
         self._parent.send_command('all_link_manage_rec', '', link_bytes)
 
 
-
 class Modem(Root_Insteon):
 
     def __init__(self, core, **kwargs):
@@ -90,18 +90,25 @@ class Modem(Root_Insteon):
         self._last_x10_unit = None
         self.port_active = True
         self.ack_time = 75
-        for group_num in range(0x01, 0xFF):
-            self.create_group(group_num, PLM_Group)
+        for group_num in range(0x02, 0xFF):
+            self.create_group(group_num, InsteonGroup)
 
     def _load_devices(self, devices):
-        for id, attributes in devices.items():
-            self.add_device(id, attributes=attributes)
+        for dev_id, attributes in devices.items():
+            self.add_device(dev_id, attributes=attributes)
 
-    def setup(self):
+    def _setup(self):
+        self.update_device_classes()
         if self.dev_addr_str == '000000':
             self.send_command('plm_info')
         if self.aldb.have_aldb_cache() is False:
             self.aldb.query_aldb()
+
+    ##############################################################
+    #
+    # User Accessible Functions
+    #
+    ##############################################################
 
     def set_ack_time(self,milliseconds):
         self.ack_time = milliseconds
@@ -130,14 +137,146 @@ class Modem(Root_Insteon):
                                                  byte_address=byte_address)
         return self._devices[byte_address]
 
+    def port(self):
+        return NotImplemented
+
+    def tcp_port(self):
+        # TODO should port and tcp_port be merged?
+        return NotImplemented
+
+    @property
+    def wait_to_send(self):
+        return self._wait_to_send
+
+    @wait_to_send.setter
+    def wait_to_send(self, value):
+        if self._wait_to_send < time.time():
+            self._wait_to_send = time.time()
+        self._wait_to_send += value
+
+    def get_device_by_addr(self, addr):
+        ret = None
+        if addr.lower() == self.dev_addr_str.lower():
+            ret = self
+        else:
+            try:
+                ret = self._devices[addr]
+            except KeyError:
+                print('error, unknown device address=', addr)
+        return ret
+
+    def get_all_devices(self):
+        ret = []
+        for device in self._devices.values():
+            ret.append(device)
+        return ret
+
+    def update_device_classes(self):
+        for group in self.get_all_groups():
+            classes = select_group(device=group, dev_cat=group.dev_cat,
+                                    sub_cat=group.sub_cat,
+                                    firmware=group.firmware,
+                                    engine_version=group.engine_version)
+            group.send_handler = classes['send_handler']
+            group.functions = classes['functions']
+
+    ##############################################################
+    #
+    # Internal Functions
+    #
+    ##############################################################
+
     def process_input(self):
-        '''Reads available bytes from PLM, then parses the bytes
-            into a message'''
-        self._read()
+        '''Called by the core loop. Reads available bytes from PLM, then parses
+        the bytes into a message.  Do not call directly.'''
+        self._read_from_port()
         self._advance_to_msg_start()
-        bytes = self._parse_read_buffer()
-        if bytes:
-            self.process_inc_msg(bytes)
+        read_bytes = self._parse_read_buffer()
+        if read_bytes:
+            self._process_inc_msg(read_bytes)
+
+    def process_unacked_msg(self):
+        '''Called by the core loop. Checks for unacked messages and queues them
+        for resending.  Do not call directly.'''
+        if self._is_ack_pending():
+            msg = self._last_sent_msg
+        else:
+            return
+        now = datetime.datetime.now().strftime("%M:%S.%f")
+        # allow 75 milliseconds for the PLM to ack a message
+        if msg.plm_ack is False:
+            if msg.time_due < time.time() - (self.ack_time / 1000):
+                print(now, 'PLM failed to ack the last message')
+                if msg.plm_retry >= 3:
+                    print(now, 'PLM retries exceeded, abandoning this message')
+                    msg.failed = True
+                else:
+                    msg.plm_retry += 1
+                    self._resend_failed_msg()
+            return
+        if msg.seq_lock:
+            if msg.time_sent < time.time() - msg.seq_time:
+                print(now, 'PLM sequence lock expired, moving on')
+                msg.seq_lock = False
+            return
+        if msg.insteon_msg and msg.insteon_msg.device_ack is False:
+            total_hops = msg.insteon_msg.max_hops * 2
+            hop_delay = 75 if msg.insteon_msg.msg_length == 'standard' else 200
+            # Increase delay on each subsequent retry
+            hop_delay = (msg.insteon_msg.device_retry + 1) * hop_delay
+            # Add 1 additional second based on trial and error, perhaps
+            # to allow device to 'think'
+            total_delay = (total_hops * hop_delay / 1000) + 1
+            if msg.time_plm_ack < time.time() - total_delay:
+                print(
+                    now,
+                    'device failed to ack a message, total delay =',
+                    total_delay, 'total hops=', total_hops)
+                if msg.insteon_msg.device_retry >= 3:
+                    print(
+                        now,
+                        'device retries exceeded, abandoning this message')
+                    msg.failed = True
+                else:
+                    msg.insteon_msg.device_retry += 1
+                    self._resend_failed_msg()
+            return
+
+    def process_queue(self):
+        '''Called by the core loop. Determines and sends the next message.
+        Preferentially sends a message from the same device with the same
+        state_machine as the perviously sent message.
+        Otherwise, loops through all of the devices and sends the
+        oldest message currently waiting in a device queue
+        if there are no other conflicts. Do not call directly'''
+        if (not self._is_ack_pending() and
+                time.time() > self.wait_to_send):
+            last_device = None
+            send_msg = None
+            if self._last_sent_msg:
+                last_device = self._last_sent_msg.device
+            if (last_device is not None and
+                    last_device.next_msg_create_time() is not None):
+                send_msg = last_device.pop_device_queue()
+            else:
+                devices = [self, ]
+                msg_time = 0
+                sending_device = False
+                for device in self._devices.values():
+                    devices.append(device)
+                for device in devices:
+                    dev_msg_time = device.next_msg_create_time()
+                    if dev_msg_time and (msg_time == 0 or
+                                         dev_msg_time < msg_time):
+                        sending_device = device
+                        msg_time = dev_msg_time
+                if sending_device:
+                    send_msg = sending_device.pop_device_queue()
+            if send_msg:
+                if send_msg.insteon_msg:
+                    device = send_msg.device
+                    device.last_sent_msg = send_msg
+                self._send_msg(send_msg)
 
     def _advance_to_msg_start(self):
         '''Removes extraneous bytes from start of read buffer'''
@@ -185,17 +324,13 @@ class Modem(Root_Insteon):
                 del self._read_buffer[0:index]
         return ret
 
-    @property
-    def wait_to_send(self):
-        return self._wait_to_send
+    def _read_from_port(self):
+        return NotImplemented
 
-    @wait_to_send.setter
-    def wait_to_send(self, value):
-        if self._wait_to_send < time.time():
-            self._wait_to_send = time.time()
-        self._wait_to_send += value
+    def _write_to_port(self, msg):
+        return NotImplemented
 
-    def process_inc_msg(self, raw_msg):
+    def _process_inc_msg(self, raw_msg):
         now = datetime.datetime.now().strftime("%M:%S.%f")
         print(now, 'found legitimate msg', BYTE_TO_HEX(raw_msg))
         msg = PLM_Message(self, raw_data=raw_msg, is_incomming=True)
@@ -209,7 +344,7 @@ class Modem(Root_Insteon):
                 msg.plm_schema['ack_act'](self, msg)
             else:
                 # Attempting default action
-                self.rcvd_plm_ack(msg)
+                self._rcvd_plm_ack(msg)
         elif msg.plm_resp_nack:
             self.wait_to_send = .5
             if 'nack_act' in msg.plm_schema:
@@ -225,23 +360,9 @@ class Modem(Root_Insteon):
         elif 'recv_act' in msg.plm_schema:
             msg.plm_schema['recv_act'](self, msg)
 
-    def get_device_by_addr(self, addr):
-        ret = None
-        try:
-            ret = self._devices[addr]
-        except KeyError:
-            print('error, unknown device address=', addr)
-        return ret
-
-    def get_all_devices(self):
-        ret = []
-        for addr, device in self._devices.items():
-            ret.append(device)
-        return ret
-
     def _send_msg(self, msg):
         self._last_sent_msg = msg
-        self.write(msg)
+        self._write(msg)
 
     def _resend_failed_msg(self):
         msg = self._last_sent_msg
@@ -257,14 +378,14 @@ class Modem(Root_Insteon):
         else:
             self._resend_msg(msg)
 
-    def write(self, msg):
+    def _write(self, msg):
         now = datetime.datetime.now().strftime("%M:%S.%f")
         if msg.insteon_msg:
             msg.insteon_msg._set_i2cs_checksum()
         if self.port_active:
             print(now, 'sending data', BYTE_TO_HEX(msg.raw_msg))
             msg.time_sent = time.time()
-            self._write(msg.raw_msg)
+            self._write_to_port(msg.raw_msg)
         else:
             msg.failed = True
             port = None
@@ -280,119 +401,11 @@ class Modem(Root_Insteon):
             )
         return
 
-    def plm_info(self, msg_obj):
-        if (self._last_sent_msg.plm_cmd_type == 'plm_info' and
-                msg_obj.plm_resp_ack):
-            self._last_sent_msg.plm_ack = True
-            dev_addr_hi = msg_obj.get_byte_by_name('plm_addr_hi')
-            dev_addr_mid = msg_obj.get_byte_by_name('plm_addr_mid')
-            dev_addr_low = msg_obj.get_byte_by_name('plm_addr_low')
-            self.set_dev_addr(BYTE_TO_ID(dev_addr_hi,
-                                         dev_addr_mid,
-                                         dev_addr_low))
-            dev_cat = msg_obj.get_byte_by_name('dev_cat')
-            sub_cat = msg_obj.get_byte_by_name('sub_cat')
-            firmware = msg_obj.get_byte_by_name('firmware')
-            self.set_dev_version(dev_cat,sub_cat,firmware)
-
-
-    def send_command(self, command, state='', plm_bytes={}):
-        message = self.create_message(command)
-        message.insert_bytes_into_raw(plm_bytes)
-        message.state_machine = state
-        self.queue_device_msg(message)
-
-    def create_message(self, command):
-        message = PLM_Message(
-            self, device=self,
-            plm_cmd=command)
-        return message
-
-    def process_unacked_msg(self):
-        '''checks for unacked messages'''
-        if self._is_ack_pending():
-            msg = self._last_sent_msg
-        else:
-            return
-        now = datetime.datetime.now().strftime("%M:%S.%f")
-        # allow 75 milliseconds for the PLM to ack a message
-        if msg.plm_ack is False:
-            if msg.time_sent < time.time() - (self.ack_time / 1000):
-                print(now, 'PLM failed to ack the last message')
-                if msg.plm_retry >= 3:
-                    print(now, 'PLM retries exceeded, abandoning this message')
-                    msg.failed = True
-                else:
-                    msg.plm_retry += 1
-                    self._resend_failed_msg()
-            return
-        if msg.seq_lock:
-            if msg.time_sent < time.time() - msg.seq_time:
-                print(now, 'PLM sequence lock expired, moving on')
-                msg.seq_lock = False
-            return
-        if msg.insteon_msg and msg.insteon_msg.device_ack is False:
-            total_hops = msg.insteon_msg.max_hops * 2
-            hop_delay = 75 if msg.insteon_msg.msg_length == 'standard' else 200
-            # Increase delay on each subsequent retry
-            hop_delay = (msg.insteon_msg.device_retry + 1) * hop_delay
-            # Add 1 additional second based on trial and error, perhaps
-            # to allow device to 'think'
-            total_delay = (total_hops * hop_delay / 1000) + 1
-            if msg.time_plm_ack < time.time() - total_delay:
-                print(
-                    now,
-                    'device failed to ack a message, total delay =',
-                    total_delay, 'total hops=', total_hops)
-                if msg.insteon_msg.device_retry >= 3:
-                    print(
-                        now,
-                        'device retries exceeded, abandoning this message')
-                    msg.failed = True
-                else:
-                    msg.insteon_msg.device_retry += 1
-                    self._resend_failed_msg()
-            return
-
-    def process_queue(self):
-        '''Determines and sends the next message.
-        Preferentially sends a message from the same device with the same
-        state_machine as the perviously sent message.
-        Otherwise, loops through all of the devices and sends the
-        oldest message currently waiting in a device queue
-        if there are no other conflicts'''
-        if (not self._is_ack_pending() and
-                time.time() > self.wait_to_send):
-            last_device = None
-            last_state = None
-            next_state = None
-            send_msg = None
-            if self._last_sent_msg:
-                last_device = self._last_sent_msg.device
-                last_state = self._last_sent_msg.state_machine
-                next_state = last_device._get_next_state_machine()
-            if (last_device is not None and
-                    last_device.next_msg_create_time() is not None):
-                send_msg = last_device.pop_device_queue()
-            else:
-                devices = [self, ]
-                msg_time = 0
-                sending_device = False
-                for id, device in self._devices.items():
-                    devices.append(device)
-                for device in devices:
-                    dev_msg_time = device.next_msg_create_time()
-                    if dev_msg_time and (msg_time == 0 or
-                                         dev_msg_time < msg_time):
-                        sending_device = device
-                        msg_time = dev_msg_time
-                if sending_device:
-                    send_msg = sending_device.pop_device_queue()
-            if send_msg:
-                if send_msg.insteon_msg:
-                    device = send_msg.device
-                    device.last_sent_msg = send_msg
-                self._send_msg(send_msg)
+    ##############################################################
+    #
+    # Incomming Message Processing
+    #
+    ##############################################################
 
     def _is_ack_pending(self):
         ret = False
@@ -406,7 +419,7 @@ class Modem(Root_Insteon):
                 ret = True
         return ret
 
-    def rcvd_plm_ack(self, msg):
+    def _rcvd_plm_ack(self, msg):
         if (self._last_sent_msg.plm_ack is False and
                 msg.raw_msg[0:-1] == self._last_sent_msg.raw_msg):
             self._last_sent_msg.plm_ack = True
@@ -415,7 +428,7 @@ class Modem(Root_Insteon):
             msg.allow_trigger = False
             print('received spurious plm ack')
 
-    def rcvd_prelim_plm_ack(self, msg):
+    def _rcvd_prelim_plm_ack(self, msg):
         # TODO consider some way to increase allowable ack time
         if (self._last_sent_msg.plm_prelim_ack is False and
                 self._last_sent_msg.plm_ack is False and
@@ -425,7 +438,7 @@ class Modem(Root_Insteon):
             msg.allow_trigger = False
             print('received spurious prelim plm ack')
 
-    def rcvd_all_link_manage_ack(self, msg):
+    def _rcvd_all_link_manage_ack(self, msg):
         aldb = msg.raw_msg[3:11]
         ctrl_code = msg.get_byte_by_name('ctrl_code')
         link_flags = msg.get_byte_by_name('link_flags')
@@ -453,7 +466,7 @@ class Modem(Root_Insteon):
                 print('error trying to delete plm aldb cache')
         self.rcvd_plm_ack(msg)
 
-    def rcvd_all_link_manage_nack(self, msg):
+    def _rcvd_all_link_manage_nack(self, msg):
         print('error writing aldb to PLM, will rescan plm and try again')
         plm = self
         self._last_sent_msg.failed = True
@@ -480,17 +493,17 @@ class Modem(Root_Insteon):
         trigger.name = 'rcvd_all_link_manage_nack'
         trigger.queue()
 
-    def rcvd_insteon_msg(self, msg):
+    def _rcvd_insteon_msg(self, msg):
         insteon_obj = self.get_device_by_addr(msg.insteon_msg.from_addr_str)
         if insteon_obj is not None:
             insteon_obj.msg_rcvd(msg)
 
-    def rcvd_plm_x10_ack(self, msg):
+    def _rcvd_plm_x10_ack(self, msg):
         # For some reason we have to slow down when sending X10 msgs to the PLM
         self.rcvd_plm_ack(msg)
         self.wait_to_send = .5
 
-    def rcvd_aldb_record(self, msg):
+    def _rcvd_aldb_record(self, msg):
         if (self._last_sent_msg.plm_ack is False and
                 self._last_sent_msg.plm_prelim_ack is True):
             self._last_sent_msg.plm_ack = True
@@ -501,7 +514,8 @@ class Modem(Root_Insteon):
             msg.allow_trigger = False
             print('received spurious plm aldb record')
 
-    def end_of_aldb(self, msg):
+    def _rcvd_end_of_aldb(self, msg):
+        # pylint: disable=W0613
         self._last_sent_msg.plm_ack = True
         self.remove_state_machine('query_aldb')
         print('reached the end of the PLMs ALDB')
@@ -509,7 +523,7 @@ class Modem(Root_Insteon):
         for key in sorted(records):
             print(key, ":", BYTE_TO_HEX(records[key]))
 
-    def rcvd_all_link_complete(self, msg):
+    def _rcvd_all_link_complete(self, msg):
         if msg.get_byte_by_name('link_code') == 0xFF:
             # DELETE THINGS
             pass
@@ -531,44 +545,36 @@ class Modem(Root_Insteon):
                 firmware = msg.get_byte_by_name('firmware')
                 device.set_dev_version(dev_cat, sub_cat, firmware)
 
-    def rcvd_btn_event(self, msg):
+    def _rcvd_btn_event(self, msg):
+        # pylint: disable=W0613
         print("The PLM Button was pressed")
         # Currently there is no processing of this event
 
-    def rcvd_plm_reset(self, msg):
+    def _rcvd_plm_reset(self, msg):
+        # pylint: disable=W0613
         self.aldb.clear_all_records()
         print("The PLM was manually reset")
 
-    def rcvd_x10(self, msg):
-        if msg.get_byte_by_name('x10_flags') == 0x00:
-            self.store_x10_address(msg.get_byte_by_name('raw_x10'))
-        else:
-            self._dispatch_x10_cmd(msg)
+    def _rcvd_plm_info(self, msg_obj):
+        if (self._last_sent_msg.plm_cmd_type == 'plm_info' and
+                msg_obj.plm_resp_ack):
+            self._last_sent_msg.plm_ack = True
+            dev_addr_hi = msg_obj.get_byte_by_name('plm_addr_hi')
+            dev_addr_mid = msg_obj.get_byte_by_name('plm_addr_mid')
+            dev_addr_low = msg_obj.get_byte_by_name('plm_addr_low')
+            self.set_dev_addr(BYTE_TO_ID(dev_addr_hi,
+                                         dev_addr_mid,
+                                         dev_addr_low))
+            dev_cat = msg_obj.get_byte_by_name('dev_cat')
+            sub_cat = msg_obj.get_byte_by_name('sub_cat')
+            firmware = msg_obj.get_byte_by_name('firmware')
+            self.set_dev_version(dev_cat,sub_cat,firmware)
 
-    def store_x10_address(self, byte):
-        self._last_x10_house = byte & 0b11110000
-        self._last_x10_unit = byte & 0b00001111
-
-    def get_x10_address(self):
-        return self._last_x10_house | self._last_x10_unit
-
-    def _dispatch_x10_cmd(self, msg):
-        if (self._last_x10_house ==
-                msg.get_byte_by_name('raw_x10') & 0b11110000):
-            try:
-                device = self._devices[self.get_x10_address()]
-                device.inc_x10_msg(msg)
-            except KeyError:
-                print('Received and X10 command for an unknown device')
-        else:
-            msg.allow_trigger = False
-            print("X10 Command House Code did not match expected House Code")
-            print("Message ignored")
-
-    def rcvd_all_link_clean_status(self, msg):
+    def _rcvd_all_link_clean_status(self, msg):
         if self._last_sent_msg.plm_cmd_type == 'all_link_send':
             self._last_sent_msg.seq_lock = False
             if msg.plm_resp_ack:
+                self._last_sent_msg.plm_ack = True
                 print('Send All Link - Success')
                 self.remove_state_machine('all_link_send')
                 # TODO do we update the device state here? or rely on arrival
@@ -577,21 +583,76 @@ class Modem(Root_Insteon):
                 # device alllink cleanup arrives
             elif msg.plm_resp_nack:
                 print('Send All Link - Error')
+                self._last_sent_msg.plm_ack = True
                 # We don't resend, instead we rely on individual device
                 # alllink cleanups to do the work
+                # TODO is the right?  When does a NACK acutally occur?
+                # It doesn't seem to happen when a destination device sends a
+                # NACK, possibly only when PLM is interrupted, in which case do
+                # we want to try and send again?
                 self.remove_state_machine('all_link_send')
         else:
             msg.allow_trigger = False
             print('Ignored spurious all link clean status')
 
-    def rcvd_all_link_clean_failed(self, msg):
-        failed_addr = bytearray()
-        failed_addr.extend(msg.get_byte_by_name('fail_addr_hi'))
-        failed_addr.extend(msg.get_byte_by_name('fail_addr_mid'))
-        failed_addr.extend(msg.get_byte_by_name('fail_addr_low'))
-        print('A specific device faileled to ack the cleanup msg from addr',
-              BYTE_TO_HEX(failed_addr))
+    def _rcvd_all_link_clean_failed(self, msg):
+        failed_addr = bytearray(3)
+        failed_addr[0] = msg.get_byte_by_name('fail_addr_hi')
+        failed_addr[1] = msg.get_byte_by_name('fail_addr_mid')
+        failed_addr[2] = msg.get_byte_by_name('fail_addr_low')
+        fail_device = self.get_device_by_addr(BYTE_TO_HEX(failed_addr))
+        print('Scene Command Failed, Retrying')
+        # TODO We are ignoring the all_link cleanup nacks sent directly
+        # by the device, do anything with them?
+        cmd = self._last_sent_msg.get_byte_by_name('cmd_1')
+        fail_device.send_handler.send_all_link_clean(
+            msg.get_byte_by_name('group'), cmd)
 
-    def rcvd_all_link_start(self, msg):
+    def _rcvd_all_link_start(self, msg):
         if msg.plm_resp_ack:
             self._last_sent_msg.plm_ack = True
+
+    def _rcvd_x10(self, msg):
+        if msg.get_byte_by_name('x10_flags') == 0x00:
+            self._store_x10_address(msg.get_byte_by_name('raw_x10'))
+        else:
+            self._dispatch_x10_cmd(msg)
+
+    def _store_x10_address(self, byte):
+        self._last_x10_house = byte & 0b11110000
+        self._last_x10_unit = byte & 0b00001111
+
+    def _get_x10_address(self):
+        return self._last_x10_house | self._last_x10_unit
+
+    def _dispatch_x10_cmd(self, msg):
+        if (self._last_x10_house ==
+                msg.get_byte_by_name('raw_x10') & 0b11110000):
+            try:
+                device = self._devices[self._get_x10_address()]
+                device.inc_x10_msg(msg)
+            except KeyError:
+                print('Received and X10 command for an unknown device')
+        else:
+            msg.allow_trigger = False
+            print("X10 Command House Code did not match expected House Code")
+            print("Message ignored")
+
+    ##############################################################
+    #
+    # Outing Commands Processing
+    #
+    ##############################################################
+
+    def send_command(self, command, state='', plm_bytes=None):
+        message = self.create_message(command)
+        if plm_bytes is not None:
+            message.insert_bytes_into_raw(plm_bytes)
+        message.state_machine = state
+        self.queue_device_msg(message)
+
+    def create_message(self, command):
+        message = PLM_Message(
+            self, device=self,
+            plm_cmd=command)
+        return message

@@ -22,11 +22,11 @@ def hub_thread(hub):
         # Get Buffer Contents
         try:
             response = requests.get('http://' + hub.ip + ':' +
-                                hub.tcp_port + '/buffstatus.xml',
-                                auth=requests.auth.HTTPBasicAuth(
-                                    hub.user,
-                                    hub.password),
-                                    timeout=1)
+                                    hub.tcp_port + '/buffstatus.xml',
+                                    auth=requests.auth.HTTPBasicAuth(
+                                        hub.user,
+                                        hub.password),
+                                    timeout=5)
         except requests.exceptions.Timeout:
             # TODO handle multiple timeouts, close connection or something
             print('-----------Timeout Occurred--------')
@@ -84,9 +84,12 @@ def hub_thread(hub):
         # that. Could consider slowing down, but waiting too long could cause
         # the buffer to overflow and would slow down our responses.  Would also
         # need to increase the hub ack_time accordingly too.
-        sleep_time = (start_time + .3) - time.time()
+        sleep_time = (start_time + .5) - time.time()
         if sleep_time > 0:
             time.sleep(sleep_time)
+        elif sleep_time < -2:
+            seconds = str(round(abs(sleep_time), 2))
+            print('warning, hub took', seconds, 'to respond')
 
 
 class Hub(Modem):
@@ -102,7 +105,7 @@ class Hub(Modem):
         self._read_queue = queue.Queue()
         self._write_queue = queue.Queue()
         threading.Thread(target=hub_thread, args=[self]).start()
-        self.setup()
+        self._setup()
 
     @property
     def ip(self):
@@ -140,9 +143,9 @@ class Hub(Modem):
         self.attribute('password', value)
         return self.attribute('password')
 
-    def _read(self):
+    def _read_from_port(self):
         if not self._read_queue.empty():
             self._read_buffer.extend(self._read_queue.get())
 
-    def _write(self, msg):
+    def _write_to_port(self, msg):
         self._write_queue.put(msg)

@@ -35,3 +35,10 @@ class GenericFunctions(object):
         link_sequence.data1 = 0x03
         link_sequence.data2 = 0x00
         link_sequence.start()
+
+    def delete_record(self, address=bytearray(2)):
+        if self._device.engine_version > 0x00:
+            link_sequence = WriteALDBRecordi2(self._device)
+        link_sequence.address = address
+        link_sequence.in_use = False
+        link_sequence.start()
