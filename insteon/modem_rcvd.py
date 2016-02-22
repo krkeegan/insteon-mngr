@@ -62,7 +62,6 @@ class ModemRcvdHandler(object):
         self._rcvd_plm_ack(msg)
 
     def _rcvd_all_link_manage_nack(self, msg):
-        # TODO this needs fixing shouldn't be too much KRK_ALDB
         print('error writing aldb to PLM, will rescan plm and try again')
         plm = self._device
         self._device._last_sent_msg.failed = True
@@ -77,15 +76,13 @@ class ModemRcvdHandler(object):
         dev_addr_low = msg.get_byte_by_name('dev_addr_low')
         device_id = BYTE_TO_ID(dev_addr_hi, dev_addr_mid, dev_addr_low)
         device = self._device.get_device_by_addr(device_id)
-        is_controller = False
         if msg.get_byte_by_name('link_flags') == 0xE2:
             plm = self._device.get_object_by_group_num(msg.get_byte_by_name('group'))
-            is_controller = True
+            trigger.trigger_function = lambda: plm.send_handler.create_controller_link(device)
         else:
             device = device.get_object_by_group_num(
                 msg.get_byte_by_name('group'))
-        trigger.trigger_function = lambda: plm.aldb._write_link(
-            device, is_controller)
+            trigger.trigger_function = lambda: plm.send_handler.create_responder_link(device)
         trigger.name = 'rcvd_all_link_manage_nack'
         trigger.queue()
 
