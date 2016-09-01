@@ -1,8 +1,13 @@
-# lib-py-insteon
-A python library for interfacing with the Insteon PLM
+# Insteon Hub
+A tool for managing Insteon device links using the Insteon Hub.
 
-# Goal
-This project intends to be a library for the Insteon platform using the Insteon PLM.  The library will expose a number of functions for directly interfacing with the platform.  The library will also include some form of user interface for configuration of the Insteon platform.  However, it is not envisioned that this library will be used for day to day control of the Insteon platform.  Instead, this library should be incorporated into other Home Automation controllers that have better user interfaces for device control.
+# The Problem
+The Insteon Hub can manage device attributes such as default on levels and ramp rates.  It can also control devices, such as turning them on. It can also create links between the Hub and the devices including "scene" links using one of the Hub's 255 groups.
+
+But it cannot help you in creating links between devices in your network.  Insteon apparently expects you to still do this manually. 
+
+# The Goal
+Create a simple interface for defining, scanning, and managing the links between the devices on your network.
 
 # Status
-This is still in a very rough state.  In all likelihood the structure and design of the library will change signficantly as I continue to work on it. 
+A long way from being done.  I have taken much of the code from other half-completed (or less) projects that I have started. 
