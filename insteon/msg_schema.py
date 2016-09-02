@@ -177,6 +177,26 @@ PLM_SCHEMA = {
             'plm_resp': 2,
         }
     },
+    0x59: {
+        'rcvd_len': (12,),   # This appears in 2242-222 documentation, no details
+        'send_len': (0,),   # as to how it works, or what it is
+        'name': 'record_found',
+        'recv_byte_pos': {
+            'plm_cmd': 1,
+            'high_byte': 2,
+            'low_byte': 3,
+            'link_flags': 4,
+            'group': 5,
+            'dev_addr_hi': 6,
+            'dev_addr_mid': 7,
+            'dev_addr_low': 8,
+            'data_1': 9,
+            'data_2': 10,
+            'data_3': 11
+        },
+        'send_byte_pos': {
+        }
+    },
     0x60: {
         'rcvd_len': (9,),
         'send_len': (2,),
@@ -489,6 +509,161 @@ PLM_SCHEMA = {
             'plm_cmd': 1,
         }
     },
+    0x74: {                         # 0x74-0x78 are found in the 2242-222
+        'rcvd_len': (3,),           # developers guide
+        'send_len': (2,),
+        'name': 'cancel_cleanup',
+        'recv_byte_pos': {
+            'plm_cmd': 1,
+            'plm_resp': 2
+        },
+        'send_byte_pos': {
+            'plm_cmd': 1
+        }
+    },
+    0x75: {
+        'rcvd_len': (4,),
+        'send_len': (5,),
+        'name': 'read_8_bytes',
+        'recv_byte_pos': {    # a subsequent 0x59 msg will arrive after this
+            'plm_cmd': 1,
+            'high_byte': 2,
+            'low_byte': 3,
+            'plm_resp': 4
+        },
+        'send_byte_pos': {
+            'plm_cmd': 1,
+            'high_byte': 2,
+            'low_byte': 3,
+        }
+    },
+    0x76: {
+        'rcvd_len': (13,),
+        'send_len': (12,),
+        'name': 'write_8_bytes',
+        'recv_byte_pos': {
+            'plm_cmd': 1,
+            'high_byte': 2,
+            'low_byte': 3,
+            'link_flags': 4,
+            'group': 5,
+            'dev_addr_hi': 6,
+            'dev_addr_mid': 7,
+            'dev_addr_low': 8,
+            'data_1': 9,
+            'data_2': 10,
+            'data_3': 11,
+            'plm_resp': 12
+        },
+        'send_byte_pos': {
+            'plm_cmd': 1,
+            'high_byte': 2,
+            'low_byte': 3,
+            'link_flags': 4,
+            'group': 5,
+            'dev_addr_hi': 6,
+            'dev_addr_mid': 7,
+            'dev_addr_low': 8,
+            'data_1': 9,
+            'data_2': 10,
+            'data_3': 11,
+        }
+    },
+    0x77: {
+        'rcvd_len': (4,),
+        'send_len': (3,),
+        'name': 'beep',
+        'recv_byte_pos': {
+            'plm_cmd': 1,
+            'plm_resp': 2
+        },
+        'send_byte_pos': {
+            'plm_cmd': 1
+        }
+    },
+    0x78: {
+        'rcvd_len': (4,),
+        'send_len': (3,),
+        'name': 'set_status',
+        'recv_byte_pos': {
+            'plm_cmd': 1,
+            'status': 2,
+            'plm_resp': 3
+        },
+        'send_byte_pos': {
+            'plm_cmd': 1,
+            'satus': 2
+        }
+    },
+    0x79: {                     # 0x79-0x7C were added from the 2242-222
+        'rcvd_len': (6,),       # developers guide.  They are listed as RF Modem
+        'send_len': (5,),       # only commands
+        'name': 'set_link_data_next_link',
+        'recv_byte_pos': {
+            'plm_cmd': 1,
+            'data_1': 2,
+            'data_2': 3,
+            'data_3': 4,
+            'plm_resp': 5
+        },
+        'send_byte_pos': {
+            'plm_cmd': 1,
+            'data_1': 2,
+            'data_2': 3,
+            'data_3': 4
+        }
+    },
+    0x7A: {
+        'rcvd_len': (4,),
+        'send_len': (3,),
+        'name': 'set_retries_new_links',
+        'recv_byte_pos': {
+            'plm_cmd': 1,
+            'retries': 2,
+            'plm_resp': 3
+        },
+        'send_byte_pos': {
+            'plm_cmd': 1,
+            'retries': 2,
+        }
+    },
+    0x7B: {
+        'rcvd_len': (4,),
+        'send_len': (3,),
+        'name': 'set_rf_freq_offset',
+        'recv_byte_pos': {
+            'plm_cmd': 1,
+            'offset': 2,
+            'plm_resp': 3
+        },
+        'send_byte_pos': {
+            'plm_cmd': 1, # Increase from least offset 0x00 up to most 0x7F
+            'offset': 2,  # Decrease from least offset 0xFF down to 0x8F
+        }
+    },
+    0x7C: {
+        'rcvd_len': (4,),    # It is unclear from the documentation how many
+        'send_len': (3,),    # bytes the ack is, listed as XXXXXXXXXXXXXXXX
+        'name': 'set_ack_for_templinc',  # So maybe 8 bytes?? Maybe 1??
+        'recv_byte_pos': {
+            'plm_cmd': 1,
+            'ack': 2,
+            'plm_resp': 3
+        },
+        'send_byte_pos': {
+            'plm_cmd': 1,
+            'ack': 2,
+        }
+    },
+    0x7F: {
+        'rcvd_len': (6,),
+        'name': 'unknown',  # This command is seen in the incomiming buffer
+        'recv_byte_pos': {  # of the 2242-222 every few minutes.  I assume
+            'plm_cmd': 1,   # it is some sort of keep-alive initiated by
+            'unk_1': 2,     # the hub itself or the rest API??  It is not
+            'plm_resp': 3   # documented anywhere I can find
+        }
+    }
 }
 
 # I think the PLM processes all standard direct messages sent to it
