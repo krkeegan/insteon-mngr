@@ -56,7 +56,7 @@ class PLM_Group(Insteon_Group):
                 cmd_str, '', {'cmd_2': self.group_number})
 
 
-class PLM(Root_Insteon):
+class Modem(Root_Insteon):
 
     def __init__(self, core, **kwargs):
         self._devices = {}
@@ -73,37 +73,15 @@ class PLM(Root_Insteon):
         self._dev_addr_mid = ''
         self._dev_addr_low = ''
         self.port_active = True
-        if 'device_id' in kwargs:
-            id_bytes = ID_STR_TO_BYTES(kwargs['device_id'])
-            self._dev_addr_hi = id_bytes[0]
-            self._dev_addr_mid = id_bytes[1]
-            self._dev_addr_low = id_bytes[2]
-        port = ''
-        if 'attributes' in kwargs:
-            port = kwargs['attributes']['port']
-        elif 'port' in kwargs:
-            port = kwargs['port']
-        else:
-            print('you need to define a port for this plm')
-        self.attribute('port', port)
-        try:
-            self._serial = serial.Serial(
-                port=port,
-                baudrate=19200,
-                parity=serial.PARITY_NONE,
-                stopbits=serial.STOPBITS_ONE,
-                bytesize=serial.EIGHTBITS,
-                timeout=0
-            )
-        except serial.serialutil.SerialException:
-            print('unable to connect to port', port)
-            self.port_active = False
+        self.ack_time = 75
+        for group_num in range(0x01, 0xFF):
+            self.create_group(group_num, PLM_Group)
+
+    def setup(self):
         if self.dev_addr_str == '':
             self.send_command('plm_info')
         if self._aldb.have_aldb_cache() is False:
             self._aldb.query_aldb()
-        for group_num in range(0x01, 0xFF):
-            self.create_group(group_num, PLM_Group)
 
     @property
     def dev_cat(self):
@@ -135,8 +113,12 @@ class PLM(Root_Insteon):
 
     @property
     def dev_addr_str(self):
-        ret = BYTE_TO_HEX(
-            bytes([self.dev_addr_hi, self.dev_addr_mid, self.dev_addr_low]))
+        ret = ''
+        try:
+            ret = BYTE_TO_HEX(
+                bytes([self.dev_addr_hi, self.dev_addr_mid, self.dev_addr_low]))
+        except TypeError:
+            pass
         return ret
 
     def add_device(self, device_id, **kwargs):
@@ -157,12 +139,6 @@ class PLM(Root_Insteon):
                                                  self,
                                                  byte_address=byte_address)
         return self._devices[byte_address]
-
-    def _read(self):
-        '''Reads bytes from PLM and loads them into a buffer'''
-        if self.port_active:
-            while self._serial.inWaiting() > 0:
-                self._read_buffer.extend(self._serial.read())
 
     def process_input(self):
         '''Reads available bytes from PLM, then parses the bytes
@@ -214,7 +190,7 @@ class PLM(Root_Insteon):
                     del self._read_buffer[0:msg_length]
             else:
                 print("error, I don't know this prefix",
-                      BYTE_TO_HEX(cmd_prefix))
+                      format(cmd_prefix, 'x'))
                 index = self._read_buffer.find(bytes.fromhex('02'))
                 del self._read_buffer[0:index]
         return ret
@@ -296,7 +272,7 @@ class PLM(Root_Insteon):
         if self.port_active:
             print(now, 'sending data', BYTE_TO_HEX(msg.raw_msg))
             msg.time_sent = time.time()
-            self._serial.write(msg.raw_msg)
+            self._write(msg.raw_msg)
         else:
             msg.failed = True
             print(
@@ -337,7 +313,7 @@ class PLM(Root_Insteon):
         now = datetime.datetime.now().strftime("%M:%S.%f")
         # allow 75 milliseconds for the PLM to ack a message
         if msg.plm_ack is False:
-            if msg.time_sent < time.time() - (75 / 1000):
+            if msg.time_sent < time.time() - (self.ack_time / 1000):
                 print(now, 'PLM failed to ack the last message')
                 if msg.plm_retry >= 3:
                     print(now, 'PLM retries exceeded, abandoning this message')
@@ -574,3 +550,45 @@ class PLM(Root_Insteon):
     def rcvd_all_link_start(self, msg):
         if msg.plm_resp_ack:
             self._last_sent_msg.plm_ack = True
+
+class PLM(Modem):
+
+    def __init__(self, core, **kwargs):
+        super().__init__(core, self, **kwargs)
+        self.ack_time = 75
+        self.attribute('type', 'plm')
+        if 'device_id' in kwargs:
+            id_bytes = ID_STR_TO_BYTES(kwargs['device_id'])
+            self._dev_addr_hi = id_bytes[0]
+            self._dev_addr_mid = id_bytes[1]
+            self._dev_addr_low = id_bytes[2]
+        port = ''
+        if 'attributes' in kwargs:
+            port = kwargs['attributes']['port']
+        elif 'port' in kwargs:
+            port = kwargs['port']
+        else:
+            print('you need to define a port for this plm')
+        self.attribute('port', port)
+        try:
+            self._serial = serial.Serial(
+                port=port,
+                baudrate=19200,
+                parity=serial.PARITY_NONE,
+                stopbits=serial.STOPBITS_ONE,
+                bytesize=serial.EIGHTBITS,
+                timeout=0
+            )
+        except serial.serialutil.SerialException:
+            print('unable to connect to port', port)
+            self.port_active = False
+        self.setup()
+
+    def _read(self):
+        '''Reads bytes from PLM and loads them into a buffer'''
+        if self.port_active:
+            while self._serial.inWaiting() > 0:
+                self._read_buffer.extend(self._serial.read())
+
+    def _write(self, msg):
+        self._serial.write(msg)

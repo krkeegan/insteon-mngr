@@ -53,6 +53,12 @@ class Insteon_Device(Root_Insteon):
         return self._dev_addr_low
 
     @property
+    def dev_addr_str(self):
+        ret = BYTE_TO_HEX(
+            bytes([self.dev_addr_hi, self.dev_addr_mid, self.dev_addr_low]))
+        return ret
+
+    @property
     def dev_cat(self):
         return self.attribute('dev_cat')
 
