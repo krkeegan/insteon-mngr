@@ -1,5 +1,3 @@
-import binascii
-import pprint
 import json
 import time
 import atexit
@@ -8,9 +6,7 @@ import sys
 
 from .plm import PLM
 from .hub import Hub
-from .msg_schema import *
-from .helpers import *
-from .rest_server import *
+from .rest_server import Rest_Server
 
 
 class Insteon_Core(object):
@@ -74,7 +70,6 @@ class Insteon_Core(object):
     def get_modem_by_id(self, id):
         ret = None
         for modem in self._modems:
-            print('loopiong modem found', modem.dev_addr_str, 'looking for', id)
             if modem.dev_addr_str == id:
                 ret = modem
         return ret

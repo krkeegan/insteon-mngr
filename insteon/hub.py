@@ -7,6 +7,7 @@ import queue
 from .helpers import BYTE_TO_HEX, ID_STR_TO_BYTES
 from .plm import Modem
 
+
 def hub_thread(hub):
     prev_end_pos = -1
     last_bytestring = ''
@@ -17,10 +18,11 @@ def hub_thread(hub):
         current_end_pos = 0
 
         # Get Buffer Contents
-        response = requests.get('http://'+hub.ip+':'+hub.tcp_port+'/buffstatus.xml',
+        response = requests.get('http://' + hub.ip + ':' +
+                                hub.tcp_port + '/buffstatus.xml',
                                 auth=requests.auth.HTTPBasicAuth(
-                                  hub.user,
-                                  hub.password))
+                                    hub.user,
+                                    hub.password))
 
         root = ET.fromstring(response.text)
         for response in root:
@@ -30,7 +32,8 @@ def hub_thread(hub):
 
         # Place buffer in sequential order
         current_end_pos = int(bytestring[-2:], 16)
-        bytestring = bytestring[current_end_pos:-2] + bytestring[:current_end_pos]
+        bytestring = bytestring[current_end_pos:-2] + \
+            bytestring[:current_end_pos]
 
         if last_bytestring != '' and prev_end_pos >= 0:
             new_length = current_end_pos - prev_end_pos
@@ -49,7 +52,8 @@ def hub_thread(hub):
         if not hub._write_queue.empty():
             command = hub._write_queue.get()
             cmd_str = BYTE_TO_HEX(command)
-            url = 'http://'+hub.ip+':'+hub.tcp_port+'/3?'+cmd_str+'=I=3'
+            url = ('http://' + hub.ip + ':' +
+                   hub.tcp_port + '/3?' + cmd_str + '=I=3')
             response = requests.get(url,
                                     auth=requests.auth.HTTPBasicAuth(
                                         hub.user,
@@ -65,7 +69,9 @@ def hub_thread(hub):
         # need to increase the hub ack_time accordingly too.
         time.sleep(.3)
 
+
 class Hub(Modem):
+
     def __init__(self, core, **kwargs):
         super().__init__(core, **kwargs)
         self.ack_time = 750
@@ -85,7 +91,7 @@ class Hub(Modem):
         return self.attribute('ip')
 
     @ip.setter
-    def ip(self,value):
+    def ip(self, value):
         self.attribute('ip', value)
         return self.attribute('ip')
 
@@ -94,7 +100,7 @@ class Hub(Modem):
         return self.attribute('tcp_port')
 
     @tcp_port.setter
-    def tcp_port(self,value):
+    def tcp_port(self, value):
         self.attribute('tcp_port', value)
         return self.attribute('tcp_port')
 
@@ -103,7 +109,7 @@ class Hub(Modem):
         return self.attribute('user')
 
     @user.setter
-    def user(self,value):
+    def user(self, value):
         self.attribute('user', value)
         return self.attribute('user')
 
@@ -112,7 +118,7 @@ class Hub(Modem):
         return self.attribute('password')
 
     @password.setter
-    def password(self,value):
+    def password(self, value):
         self.attribute('password', value)
         return self.attribute('password')
 

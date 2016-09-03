@@ -1,14 +1,15 @@
 import serial
 import time
 import datetime
-import pprint
 
 from .insteon_device import Insteon_Device
 from .base_objects import PLM_ALDB, Insteon_Group, Trigger_Manager, Trigger, \
     Root_Insteon
 from .message import PLM_Message
-from .helpers import *
-from .msg_schema import *
+from .helpers import BYTE_TO_HEX, ID_STR_TO_BYTES, BYTE_TO_ID, HOUSE_TO_BYTE, \
+    UNIT_TO_BYTE
+from .msg_schema import PLM_SCHEMA
+from .x10_device import X10_Device
 
 
 class PLM_Group(Insteon_Group):
@@ -116,7 +117,9 @@ class Modem(Root_Insteon):
         ret = ''
         try:
             ret = BYTE_TO_HEX(
-                bytes([self.dev_addr_hi, self.dev_addr_mid, self.dev_addr_low]))
+                bytes([self.dev_addr_hi,
+                       self.dev_addr_mid,
+                       self.dev_addr_low]))
         except TypeError:
             pass
         return ret
@@ -239,7 +242,7 @@ class Modem(Root_Insteon):
         ret = None
         try:
             ret = self._devices[addr]
-        except KeyError as e:
+        except KeyError:
             print('error, unknown device address=', addr)
         return ret
 
@@ -284,7 +287,8 @@ class Modem(Root_Insteon):
         return
 
     def plm_info(self, msg_obj):
-        if self._last_sent_msg.plm_cmd_type == 'plm_info' and msg_obj.plm_resp_ack:
+        if (self._last_sent_msg.plm_cmd_type == 'plm_info' and
+                msg_obj.plm_resp_ack):
             self._last_sent_msg.plm_ack = True
             self._dev_addr_hi = msg_obj.get_byte_by_name('plm_addr_hi')
             self._dev_addr_mid = msg_obj.get_byte_by_name('plm_addr_mid')
@@ -527,10 +531,10 @@ class Modem(Root_Insteon):
             if msg.plm_resp_ack:
                 print('Send All Link - Success')
                 self.remove_state_machine('all_link_send')
-                # TODO do we update the device state here? or rely on arrival of
-                # alllink_cleanup acks?  As it stands, our own alllink cleanups
-                # will be sent if this msg is rcvd, but no official device
-                # alllink cleanup arrives
+                # TODO do we update the device state here? or rely on arrival
+                # of alllink_cleanup acks?  As it stands, our own alllink
+                # cleanups will be sent if this msg is rcvd, but no official
+                # device alllink cleanup arrives
             elif msg.plm_resp_nack:
                 print('Send All Link - Error')
                 # We don't resend, instead we rely on individual device
@@ -550,6 +554,7 @@ class Modem(Root_Insteon):
     def rcvd_all_link_start(self, msg):
         if msg.plm_resp_ack:
             self._last_sent_msg.plm_ack = True
+
 
 class PLM(Modem):
 
