@@ -1,3 +1,5 @@
+from .base_objects import Base_Device
+
 class X10_Device(Base_Device):
 
     def __init__(self, core, plm, **kwargs):

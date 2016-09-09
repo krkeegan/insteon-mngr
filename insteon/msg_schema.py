@@ -656,7 +656,7 @@ PLM_SCHEMA = {
         }
     },
     0x7F: {
-        'rcvd_len': (6,),
+        'rcvd_len': (4,),
         'name': 'unknown',  # This command is seen in the incomiming buffer
         'recv_byte_pos': {  # of the 2242-222 every few minutes.  I assume
             'plm_cmd': 1,   # it is some sort of keep-alive initiated by
