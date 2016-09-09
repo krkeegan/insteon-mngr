@@ -6,7 +6,7 @@ import sys
 
 from .plm import PLM
 from .hub import Hub
-from .rest_server import Rest_Server
+from .rest_server import start
 
 
 class Insteon_Core(object):
@@ -21,8 +21,7 @@ class Insteon_Core(object):
         signal.signal(signal.SIGINT, self._signal_handler)
 
     def start_rest_server(self):
-        rest_server = Rest_Server(self)
-        rest_server.start()
+        start(self)
 
     def loop_once(self):
         '''Perform one loop of processing the data waiting to be
