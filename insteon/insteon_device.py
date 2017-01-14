@@ -214,6 +214,9 @@ class Insteon_Device(Root_Insteon):
                     print('nack received, senders ID not in database')
                     self.attribute('engine_version', 0x02)
                     self.last_sent_msg.insteon_msg.device_ack = True
+                    # Removing the current state_machine, maybe this infor
+                    # should be stored with the message?
+                    self.remove_state_machine(self.state_machine)
                     print('creating plm->device link')
                     self.add_plm_to_dev_link()
                 elif cmd_2 == 0xFE:
