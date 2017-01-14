@@ -85,6 +85,10 @@ class Modem(Root_Insteon):
             self._aldb.query_aldb()
 
     @property
+    def type(self):
+        return self.attribute('type')
+
+    @property
     def dev_cat(self):
         return self.attribute('dev_cat')
 

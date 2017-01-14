@@ -67,7 +67,8 @@ def index_page():
 @route('/modem/<DevID>')
 @view('modem')
 def modem_page(DevID):
-    return dict(device_id=DevID)
+    modem_attrs = get_modem(DevID)
+    return dict(device_id=DevID, attributes=modem_attrs)
 
 ###################################################################
 ##
@@ -113,9 +114,28 @@ def list_modems():
             'sub_cat': modem.sub_cat,
             'firmware': modem.firmware,
             'port': modem.port,
-            'port_active': modem.port_active
+            'port_active': modem.port_active,
+            'type': modem.type
             }}
         )
+    return ret
+
+def get_modem(DevID):
+    modem = core.get_modem_by_id(DevID)
+    ret =  {
+        'dev_cat': modem.dev_cat,
+        'sub_cat': modem.sub_cat,
+        'firmware': modem.firmware,
+        'port_active': modem.port_active,
+        'type': modem.type
+    }
+    if modem.type == 'hub':
+        ret['user'] = modem.user
+        ret['password'] = modem.password
+        ret['ip'] = modem.ip
+        ret['tcp_port'] = modem.tcp_port
+    else:
+        ret['port'] = modem.port
     return ret
 
 
