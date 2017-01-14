@@ -1,10 +1,15 @@
 # -*- coding:utf-8 -*-
 from .core import Insteon_Core
+import threading
+from .rest_server import start, stop
 
 __all__ = ['Insteon']
 
-core = Insteon_Core()
-core.start_rest_server()
+def core_loop():
+    core = Insteon_Core()
+    server = start(core)
+    while threading.main_thread().is_alive():
+        core.loop_once()
+    stop(server)
 
-while 1:
-    core.loop_once()
+threading.Thread(target=core_loop).start()

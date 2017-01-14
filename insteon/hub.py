@@ -12,7 +12,7 @@ def hub_thread(hub):
     prev_end_pos = -1
     last_bytestring = ''
 
-    while 1:
+    while threading.main_thread().is_alive():
         # Read First
         bytestring = ''
         current_end_pos = 0

@@ -6,7 +6,7 @@ import sys
 
 from .plm import PLM
 from .hub import Hub
-from .rest_server import start
+
 
 
 class Insteon_Core(object):
@@ -18,10 +18,6 @@ class Insteon_Core(object):
         self._load_state()
         # Be sure to save before exiting
         atexit.register(self._save_state, True)
-        signal.signal(signal.SIGINT, self._signal_handler)
-
-    def start_rest_server(self):
-        start(self)
 
     def loop_once(self):
         '''Perform one loop of processing the data waiting to be
@@ -124,9 +120,3 @@ class Insteon_Core(object):
                     self.add_plm(attributes=modem_data, device_id=modem_id)
                 elif modem_data['type'] == 'hub':
                     self.add_hub(attributes=modem_data, device_id=modem_id)
-
-    def _signal_handler(self, signal, frame):
-        # Catches a Ctrl + C and Saves the Config before exiting
-        self._save_state(True)
-        print('You pressed Ctrl+C!')
-        sys.exit(0)

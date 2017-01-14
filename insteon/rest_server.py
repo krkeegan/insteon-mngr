@@ -4,7 +4,7 @@ import json
 import re
 import os
 
-from bottle import route, run, Bottle, response, get, post, request, error, static_file, view, TEMPLATE_PATH
+from bottle import route, run, Bottle, response, get, post, request, error, static_file, view, TEMPLATE_PATH, WSGIRefServer
 
 core = ''
 app = Bottle()
@@ -16,8 +16,12 @@ print(TEMPLATE_PATH)
 def start(passed_core):
     global core
     core = passed_core
-    threading.Thread(target=run, kwargs=dict(
-        host='localhost', port=8080, debug=True)).start()
+    server = MyServer(host='0.0.0.0', port=8080, debug=True)
+    threading.Thread(target=run, kwargs=dict(server=server)).start()
+    return server
+
+def stop(server):
+    server.shutdown()
 
 ###################################################################
 ##
@@ -154,3 +158,32 @@ def is_unique_DevID(DevID):
 
 def jsonify(data):
     return json.dumps(data, indent=4, sort_keys=True)
+
+class MyServer(WSGIRefServer):
+    def run(self, app): # pragma: no cover
+        from wsgiref.simple_server import WSGIRequestHandler, WSGIServer
+        from wsgiref.simple_server import make_server
+        import socket
+
+        class FixedHandler(WSGIRequestHandler):
+            def address_string(self): # Prevent reverse DNS lookups please.
+                return self.client_address[0]
+            def log_request(*args, **kw):
+                if not self.quiet:
+                    return WSGIRequestHandler.log_request(*args, **kw)
+
+        handler_cls = self.options.get('handler_class', FixedHandler)
+        server_cls  = self.options.get('server_class', WSGIServer)
+
+        if ':' in self.host: # Fix wsgiref for IPv6 addresses.
+            if getattr(server_cls, 'address_family') == socket.AF_INET:
+                class server_cls(server_cls):
+                    address_family = socket.AF_INET6
+
+        srv = make_server(self.host, self.port, app, server_cls, handler_cls)
+        self.srv = srv ### THIS IS THE ONLY CHANGE TO THE ORIGINAL CLASS METHOD!
+        srv.serve_forever()
+
+    def shutdown(self): ### ADD SHUTDOWN METHOD.
+        self.srv.shutdown()
+        # self.server.server_close()
