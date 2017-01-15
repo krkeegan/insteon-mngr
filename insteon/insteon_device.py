@@ -7,7 +7,7 @@ from .base_objects import Root_Insteon
 from .group import Insteon_Group
 from .msg_schema import EXT_DIRECT_SCHEMA, COMMAND_SCHEMA, \
     STD_DIRECT_ACK_SCHEMA
-from .message import PLM_Message
+from .plm_message import PLM_Message
 from .helpers import BYTE_TO_HEX, ID_STR_TO_BYTES
 
 

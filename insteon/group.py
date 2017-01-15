@@ -1,5 +1,5 @@
 from .helpers import BYTE_TO_HEX
-from .message import PLM_Message
+from .plm_message import PLM_Message
 
 
 class Insteon_Group(object):
