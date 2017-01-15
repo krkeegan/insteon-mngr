@@ -1,9 +1,11 @@
 import json
 import time
 import atexit
+import threading
 
 from .plm import PLM
 from .hub import Hub
+from .config_server import start, stop
 
 
 class Insteon_Core(object):
@@ -13,8 +15,15 @@ class Insteon_Core(object):
         self._modems = []
         self._last_saved_time = 0
         self._load_state()
+        threading.Thread(target=self.core_loop).start()
         # Be sure to save before exiting
         atexit.register(self._save_state, True)
+
+    def core_loop(self):
+        server = start(self)
+        while threading.main_thread().is_alive():
+            self.loop_once()
+        stop(server)
 
     def loop_once(self):
         '''Perform one loop of processing the data waiting to be
