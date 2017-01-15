@@ -2,10 +2,12 @@ import math
 import time
 import pprint
 
-from .base_objects import Base_Device, Device_ALDB, Insteon_Group, Root_Insteon
-from .msg_schema import *
-from .message import PLM_Message, Insteon_Message
-from .helpers import *
+from .aldb import Device_ALDB
+from .base_objects import Insteon_Group, Root_Insteon
+from .msg_schema import EXT_DIRECT_SCHEMA, COMMAND_SCHEMA, \
+    STD_DIRECT_ACK_SCHEMA
+from .message import PLM_Message
+from .helpers import BYTE_TO_HEX, ID_STR_TO_BYTES
 
 
 class Insteon_Device(Root_Insteon):
@@ -190,7 +192,7 @@ class Insteon_Device(Root_Insteon):
                         print('not sure how to respond to this')
                         return
                 is_ack = command(self, msg)
-                if is_ack != False:
+                if is_ack is not False:
                     self.last_sent_msg.insteon_msg.device_ack = True
             else:
                 print('rcvd ack, nothing to do')
@@ -208,7 +210,7 @@ class Insteon_Device(Root_Insteon):
         elif (self.last_sent_msg.get_byte_by_name('cmd_1') ==
                 msg.get_byte_by_name('cmd_1')):
             if (self.attribute('engine_version') == 0x02 or
-                    self.attribute('engine_version') == None):
+                    self.attribute('engine_version') is None):
                 cmd_2 = msg.get_byte_by_name('cmd_2')
                 if cmd_2 == 0xFF:
                     print('nack received, senders ID not in database')
@@ -229,8 +231,8 @@ class Insteon_Device(Root_Insteon):
                     self.plm.wait_to_send = 1
                     self._resend_msg(self.last_sent_msg)
                 elif cmd_2 == 0xFC:
-                    print(
-                        'nack received, Pre nack in case database search takes too long')
+                    print('nack received, Pre nack in case database search ',
+                          'takes too long')
                     self.attribute('engine_version', 0x02)
                     self.last_sent_msg.insteon_msg.device_ack = True
                 elif cmd_2 == 0xFB:
@@ -238,8 +240,8 @@ class Insteon_Device(Root_Insteon):
                     self.attribute('engine_version', 0x02)
                     self.last_sent_msg.insteon_msg.device_ack = True
                 else:
-                    print(
-                        'device nack`ed the last command, no further details, resending')
+                    print('device nack`ed the last command, no further ',
+                          'details, resending')
                     self.plm.wait_to_send = 1
                     self._resend_msg(self.last_sent_msg)
             else:
@@ -250,10 +252,10 @@ class Insteon_Device(Root_Insteon):
 
     def _is_valid_direct_ack(self, msg):
         ret = True
-        if self.last_sent_msg.plm_ack != True:
+        if self.last_sent_msg.plm_ack is not True:
             print('ignoring a device response received before PLM ack')
             ret = False
-        elif self.last_sent_msg.insteon_msg.device_ack != False:
+        elif self.last_sent_msg.insteon_msg.device_ack is not False:
             print('ignoring an unexpected device response')
             ret = False
         return ret
@@ -327,18 +329,17 @@ class Insteon_Device(Root_Insteon):
 
     def ack_set_msb(self, msg):
         '''currently called when set_address_msb ack received'''
-        if (self.last_sent_msg.insteon_msg.device_cmd_name == 'set_address_msb' and
-                    (self.last_sent_msg.get_byte_by_name('cmd_2') ==
-                     msg.get_byte_by_name('cmd_2'))
-                ):
+        if (self.last_sent_msg.insteon_msg.device_cmd_name == 'set_address_msb'
+            and (self.last_sent_msg.get_byte_by_name('cmd_2') ==
+                 msg.get_byte_by_name('cmd_2'))):
             ret = True
         else:
             ret = False
         return ret
 
     def ack_peek_aldb(self, msg):
-        if (self.last_sent_msg.insteon_msg.device_cmd_name == 'peek_one_byte' and
-                not (self.last_sent_msg.insteon_msg.device_ack)):
+        if (self.last_sent_msg.insteon_msg.device_cmd_name == 'peek_one_byte'
+                and not (self.last_sent_msg.insteon_msg.device_ack)):
             peek_msg = self.search_last_sent_msg(insteon_cmd='peek_one_byte')
             lsb = peek_msg.get_byte_by_name('cmd_2')
             msb_msg = self.search_last_sent_msg(insteon_cmd='set_address_msb')
@@ -440,7 +441,7 @@ class Insteon_Device(Root_Insteon):
                 cmd_schema = self._recursive_search_cmd(
                     cmd_schema, search_item)
                 if not cmd_schema:
-                    # TODO figure out some way to allow queuing prior to devcat?
+                    # TODO figure out some way to allow queuing prior to devcat
                     print(command_name, ' not available for this device')
                     break
             if cmd_schema:
@@ -469,8 +470,8 @@ class Insteon_Device(Root_Insteon):
             return False
 
     def write_aldb_record(self, msb, lsb):
-        # TODO This is only the base structure still need to add more basically just
-        # deletes things right now
+        # TODO This is only the base structure still need to add more basically
+        # just deletes things right now
         dev_bytes = {'msb': msb, 'lsb': lsb}
         self.send_command('write_aldb', '', dev_bytes=dev_bytes)
 

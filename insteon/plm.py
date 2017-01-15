@@ -3,8 +3,9 @@ import time
 import datetime
 
 from .insteon_device import Insteon_Device
-from .base_objects import PLM_ALDB, Insteon_Group, Trigger_Manager, Trigger, \
-    Root_Insteon
+from .base_objects import Insteon_Group, Root_Insteon
+from .aldb import PLM_ALDB
+from .trigger import Trigger_Manager, Trigger
 from .message import PLM_Message
 from .helpers import BYTE_TO_HEX, ID_STR_TO_BYTES, BYTE_TO_ID, HOUSE_TO_BYTE, \
     UNIT_TO_BYTE
@@ -548,7 +549,7 @@ class Modem(Root_Insteon):
             print('Ignored spurious all link clean status')
 
     def rcvd_all_link_clean_failed(self, msg):
-        failed_addr = byttearray()
+        failed_addr = bytearray()
         failed_addr.extend(msg.get_byte_by_name('fail_addr_hi'))
         failed_addr.extend(msg.get_byte_by_name('fail_addr_mid'))
         failed_addr.extend(msg.get_byte_by_name('fail_addr_low'))
