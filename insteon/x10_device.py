@@ -1,4 +1,7 @@
 from .base_objects import Base_Device
+from .plm_message import PLM_Message
+from .helpers import CMD_TO_BYTE
+
 
 class X10_Device(Base_Device):
 

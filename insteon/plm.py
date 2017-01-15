@@ -6,7 +6,7 @@ from .insteon_device import Insteon_Device
 from .base_objects import Insteon_Group, Root_Insteon
 from .aldb import PLM_ALDB
 from .trigger import Trigger_Manager, Trigger
-from .message import PLM_Message
+from .plm_message import PLM_Message
 from .helpers import BYTE_TO_HEX, ID_STR_TO_BYTES, BYTE_TO_ID, HOUSE_TO_BYTE, \
     UNIT_TO_BYTE
 from .msg_schema import PLM_SCHEMA
