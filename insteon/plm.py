@@ -3,7 +3,7 @@ import time
 import datetime
 
 from .insteon_device import Insteon_Device
-from .base_objects import Insteon_Group, Root_Insteon
+from .base_objects import Root_Insteon
 from .aldb import PLM_ALDB
 from .trigger import Trigger_Manager, Trigger
 from .plm_message import PLM_Message
@@ -11,51 +11,7 @@ from .helpers import BYTE_TO_HEX, ID_STR_TO_BYTES, BYTE_TO_ID, HOUSE_TO_BYTE, \
     UNIT_TO_BYTE
 from .msg_schema import PLM_SCHEMA
 from .x10_device import X10_Device
-
-
-class PLM_Group(Insteon_Group):
-
-    def __init__(self, parent, group_number):
-        super().__init__(parent, group_number)
-
-    def send_command(self, command_name, state='', plm_bytes={}):
-        # TODO are the state and plm_bytes needed?
-        '''Send an on/off command to a plm group'''
-        command = 0x11
-        if command_name.lower() == 'off':
-            command = 0x13
-        plm_bytes = {
-            'group': self.group_number,
-            'cmd_1': command,
-            'cmd_2': 0x00,
-        }
-        message = PLM_Message(self.parent,
-                              device=self.parent,
-                              plm_cmd='all_link_send',
-                              plm_bytes=plm_bytes)
-        self.parent._queue_device_msg(message, 'all_link_send')
-        records = self.parent._aldb.get_matching_records({
-            'controller': True,
-            'group': self.group_number,
-            'in_use': True
-        })
-        # Until all link status is complete, sending any other cmds to PLM
-        # will cause it to abandon all link process
-        message.seq_lock = True
-        message.seq_time = (len(records) + 1) * (87 / 1000 * 6)
-        for position in records:
-            linked_obj = self.parent._aldb.get_linked_obj(position)
-            # Queue a cleanup message on each device, this msg will
-            # be cleared from the queue on receipt of a cleanup
-            # ack
-            # TODO we are not currently handling uncommon alias type
-            # cmds
-            cmd_str = 'on_cleanup'
-            if command == 0x13:
-                cmd_str = 'off_cleanup'
-
-            linked_obj.send_command(
-                cmd_str, '', {'cmd_2': self.group_number})
+from .group import PLM_Group
 
 
 class Modem(Root_Insteon):

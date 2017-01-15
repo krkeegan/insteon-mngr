@@ -3,7 +3,8 @@ import time
 import pprint
 
 from .aldb import Device_ALDB
-from .base_objects import Insteon_Group, Root_Insteon
+from .base_objects import Root_Insteon
+from .group import Insteon_Group
 from .msg_schema import EXT_DIRECT_SCHEMA, COMMAND_SCHEMA, \
     STD_DIRECT_ACK_SCHEMA
 from .message import PLM_Message

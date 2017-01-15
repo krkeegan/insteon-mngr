@@ -2,8 +2,6 @@ import time
 import datetime
 import pprint
 
-from .helpers import BYTE_TO_HEX
-
 
 class Base_Device(object):
 
@@ -162,56 +160,6 @@ class Base_Device(object):
     def _load_devices(self, devices):
         for id, attributes in devices.items():
             self.add_device(id, attributes=attributes)
-
-
-class Insteon_Group(object):
-
-    def __init__(self, parent, group_number):
-        self._parent = parent
-        self._group_number = group_number
-
-    @property
-    def group_number(self):
-        return self._group_number
-
-    @property
-    def parent(self):
-        return self._parent
-
-    @property
-    def dev_addr_hi(self):
-        return self.parent._dev_addr_hi
-
-    @property
-    def dev_addr_mid(self):
-        return self.parent._dev_addr_mid
-
-    @property
-    def dev_addr_low(self):
-        return self.parent._dev_addr_low
-
-    @property
-    def dev_addr_str(self):
-        ret = BYTE_TO_HEX(
-            bytes([self.dev_addr_hi, self.dev_addr_mid, self.dev_addr_low]))
-        return ret
-
-    @property
-    def dev_cat(self):
-        return self.parent.attribute('dev_cat')
-
-    @property
-    def sub_cat(self):
-        return self.parent.attribute('sub_cat')
-
-    @property
-    def firmware(self):
-        return self.parent.attribute('firmware')
-
-    def create_link(self, responder, d1, d2, d3):
-        pass
-        self.parent._aldb.create_controller(responder)
-        responder._aldb.create_responder(self, d1, d2, d3)
 
 
 class Root_Insteon(Base_Device):
