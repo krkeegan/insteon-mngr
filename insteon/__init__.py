@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*-
 from .core import Insteon_Core
 import threading
-from .rest_server import start, stop
+from .config_server import start, stop
 
 __all__ = ['Insteon']
 

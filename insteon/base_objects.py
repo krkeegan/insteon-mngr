@@ -382,7 +382,7 @@ class Base_Device(object):
         elif 'insteon_cmd' in kwargs:
             for msg in reversed(self._out_history):
                 if msg.insteon_msg and \
-                        msg.insteon_msg.device_cmd_name == kwargs['insteon_cmd']:
+                      msg.insteon_msg.device_cmd_name == kwargs['insteon_cmd']:
                     ret = msg
                     break
         return ret
@@ -407,7 +407,7 @@ class Base_Device(object):
 
     def _load_devices(self, devices):
         for id, attributes in devices.items():
-            device = self.add_device(id, attributes=attributes)
+            self.add_device(id, attributes=attributes)
 
 
 class Insteon_Group(object):

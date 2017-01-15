@@ -1,12 +1,9 @@
 import json
 import time
 import atexit
-import signal
-import sys
 
 from .plm import PLM
 from .hub import Hub
-
 
 
 class Insteon_Core(object):
