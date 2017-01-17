@@ -19,6 +19,15 @@ class Insteon_Core(object):
         # Be sure to save before exiting
         atexit.register(self._save_state, True)
 
+        # Load device data
+        with open('insteon/data/device_categories.json', 'r') as myfile:
+            json_cats = myfile.read()
+        self.device_categories = json.loads(json_cats)
+
+        with open('insteon/data/device_models.json', 'r') as myfile:
+            json_models = myfile.read()
+        self.device_models = json.loads(json_models)
+
     def core_loop(self):
         server = start(self)
         while threading.main_thread().is_alive():
