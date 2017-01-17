@@ -19,11 +19,18 @@ def hub_thread(hub):
         current_end_pos = 0
 
         # Get Buffer Contents
-        response = requests.get('http://' + hub.ip + ':' +
+        try:
+            response = requests.get('http://' + hub.ip + ':' +
                                 hub.tcp_port + '/buffstatus.xml',
                                 auth=requests.auth.HTTPBasicAuth(
                                     hub.user,
-                                    hub.password))
+                                    hub.password),
+                                    timeout=0.3)
+        except requests.exceptions.Timeout:
+            # TODO handle multiple timeouts, close connection or something
+            print('-----------Timeout Occurred--------')
+            time.sleep(.1)
+            continue
 
         root = ET.fromstring(response.text)
         for response in root:
@@ -55,11 +62,19 @@ def hub_thread(hub):
             cmd_str = BYTE_TO_HEX(command)
             url = ('http://' + hub.ip + ':' +
                    hub.tcp_port + '/3?' + cmd_str + '=I=3')
-            response = requests.get(url,
-                                    auth=requests.auth.HTTPBasicAuth(
-                                        hub.user,
-                                        hub.password)
-                                    )
+            try:
+                response = requests.get(url,
+                                        auth=requests.auth.HTTPBasicAuth(
+                                            hub.user,
+                                            hub.password),
+                                        timeout=3
+                                        )
+            except requests.exceptions.Timeout:
+                # TODO what should happen here, assume it wasn't received?
+                # but need to take into account that it was
+                print('-----------Timeout In Sending--------')
+                time.sleep(.1)
+                continue
             last_bytestring = '0000000000'
             prev_end_pos = 0
 
@@ -75,7 +90,7 @@ class Hub(Modem):
 
     def __init__(self, core, **kwargs):
         super().__init__(core, **kwargs)
-        self.ack_time = 750
+        self.ack_time = 3000
         self.attribute('type', 'hub')
         if 'device_id' in kwargs:
             id_bytes = ID_STR_TO_BYTES(kwargs['device_id'])
