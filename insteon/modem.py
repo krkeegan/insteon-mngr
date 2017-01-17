@@ -317,28 +317,44 @@ class Modem(Root_Insteon):
             return
 
     def process_queue(self):
-        '''Loops through all of the devices and sends the
+        '''Determines and sends the next message.
+        Preferentially sends a message from the same device with the same
+        state_machine as the perviously sent message.
+        Otherwise, loops through all of the devices and sends the
         oldest message currently waiting in a device queue
         if there are no other conflicts'''
         if (not self._is_ack_pending() and
                 time.time() > self.wait_to_send):
-            devices = [self, ]
-            msg_time = 0
-            sending_device = False
-            for id, device in self._devices.items():
-                devices.append(device)
-            for device in devices:
-                dev_msg_time = device.next_msg_create_time()
-                if dev_msg_time and (msg_time == 0 or dev_msg_time < msg_time):
-                    sending_device = device
-                    msg_time = dev_msg_time
-            if sending_device:
-                dev_msg = sending_device.pop_device_queue()
-                if dev_msg:
-                    if dev_msg.insteon_msg:
-                        device = dev_msg.device
-                        device.last_sent_msg = dev_msg
-                    self._send_msg(dev_msg)
+            last_device = None
+            last_state = None
+            next_state = None
+            send_msg = None
+            if self._last_sent_msg:
+                last_device = self._last_sent_msg.device
+                last_state = self._last_sent_msg.state_machine
+                next_state = last_device._get_next_state_machine()
+            if (last_device is not None and
+                    last_device.next_msg_create_time() is not None):
+                send_msg = last_device.pop_device_queue()
+            else:
+                devices = [self, ]
+                msg_time = 0
+                sending_device = False
+                for id, device in self._devices.items():
+                    devices.append(device)
+                for device in devices:
+                    dev_msg_time = device.next_msg_create_time()
+                    if dev_msg_time and (msg_time == 0 or
+                                         dev_msg_time < msg_time):
+                        sending_device = device
+                        msg_time = dev_msg_time
+                if sending_device:
+                    send_msg = sending_device.pop_device_queue()
+            if send_msg:
+                if send_msg.insteon_msg:
+                    device = send_msg.device
+                    device.last_sent_msg = send_msg
+                self._send_msg(send_msg)
 
     def _is_ack_pending(self):
         ret = False
