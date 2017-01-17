@@ -9,6 +9,7 @@ from .msg_schema import EXT_DIRECT_SCHEMA, COMMAND_SCHEMA, \
     STD_DIRECT_ACK_SCHEMA
 from .plm_message import PLM_Message
 from .helpers import BYTE_TO_HEX, ID_STR_TO_BYTES
+from .trigger import Trigger_Manager, Trigger
 
 
 class Insteon_Device(Root_Insteon):
@@ -36,6 +37,16 @@ class Insteon_Device(Root_Insteon):
         if (self.attribute('dev_cat') is None or
                 self.attribute('sub_cat') is None or
                 self.attribute('firmware') is None):
+            trigger_attributes = {
+                'from_addr_hi': self.dev_addr_hi,
+                'from_addr_mid': self.dev_addr_mid,
+                'from_addr_low': self.dev_addr_low,
+                'cmd_1': 0x01,
+                'insteon_msg_type': 'broadcast'
+            }
+            trigger = Trigger(trigger_attributes)
+            trigger.trigger_function = lambda: self.send_command('light_status_request')
+            self.plm._trigger_mngr.add_trigger(self.dev_addr_str + 'init_step_2', trigger)
             self.send_command('id_request')
         else:
             self._init_step_3()
@@ -108,8 +119,6 @@ class Insteon_Device(Root_Insteon):
             self.attribute('sub_cat', msg.get_byte_by_name('to_addr_mid'))
             self.attribute('firmware', msg.get_byte_by_name('to_addr_low'))
             print('rcvd, broadcast updated devcat, subcat, and firmware')
-            # Continue the init steps
-            self._init_step_3()
         elif msg.insteon_msg.message_type == 'alllink_cleanup_ack':
             # TODO set state of the device based on cmd acked
             # Clear queued cleanup messages if they exist
