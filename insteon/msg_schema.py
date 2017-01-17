@@ -365,7 +365,7 @@ PLM_SCHEMA = {
     0x69: {
         'rcvd_len': (3,),
         'send_len': (2,),
-        'ack_act': lambda obj, msg: obj.rcvd_plm_ack(msg),
+        'ack_act': lambda obj, msg: obj.rcvd_prelim_plm_ack(msg),
         'nack_act': lambda obj, msg: obj.end_of_aldb(msg),
         'name': 'all_link_first_rec',
         'recv_byte_pos': {
@@ -379,7 +379,7 @@ PLM_SCHEMA = {
     0x6A: {
         'rcvd_len': (3,),
         'send_len': (2,),
-        'ack_act': lambda obj, msg: obj.rcvd_plm_ack(msg),
+        'ack_act': lambda obj, msg: obj.rcvd_prelim_plm_ack(msg),
         'nack_act': lambda obj, msg: obj.end_of_aldb(msg),
         'name': 'all_link_next_rec',
         'recv_byte_pos': {
@@ -906,7 +906,8 @@ STD_DIRECT_ACK_SCHEMA = {
                         {'Firmware': 'all',
                             'value': [
                                 {'Cmd2': 'all',
-                                    'value': lambda x, y: None
+                                    'value': lambda x, y: \
+                                    x._ext_aldb_ack(y)
                                  }
                             ]
                          }

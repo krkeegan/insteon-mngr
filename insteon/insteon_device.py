@@ -94,6 +94,7 @@ class Insteon_Device(Root_Insteon):
         self._set_plm_wait(msg)
         self.last_rcvd_msg = msg
         if self._is_duplicate(msg):
+            msg.allow_trigger = False
             print('Skipped duplicate msg')
             return
         if msg.insteon_msg.message_type == 'direct':
@@ -189,12 +190,15 @@ class Insteon_Device(Root_Insteon):
                 ]
                 for search_item in search_list:
                     command = self._recursive_search_cmd(command, search_item)
-                    if not command:
+                    if command is None:
                         print('not sure how to respond to this')
                         return
                 is_ack = command(self, msg)
-                if is_ack is not False:
+                if is_ack is False:
+                    msg.allow_trigger = False
+                else:
                     self.last_sent_msg.insteon_msg.device_ack = True
+
             else:
                 print('rcvd ack, nothing to do')
                 self.last_sent_msg.insteon_msg.device_ack = True
@@ -375,28 +379,43 @@ class Insteon_Device(Root_Insteon):
                 lsb += 1
                 self._aldb.peek_aldb(lsb)
 
+    def _ext_aldb_ack(self, msg):
+        # TODO consider adding more time for following message to arrive
+        if (self.last_sent_msg.insteon_msg.device_prelim_ack is False and
+                self.last_sent_msg.insteon_msg.device_ack is False):
+            self.last_sent_msg.insteon_msg.device_prelim_ack = True
+        else:
+            print('received spurious ext_aldb_ack')
+        return False  # Never set ack
+
     def _ext_aldb_rcvd(self, msg):
         # Duplicate messages will not cause errors, so we don't check for them
-        last_msg = self.search_last_sent_msg(insteon_cmd='read_aldb')
-        req_msb = last_msg.get_byte_by_name('msb')
-        req_lsb = last_msg.get_byte_by_name('lsb')
-        msg_msb = msg.get_byte_by_name('usr_3')
-        msg_lsb = msg.get_byte_by_name('usr_4')
-        if ((req_lsb == msg_lsb and req_msb == msg_msb) or
-                (req_lsb == 0x00 and req_msb == 0x00)):
-            aldb_entry = bytearray([
-                msg.get_byte_by_name('usr_6'),
-                msg.get_byte_by_name('usr_7'),
-                msg.get_byte_by_name('usr_8'),
-                msg.get_byte_by_name('usr_9'),
-                msg.get_byte_by_name('usr_10'),
-                msg.get_byte_by_name('usr_11'),
-                msg.get_byte_by_name('usr_12'),
-                msg.get_byte_by_name('usr_13')
-            ])
-            self._aldb.edit_record(self._aldb._get_aldb_key(msg_msb, msg_lsb),
-                                   aldb_entry)
-            self.last_sent_msg.insteon_msg.device_ack = True
+        if (self.last_sent_msg.insteon_msg.device_prelim_ack is True and
+                self.last_sent_msg.insteon_msg.device_ack is False):
+            last_msg = self.search_last_sent_msg(insteon_cmd='read_aldb')
+            req_msb = last_msg.get_byte_by_name('msb')
+            req_lsb = last_msg.get_byte_by_name('lsb')
+            msg_msb = msg.get_byte_by_name('usr_3')
+            msg_lsb = msg.get_byte_by_name('usr_4')
+            if ((req_lsb == msg_lsb and req_msb == msg_msb) or
+                    (req_lsb == 0x00 and req_msb == 0x00)):
+                aldb_entry = bytearray([
+                    msg.get_byte_by_name('usr_6'),
+                    msg.get_byte_by_name('usr_7'),
+                    msg.get_byte_by_name('usr_8'),
+                    msg.get_byte_by_name('usr_9'),
+                    msg.get_byte_by_name('usr_10'),
+                    msg.get_byte_by_name('usr_11'),
+                    msg.get_byte_by_name('usr_12'),
+                    msg.get_byte_by_name('usr_13')
+                ])
+                self._aldb.edit_record(self._aldb._get_aldb_key(msg_msb, msg_lsb),
+                                       aldb_entry)
+                self.last_sent_msg.insteon_msg.device_ack = True
+        else:
+            msg.allow_trigger = False
+            print('received spurious ext_aldb record')
+
 
     def _set_engine_version(self, msg):
         version = msg.get_byte_by_name('cmd_2')

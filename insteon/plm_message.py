@@ -9,6 +9,8 @@ class PLM_Message(object):
     def __init__(self, plm, **kwargs):
         self._plm = plm
         self._plm_ack = False
+        self._plm_prelim_ack = False
+        self._allow_trigger = True
         self._seq_time = 0
         self._seq_lock = False
         self._is_incomming = False
@@ -227,6 +229,22 @@ class PLM_Message(object):
         self._plm_ack = boolean
         if boolean is True:
             self.plm_success_callback()
+
+    @property
+    def plm_prelim_ack(self):
+        return self._plm_prelim_ack
+
+    @plm_prelim_ack.setter
+    def plm_prelim_ack(self, boolean):
+        self._plm_prelim_ack = boolean
+
+    @property
+    def allow_trigger(self):
+        return self._allow_trigger
+
+    @allow_trigger.setter
+    def allow_trigger(self, boolean):
+        self._allow_trigger = boolean
 
     @property
     def plm_retry(self):

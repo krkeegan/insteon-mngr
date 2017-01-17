@@ -218,9 +218,11 @@ class Modem(Root_Insteon):
     def _resend_failed_msg(self):
         msg = self._last_sent_msg
         msg.plm_ack = False
+        msg.plm_prelim_ack = False
         if msg._insteon_msg:
             msg._insteon_msg.hops_left += 1
             msg._insteon_msg.max_hops += 1
+            msg._insteon_msg.device_prelim_ack = False
         self._last_sent_msg = {}
         if msg._device:
             msg._device._resend_msg(msg)
@@ -356,7 +358,18 @@ class Modem(Root_Insteon):
             self._last_sent_msg.plm_ack = True
             self._last_sent_msg.time_plm_ack = time.time()
         else:
+            msg.allow_trigger = False
             print('received spurious plm ack')
+
+    def rcvd_prelim_plm_ack(self, msg):
+        # TODO consider some way to increase allowable ack time
+        if (self._last_sent_msg.plm_prelim_ack is False and
+                self._last_sent_msg.plm_ack is False and
+                msg.raw_msg[0:-1] == self._last_sent_msg.raw_msg):
+            self._last_sent_msg.plm_prelim_ack = True
+        else:
+            msg.allow_trigger = False
+            print('received spurious prelim plm ack')
 
     def rcvd_all_link_manage_ack(self, msg):
         aldb = msg.raw_msg[3:11]
@@ -423,8 +436,15 @@ class Modem(Root_Insteon):
         self.wait_to_send = .5
 
     def rcvd_aldb_record(self, msg):
-        self._aldb.add_record(msg.raw_msg[2:])
-        self.send_command('all_link_next_rec', 'query_aldb')
+        if (self._last_sent_msg.plm_ack is False and
+                self._last_sent_msg.plm_prelim_ack is True):
+            self._last_sent_msg.plm_ack = True
+            self._last_sent_msg.time_plm_ack = time.time()
+            self._aldb.add_record(msg.raw_msg[2:])
+            self.send_command('all_link_next_rec', 'query_aldb')
+        else:
+            msg.allow_trigger = False
+            print('received spurious plm aldb record')
 
     def end_of_aldb(self, msg):
         self._last_sent_msg.plm_ack = True
@@ -482,6 +502,7 @@ class Modem(Root_Insteon):
             except KeyError:
                 print('Received and X10 command for an unknown device')
         else:
+            msg.allow_trigger = False
             print("X10 Command House Code did not match expected House Code")
             print("Message ignored")
 
@@ -501,6 +522,7 @@ class Modem(Root_Insteon):
                 # alllink cleanups to do the work
                 self.remove_state_machine('all_link_send')
         else:
+            msg.allow_trigger = False
             print('Ignored spurious all link clean status')
 
     def rcvd_all_link_clean_failed(self, msg):

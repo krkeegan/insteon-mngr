@@ -5,6 +5,7 @@ class Insteon_Message(object):
 
     def __init__(self, parent, **kwargs):
         self._device_ack = False
+        self._device_prelim_ack = False
         self._device_retry = 0
         self._cmd_schema = {}
         self._device_cmd_name = ''
@@ -222,6 +223,14 @@ class Insteon_Message(object):
         if boolean is True:
             self._parent.device._add_to_hop_array(self.max_hops)
             self.device_success_callback()
+
+    @property
+    def device_prelim_ack(self):
+        return self._device_prelim_ack
+
+    @device_prelim_ack.setter
+    def device_prelim_ack(self, boolean):
+        self._device_prelim_ack = boolean
 
     @property
     def device_success_callback(self):
