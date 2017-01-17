@@ -274,3 +274,13 @@ class PLM_Message(object):
     @msg_failure_callback.setter
     def msg_failure_callback(self, value):
         self._msg_failed_callback = value
+
+    @property
+    def state_machine(self):
+        return self._state_machine
+
+    @state_machine.setter
+    def state_machine(self, state):
+        if state == '':
+            state = 'default'
+        self._state_machine = state

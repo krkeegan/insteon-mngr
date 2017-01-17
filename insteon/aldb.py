@@ -201,6 +201,10 @@ class PLM_ALDB(ALDB):
         position = str(len(self._aldb) + 1)
         position = position.zfill(4)
         self._aldb[position] = aldb
+        parsed_record = self.parse_record(position)
+        self._parent.add_device(BYTE_TO_ID(parsed_record['dev_addr_hi'],
+                                parsed_record['dev_addr_mid'],
+                                parsed_record['dev_addr_low']))
 
     def have_aldb_cache(self):
         # TODO This will return false for an empty aldb as well, do we care?
