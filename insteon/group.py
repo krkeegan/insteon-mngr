@@ -72,7 +72,8 @@ class PLM_Group(Insteon_Group):
                               device=self.parent,
                               plm_cmd='all_link_send',
                               plm_bytes=plm_bytes)
-        self.parent._queue_device_msg(message, 'all_link_send')
+        message.state_machine = 'all_link_send'
+        self.parent._queue_device_msg(message)
         records = self.parent._aldb.get_matching_records({
             'controller': True,
             'group': self.group_number,

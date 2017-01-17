@@ -20,14 +20,14 @@ class Modem(Root_Insteon):
         self._trigger_mngr = Trigger_Manager(self)
         super().__init__(core, self, **kwargs)
         self._read_buffer = bytearray()
-        self._last_sent_msg = ''
+        self._last_sent_msg = None
         self._msg_queue = []
         self._wait_to_send = 0
-        self._last_x10_house = ''
-        self._last_x10_unit = ''
-        self._dev_addr_hi = ''
-        self._dev_addr_mid = ''
-        self._dev_addr_low = ''
+        self._last_x10_house = None
+        self._last_x10_unit = None
+        self._dev_addr_hi = None
+        self._dev_addr_mid = None
+        self._dev_addr_low = None
         self.port_active = True
         self.ack_time = 75
         for group_num in range(0x01, 0xFF):
@@ -259,7 +259,8 @@ class Modem(Root_Insteon):
     def send_command(self, command, state='', plm_bytes={}):
         message = self.create_message(command)
         message._insert_bytes_into_raw(plm_bytes)
-        self._queue_device_msg(message, state)
+        message.state_machine = state
+        self._queue_device_msg(message)
 
     def create_message(self, command):
         message = PLM_Message(

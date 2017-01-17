@@ -1,8 +1,9 @@
-import requests
 import xml.etree.ElementTree as ET
 import time
 import threading
 import queue
+
+import requests
 
 from .helpers import BYTE_TO_HEX, ID_STR_TO_BYTES
 from .plm import Modem

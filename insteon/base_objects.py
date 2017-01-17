@@ -74,17 +74,13 @@ class Base_Device(object):
         else:
             print(value, 'was not the active state_machine')
 
-    def _queue_device_msg(self, message, state):
-        if state == '':
-            state = 'default'
-        if state not in self._device_msg_queue:
-            self._device_msg_queue[state] = []
-        self._device_msg_queue[state].append(message)
+    def _queue_device_msg(self, message):
+        if message.state_machine not in self._device_msg_queue:
+            self._device_msg_queue[message.state_machine] = []
+        self._device_msg_queue[message.state_machine].append(message)
 
     def _resend_msg(self, message):
-        # This is a bit of a hack, assumes the state has not changed
-        # Maybe move state to the message class?
-        state = self.state_machine
+        state = message.state_machine
         if state not in self._device_msg_queue:
             self._device_msg_queue[state] = []
         self._device_msg_queue[state].insert(0, message)

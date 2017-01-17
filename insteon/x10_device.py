@@ -19,7 +19,8 @@ class X10_Device(Base_Device):
                                   device=self,
                                   plm_cmd='x10_send',
                                   plm_bytes=plm_bytes)
-            self._queue_device_msg(message, state)
+            message.state_machine = state
+            self._queue_device_msg(message)
             self.plm.store_x10_address(self._byte_address)
             plm_bytes = {
                 'raw_x10': self.house_byte | CMD_TO_BYTE[command.lower()],
@@ -29,7 +30,8 @@ class X10_Device(Base_Device):
                                   device=self,
                                   plm_cmd='x10_send',
                                   plm_bytes=plm_bytes)
-            self._queue_device_msg(message, state)
+            message.state_machine = state
+            self._queue_device_msg(message)
             self.status = command.lower()
         else:
             print("Unrecognized command ", command)

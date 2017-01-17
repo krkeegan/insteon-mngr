@@ -167,12 +167,14 @@ class Device_ALDB(ALDB):
         message.insteon_msg.device_success_callback = \
             lambda: \
             self.peek_aldb(lsb)
-        self._parent._queue_device_msg(message, 'query_aldb')
+        message.state_machine = 'query_aldb'
+        self._parent._queue_device_msg(message)
 
     def peek_aldb(self, lsb):
         message = self._parent.create_message('peek_one_byte')
         message._insert_bytes_into_raw({'lsb': lsb})
-        self._parent._queue_device_msg(message, 'query_aldb')
+        message.state_machine = 'query_aldb'
+        self._parent._queue_device_msg(message)
 
     def create_responder(self, controller, d1, d2, d3):
                 # Device Responder

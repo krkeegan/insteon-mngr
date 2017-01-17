@@ -16,12 +16,13 @@ class PLM_Message(object):
         self._failed = False
         self._plm_schema = {}
         self._raw_msg = bytes()
-        self._insteon_msg = {}
+        self._insteon_msg = None
         self._insteon_attr = {}
         self._creation_time = time.time()
         self._time_sent = 0
         self._plm_success_callback = lambda: None
         self._msg_failed_callback = lambda: None
+        self._state_machine = 'default'
         if 'is_incomming' in kwargs:
             self._is_incomming = True
         self._device = None

@@ -20,8 +20,8 @@ class Insteon_Device(Root_Insteon):
         self._dev_addr_hi = id_bytes[0]
         self._dev_addr_mid = id_bytes[1]
         self._dev_addr_low = id_bytes[2]
-        self.last_sent_msg = ''
-        self.last_rcvd_msg = ''
+        self.last_sent_msg = None
+        self.last_rcvd_msg = None
         self._recent_inc_msgs = {}
         self.create_group(1, Insteon_Group)
         self._init_step_1()
@@ -150,7 +150,7 @@ class Insteon_Device(Root_Insteon):
             ]
             for search_item in search_list:
                 command = self._recursive_search_cmd(command, search_item)
-                if not command:
+                if command is None:
                     print('not sure how to respond to this')
                     return
             command(self, msg)
@@ -165,7 +165,7 @@ class Insteon_Device(Root_Insteon):
         if not self._is_valid_direct_ack(msg):
             return
         elif (self.last_sent_msg.insteon_msg.device_cmd_name ==
-                'light_status_request'):
+              'light_status_request'):
             print('was status response')
             aldb_delta = msg.get_byte_by_name('cmd_1')
             if self.state_machine == 'set_aldb_delta':
@@ -178,7 +178,7 @@ class Insteon_Device(Root_Insteon):
             self.attribute('status', msg.get_byte_by_name('cmd_2'))
             self.last_sent_msg.insteon_msg.device_ack = True
         elif (self.last_sent_msg.get_byte_by_name('cmd_1') ==
-                msg.get_byte_by_name('cmd_1')):
+              msg.get_byte_by_name('cmd_1')):
             if msg.get_byte_by_name('cmd_1') in STD_DIRECT_ACK_SCHEMA:
                 command = STD_DIRECT_ACK_SCHEMA[msg.get_byte_by_name('cmd_1')]
                 search_list = [
@@ -217,9 +217,7 @@ class Insteon_Device(Root_Insteon):
                     print('nack received, senders ID not in database')
                     self.attribute('engine_version', 0x02)
                     self.last_sent_msg.insteon_msg.device_ack = True
-                    # Removing the current state_machine, maybe this infor
-                    # should be stored with the message?
-                    self.remove_state_machine(self.state_machine)
+                    self.remove_state_machine(self.last_sent_msg.state_machine)
                     print('creating plm->device link')
                     self.add_plm_to_dev_link()
                 elif cmd_2 == 0xFE:
@@ -424,7 +422,8 @@ class Insteon_Device(Root_Insteon):
         message = self.create_message(command_name)
         if message is not None:
             message._insert_bytes_into_raw(dev_bytes)
-            self._queue_device_msg(message, state)
+            message.state_machine = state
+            self._queue_device_msg(message)
 
     def create_message(self, command_name):
         ret = None
@@ -445,7 +444,7 @@ class Insteon_Device(Root_Insteon):
                     # TODO figure out some way to allow queuing prior to devcat
                     print(command_name, ' not available for this device')
                     break
-            if cmd_schema:
+            if cmd_schema is not None:
                 command = cmd_schema.copy()
                 command['name'] = command_name
                 ret = PLM_Message(self.plm,
@@ -468,7 +467,7 @@ class Insteon_Device(Root_Insteon):
         elif catch_all_cmd != '':
             return catch_all_cmd
         else:
-            return False
+            return None
 
     def write_aldb_record(self, msb, lsb):
         # TODO This is only the base structure still need to add more basically
@@ -487,7 +486,8 @@ class Insteon_Device(Root_Insteon):
         message._insert_bytes_into_raw(plm_bytes)
         message.plm_success_callback = self.add_plm_to_dev_link_step2
         message.msg_failure_callback = self.add_plm_to_dev_link_fail
-        self.plm._queue_device_msg(message, 'link plm->device')
+        message.state_machine = 'link plm->device'
+        self.plm._queue_device_msg(message)
 
     def add_plm_to_dev_link_step2(self):
         # Put Device in linking mode
@@ -500,7 +500,8 @@ class Insteon_Device(Root_Insteon):
             self.add_plm_to_dev_link_step3
         )
         message.msg_failure_callback = self.add_plm_to_dev_link_fail
-        self._queue_device_msg(message, 'link plm->device')
+        message.state_machine = 'link plm->device'
+        self._queue_device_msg(message)
 
     def add_plm_to_dev_link_step3(self):
         print('device in linking mode')
