@@ -7,6 +7,7 @@ from insteon.plm import PLM
 from insteon.hub import Hub
 from insteon.config_server import start, stop
 
+
 class Insteon_Core(object):
     '''Provides global management functions'''
 
@@ -45,10 +46,17 @@ class Insteon_Core(object):
     def add_hub(self, **kwargs):
         '''Inform the core of a hub that should be monitored as part
         of the core process'''
-        # TODO need to handle checking for existing hub and return it
-        ret = Hub(self, **kwargs)
-        if ret is not None:
-            self._modems.append(ret)
+        ret = None
+        for modem in self._modems:
+            if (modem.type == 'hub' and
+                    modem.ip == kwargs['ip'] and
+                    modem.tcp_port == kwargs['tcp_port']):
+                ret = modem
+                break
+        if ret is None:
+            ret = Hub(self, **kwargs)
+            if ret is not None:
+                self._modems.append(ret)
         return ret
 
     def add_plm(self, **kwargs):

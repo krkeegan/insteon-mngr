@@ -357,7 +357,11 @@ class InsteonDevice(Root_Insteon):
         # TODO consider adding more time for following message to arrive
         if (self.last_sent_msg.insteon_msg.device_prelim_ack is False and
                 self.last_sent_msg.insteon_msg.device_ack is False):
-            self.last_sent_msg.insteon_msg.device_prelim_ack = True
+            if self.last_sent_msg.get_byte_by_name('usr_2') == 0x00:
+                # When reading ALDB a subsequent ext msg will contain record
+                self.last_sent_msg.insteon_msg.device_prelim_ack = True
+            else:
+                self.last_sent_msg.insteon_msg.device_ack = True
         else:
             print('received spurious ext_aldb_ack')
         return False  # Never set ack
@@ -495,6 +499,16 @@ class InsteonDevice(Root_Insteon):
         self.queue_device_msg(message)
 
     def add_plm_to_dev_link_step3(self):
+        trigger_attributes = {
+            'from_addr_hi': self.dev_addr_hi,
+            'from_addr_mid': self.dev_addr_mid,
+            'from_addr_low': self.dev_addr_low,
+            'link_code': 0x01,
+            'plm_cmd': 0x53
+        }
+        trigger = Trigger(trigger_attributes)
+        trigger.trigger_function = lambda: self.add_plm_to_dev_link_step4()
+        self.plm.trigger_mngr.add_trigger(self.dev_addr_str + 'add_plm_step_3', trigger)
         print('device in linking mode')
 
     def add_plm_to_dev_link_step4(self):

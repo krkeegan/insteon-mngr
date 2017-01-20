@@ -31,7 +31,7 @@ class Modem(Root_Insteon):
             self.create_group(group_num, PLM_Group)
 
     def setup(self):
-        if self.dev_addr_str == '':
+        if self.dev_addr_str == '000000':
             self.send_command('plm_info')
         if self._aldb.have_aldb_cache() is False:
             self._aldb.query_aldb()
@@ -457,7 +457,11 @@ class Modem(Root_Insteon):
             # notify the linked device
             device_id = BYTE_TO_ID(record[2], record[3], record[4])
             device = self.get_device_by_addr(device_id)
-            device.add_plm_to_dev_link_step4()
+            if msg.get_byte_by_name('link_code') == 0x01:
+                dev_cat = msg.get_byte_by_name('dev_cat')
+                sub_cat = msg.get_byte_by_name('sub_cat')
+                firmware = msg.get_byte_by_name('firmware')
+                device.set_dev_version(dev_cat, sub_cat, firmware)
 
     def rcvd_btn_event(self, msg):
         print("The PLM Button was pressed")

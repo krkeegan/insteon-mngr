@@ -202,6 +202,10 @@ class PLM_ALDB(ALDB):
         position = position.zfill(4)
         self._aldb[position] = aldb
         parsed_record = self.parse_record(position)
+        # TODO if this is a PLM controller record, we may also know the
+        # dev_cat sub_cat and firmware of this device, although they may
+        # not be accurate.  Should we do something with this just in case
+        # we are unable to reach the device such as motion sensors, remotes...
         self._parent.add_device(BYTE_TO_ID(parsed_record['dev_addr_hi'],
                                 parsed_record['dev_addr_mid'],
                                 parsed_record['dev_addr_low']))
