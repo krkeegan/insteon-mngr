@@ -15,7 +15,7 @@ from insteon.trigger import Trigger
 class InsteonDevice(Root_Insteon):
 
     def __init__(self, core, plm, **kwargs):
-        self._aldb = Device_ALDB(self)
+        self.aldb = Device_ALDB(self)
         super().__init__(core, plm, **kwargs)
         self.last_sent_msg = None
         self.last_rcvd_msg = None
@@ -148,7 +148,7 @@ class InsteonDevice(Root_Insteon):
                 self.remove_state_machine('set_aldb_delta')
             elif self.attribute('aldb_delta') != aldb_delta:
                 print('aldb has changed, rescanning')
-                self._aldb.query_aldb()
+                self.aldb.query_aldb()
             # TODO, we want to change aldb_deltas that are at 0x00
             self.attribute('status', msg.get_byte_by_name('cmd_2'))
             self.last_sent_msg.insteon_msg.device_ack = True
@@ -322,36 +322,36 @@ class InsteonDevice(Root_Insteon):
             msb_msg = self.search_last_sent_msg(insteon_cmd='set_address_msb')
             msb = msb_msg.get_byte_by_name('cmd_2')
             if (lsb % 8) == 0:
-                self._aldb.edit_record(
-                    self._aldb.get_aldb_key(msb, lsb), bytearray(8))
-            self._aldb.edit_record_byte(
-                self._aldb.get_aldb_key(msb, lsb),
+                self.aldb.edit_record(
+                    self.aldb.get_aldb_key(msb, lsb), bytearray(8))
+            self.aldb.edit_record_byte(
+                self.aldb.get_aldb_key(msb, lsb),
                 lsb % 8,
                 msg.get_byte_by_name('cmd_2')
             )
-            if self._aldb.is_last_aldb(self._aldb.get_aldb_key(msb, lsb)):
+            if self.aldb.is_last_aldb(self.aldb.get_aldb_key(msb, lsb)):
                 # this is the last entry on this device
-                records = self._aldb.get_all_records()
+                records = self.aldb.get_all_records()
                 for key in sorted(records):
                     print(key, ":", BYTE_TO_HEX(records[key]))
                 self.remove_state_machine('query_aldb')
                 self.send_command('light_status_request', 'set_aldb_delta')
-            elif self._aldb.is_empty_aldb(self._aldb.get_aldb_key(msb, lsb)):
+            elif self.aldb.is_empty_aldb(self.aldb.get_aldb_key(msb, lsb)):
                 # this is an empty record
                 print('empty record')
                 lsb = lsb - (8 + (lsb % 8))
-                self._aldb.peek_aldb(lsb)
+                self.aldb.peek_aldb(lsb)
             elif lsb == 7:
                 # Change MSB
                 msb -= 1
                 lsb = 0xF8
-                self._aldb.i1_start_aldb_entry_query(msb, lsb)
+                self.aldb.i1_start_aldb_entry_query(msb, lsb)
             elif (lsb % 8) == 7:
                 lsb -= 15
-                self._aldb.peek_aldb(lsb)
+                self.aldb.peek_aldb(lsb)
             else:
                 lsb += 1
-                self._aldb.peek_aldb(lsb)
+                self.aldb.peek_aldb(lsb)
 
     def _ext_aldb_ack(self, msg):
         # TODO consider adding more time for following message to arrive
@@ -386,7 +386,7 @@ class InsteonDevice(Root_Insteon):
                     msg.get_byte_by_name('usr_12'),
                     msg.get_byte_by_name('usr_13')
                 ])
-                self._aldb.edit_record(self._aldb.get_aldb_key(msg_msb, msg_lsb),
+                self.aldb.edit_record(self.aldb.get_aldb_key(msg_msb, msg_lsb),
                                        aldb_entry)
                 self.last_sent_msg.insteon_msg.device_ack = True
         else:

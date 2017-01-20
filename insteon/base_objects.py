@@ -149,7 +149,7 @@ class Base_Device(object):
     def _load_attributes(self, attributes):
         for name, value in attributes.items():
             if name == 'ALDB':
-                self._aldb.load_aldb_records(value)
+                self.aldb.load_aldb_records(value)
             elif name == 'Devices':  # should only be plm?
                 self._load_devices(value)
             else:

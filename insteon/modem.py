@@ -16,7 +16,7 @@ class Modem(Root_Insteon):
 
     def __init__(self, core, **kwargs):
         self._devices = {}
-        self._aldb = PLM_ALDB(self)
+        self.aldb = PLM_ALDB(self)
         self.trigger_mngr = Trigger_Manager(self)
         super().__init__(core, self, **kwargs)
         self._read_buffer = bytearray()
@@ -33,8 +33,8 @@ class Modem(Root_Insteon):
     def setup(self):
         if self.dev_addr_str == '000000':
             self.send_command('plm_info')
-        if self._aldb.have_aldb_cache() is False:
-            self._aldb.query_aldb()
+        if self.aldb.have_aldb_cache() is False:
+            self.aldb.query_aldb()
 
     def set_ack_time(self,milliseconds):
         self.ack_time = milliseconds
@@ -371,17 +371,17 @@ class Modem(Root_Insteon):
             'dev_addr_low': msg.get_byte_by_name('dev_addr_low'),
         }
         if ctrl_code == 0x40 or ctrl_code == 0x41:
-            self._aldb.add_record(aldb)
+            self.aldb.add_record(aldb)
         elif ctrl_code == 0x20:
-            records = self._aldb.get_matching_records(search_attributes)
+            records = self.aldb.get_matching_records(search_attributes)
             try:
-                self._aldb.edit_record(records[0], aldb)
+                self.aldb.edit_record(records[0], aldb)
             except:
                 print('error trying to edit plm aldb cache')
         elif ctrl_code == 0x80:
-            records = self._aldb.get_matching_records(search_attributes)
+            records = self.aldb.get_matching_records(search_attributes)
             try:
-                self._aldb.delete_record(records[0], aldb)
+                self.aldb.delete_record(records[0], aldb)
             except:
                 print('error trying to delete plm aldb cache')
         self.rcvd_plm_ack(msg)
@@ -390,7 +390,7 @@ class Modem(Root_Insteon):
         print('error writing aldb to PLM, will rescan plm and try again')
         plm = self
         self._last_sent_msg.failed = True
-        self._aldb.query_aldb()
+        self.aldb.query_aldb()
         trigger_attributes = {
             'plm_cmd': 0x6A,
             'plm_resp': 0x15
@@ -408,7 +408,7 @@ class Modem(Root_Insteon):
         else:
             device = device.get_object_by_group_num(
                 msg.get_byte_by_name('group'))
-        trigger.trigger_function = lambda: plm._aldb._write_link(
+        trigger.trigger_function = lambda: plm.aldb._write_link(
             device, is_controller)
         self.trigger_mngr.add_trigger('rcvd_all_link_manage_nack', trigger)
 
@@ -427,7 +427,7 @@ class Modem(Root_Insteon):
                 self._last_sent_msg.plm_prelim_ack is True):
             self._last_sent_msg.plm_ack = True
             self._last_sent_msg.time_plm_ack = time.time()
-            self._aldb.add_record(msg.raw_msg[2:])
+            self.aldb.add_record(msg.raw_msg[2:])
             self.send_command('all_link_next_rec', 'query_aldb')
         else:
             msg.allow_trigger = False
@@ -437,7 +437,7 @@ class Modem(Root_Insteon):
         self._last_sent_msg.plm_ack = True
         self.remove_state_machine('query_aldb')
         print('reached the end of the PLMs ALDB')
-        records = self._aldb.get_all_records()
+        records = self.aldb.get_all_records()
         for key in sorted(records):
             print(key, ":", BYTE_TO_HEX(records[key]))
 
@@ -453,7 +453,7 @@ class Modem(Root_Insteon):
             record = bytearray(8)
             record[0] = link_flag
             record[1:8] = msg.raw_msg[3:]
-            self._aldb.add_record(record)
+            self.aldb.add_record(record)
             # notify the linked device
             device_id = BYTE_TO_ID(record[2], record[3], record[4])
             device = self.get_device_by_addr(device_id)
@@ -468,7 +468,7 @@ class Modem(Root_Insteon):
         # Currently there is no processing of this event
 
     def rcvd_plm_reset(self, msg):
-        self._aldb.clear_all_records()
+        self.aldb.clear_all_records()
         print("The PLM was manually reset")
 
     def rcvd_x10(self, msg):

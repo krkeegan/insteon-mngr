@@ -6,23 +6,23 @@ class ALDB(object):
 
     def __init__(self, parent):
         self._parent = parent
-        self._aldb = {}
+        self.aldb = {}
 
     def edit_record(self, position, record):
-        self._aldb[position] = record
+        self.aldb[position] = record
 
     def delete_record(self, position):
-        del(self._aldb[position])
+        del(self.aldb[position])
 
     def get_record(self, position):
-        return self._aldb[position]
+        return self.aldb[position]
 
     def get_all_records(self):
-        return self._aldb.copy()
+        return self.aldb.copy()
 
     def get_all_records_str(self):
         ret = {}
-        for key, value in self._aldb.items():
+        for key, value in self.aldb.items():
             ret[key] = BYTE_TO_HEX(value)
         return ret
 
@@ -31,16 +31,16 @@ class ALDB(object):
             self.edit_record(key, bytearray.fromhex(record))
 
     def clear_all_records(self):
-        self._aldb = {}
+        self.aldb = {}
 
     def edit_record_byte(self, aldb_pos, byte_pos, byte):
-        self._aldb[aldb_pos][byte_pos] = byte
+        self.aldb[aldb_pos][byte_pos] = byte
 
     def get_matching_records(self, attributes):
         '''Returns an array of positions of each records that matches ALL
         attributes'''
         ret = []
-        for position, record in self._aldb.items():
+        for position, record in self.aldb.items():
             parsed_record = self.parse_record(position)
             ret.append(position)
             for attribute, value in attributes.items():
@@ -50,7 +50,7 @@ class ALDB(object):
         return ret
 
     def parse_record(self, position):
-        bytes = self._aldb[position]
+        bytes = self.aldb[position]
         parsed = {
             'record_flag': bytes[0],
             'in_use':  bytes[0] & 0b10000000,
@@ -198,9 +198,9 @@ class Device_ALDB(ALDB):
 class PLM_ALDB(ALDB):
 
     def add_record(self, aldb):
-        position = str(len(self._aldb) + 1)
+        position = str(len(self.aldb) + 1)
         position = position.zfill(4)
-        self._aldb[position] = aldb
+        self.aldb[position] = aldb
         parsed_record = self.parse_record(position)
         # TODO if this is a PLM controller record, we may also know the
         # dev_cat sub_cat and firmware of this device, although they may
@@ -213,7 +213,7 @@ class PLM_ALDB(ALDB):
     def have_aldb_cache(self):
         # TODO This will return false for an empty aldb as well, do we care?
         ret = True
-        if len(self._aldb) == 0:
+        if len(self.aldb) == 0:
             ret = False
         return ret
 

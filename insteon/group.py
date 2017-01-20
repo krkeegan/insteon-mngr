@@ -19,8 +19,8 @@ class Insteon_Group(Base_Insteon):
 
     def create_link(self, responder, d1, d2, d3):
         pass
-        self.parent._aldb.create_controller(responder)
-        responder._aldb.create_responder(self, d1, d2, d3)
+        self.parent.aldb.create_controller(responder)
+        responder.aldb.create_responder(self, d1, d2, d3)
 
     def set_dev_addr(*args, **kwargs):
         return NotImplemented
@@ -50,7 +50,7 @@ class PLM_Group(Insteon_Group):
                               plm_bytes=plm_bytes)
         message.state_machine = 'all_link_send'
         self.parent._queue_device_msg(message)
-        records = self.parent._aldb.get_matching_records({
+        records = self.parent.aldb.get_matching_records({
             'controller': True,
             'group': self.group_number,
             'in_use': True
@@ -60,7 +60,7 @@ class PLM_Group(Insteon_Group):
         message.seq_lock = True
         message.seq_time = (len(records) + 1) * (87 / 1000 * 6)
         for position in records:
-            linked_obj = self.parent._aldb.get_linked_obj(position)
+            linked_obj = self.parent.aldb.get_linked_obj(position)
             # Queue a cleanup message on each device, this msg will
             # be cleared from the queue on receipt of a cleanup
             # ack
