@@ -6,23 +6,23 @@ class ALDB(object):
 
     def __init__(self, parent):
         self._parent = parent
-        self.aldb = {}
+        self._aldb = {}
 
     def edit_record(self, position, record):
-        self.aldb[position] = record
+        self._aldb[position] = record
 
     def delete_record(self, position):
-        del(self.aldb[position])
+        del(self._aldb[position])
 
     def get_record(self, position):
-        return self.aldb[position]
+        return self._aldb[position]
 
     def get_all_records(self):
-        return self.aldb.copy()
+        return self._aldb.copy()
 
     def get_all_records_str(self):
         ret = {}
-        for key, value in self.aldb.items():
+        for key, value in self._aldb.items():
             ret[key] = BYTE_TO_HEX(value)
         return ret
 
@@ -31,16 +31,16 @@ class ALDB(object):
             self.edit_record(key, bytearray.fromhex(record))
 
     def clear_all_records(self):
-        self.aldb = {}
+        self._aldb = {}
 
     def edit_record_byte(self, aldb_pos, byte_pos, byte):
-        self.aldb[aldb_pos][byte_pos] = byte
+        self._aldb[aldb_pos][byte_pos] = byte
 
     def get_matching_records(self, attributes):
         '''Returns an array of positions of each records that matches ALL
         attributes'''
         ret = []
-        for position, record in self.aldb.items():
+        for position, record in self._aldb.items():
             parsed_record = self.parse_record(position)
             ret.append(position)
             for attribute, value in attributes.items():
@@ -50,7 +50,7 @@ class ALDB(object):
         return ret
 
     def parse_record(self, position):
-        bytes = self.aldb[position]
+        bytes = self._aldb[position]
         parsed = {
             'record_flag': bytes[0],
             'in_use':  bytes[0] & 0b10000000,
@@ -109,7 +109,7 @@ class Device_ALDB(ALDB):
             self.i1_start_aldb_entry_query(0x0F, 0xF8)
         else:
             dev_bytes = {'msb': 0x00, 'lsb': 0x00}
-            self._parent.send_command('read_aldb',
+            self._parent.msg_handler.send_command('read_aldb',
                                       'query_aldb',
                                       dev_bytes=dev_bytes)
             # It would be nice to link the trigger to the msb and lsb, but we
@@ -135,7 +135,7 @@ class Device_ALDB(ALDB):
             records = self.get_all_records()
             for key in sorted(records):
                 print(key, ":", BYTE_TO_HEX(records[key]))
-            self._parent.send_command('light_status_request', 'set_aldb_delta')
+            self._parent.msg_handler.send_command('light_status_request', 'set_aldb_delta')
         else:
             if lsb == 0x07:
                 msb -= 1
@@ -143,7 +143,7 @@ class Device_ALDB(ALDB):
             else:
                 lsb -= 8
             dev_bytes = {'msb': msb, 'lsb': lsb}
-            self._parent.send_command('read_aldb',
+            self._parent.msg_handler.send_command('read_aldb',
                                       'query_aldb',
                                       dev_bytes=dev_bytes)
             # Set Trigger
@@ -162,7 +162,7 @@ class Device_ALDB(ALDB):
             self._parent.plm.trigger_mngr.add_trigger(trigger_name, trigger)
 
     def i1_start_aldb_entry_query(self, msb, lsb):
-        message = self._parent.create_message('set_address_msb')
+        message = self._parent.msg_handler.create_message('set_address_msb')
         message.insert_bytes_into_raw({'msb': msb})
         message.insteon_msg.device_success_callback = \
             lambda: \
@@ -171,7 +171,7 @@ class Device_ALDB(ALDB):
         self._parent._queue_device_msg(message)
 
     def peek_aldb(self, lsb):
-        message = self._parent.create_message('peek_one_byte')
+        message = self._parent.msg_handler.create_message('peek_one_byte')
         message.insert_bytes_into_raw({'lsb': lsb})
         message.state_machine = 'query_aldb'
         self._parent._queue_device_msg(message)
@@ -198,14 +198,10 @@ class Device_ALDB(ALDB):
 class PLM_ALDB(ALDB):
 
     def add_record(self, aldb):
-        position = str(len(self.aldb) + 1)
+        position = str(len(self._aldb) + 1)
         position = position.zfill(4)
-        self.aldb[position] = aldb
+        self._aldb[position] = aldb
         parsed_record = self.parse_record(position)
-        # TODO if this is a PLM controller record, we may also know the
-        # dev_cat sub_cat and firmware of this device, although they may
-        # not be accurate.  Should we do something with this just in case
-        # we are unable to reach the device such as motion sensors, remotes...
         self._parent.add_device(BYTE_TO_ID(parsed_record['dev_addr_hi'],
                                 parsed_record['dev_addr_mid'],
                                 parsed_record['dev_addr_low']))
@@ -213,7 +209,7 @@ class PLM_ALDB(ALDB):
     def have_aldb_cache(self):
         # TODO This will return false for an empty aldb as well, do we care?
         ret = True
-        if len(self.aldb) == 0:
+        if len(self._aldb) == 0:
             ret = False
         return ret
 
