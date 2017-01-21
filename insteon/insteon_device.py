@@ -5,8 +5,7 @@ import pprint
 from insteon.aldb import Device_ALDB
 from insteon.base_objects import Root_Insteon
 from insteon.group import Insteon_Group
-from insteon.msg_schema import COMMAND_SCHEMA, \
-    STD_DIRECT_ACK_SCHEMA
+from insteon.msg_schema import COMMAND_SCHEMA
 from insteon.plm_message import PLM_Message
 from insteon.helpers import BYTE_TO_HEX
 from insteon.trigger import Trigger
@@ -18,7 +17,9 @@ class InsteonDevice(Root_Insteon):
     def __init__(self, core, plm, **kwargs):
         self.aldb = Device_ALDB(self)
         super().__init__(core, plm, **kwargs)
+        # TODO move this to command handler?
         self.last_sent_msg = None
+        # TODO move this to msg handler?
         self.last_rcvd_msg = None
         self._recent_inc_msgs = {}
         self.create_group(1, Insteon_Group)
@@ -67,6 +68,9 @@ class InsteonDevice(Root_Insteon):
     ###################################################################
 
     def msg_rcvd(self, msg):
+        '''Checks to see if the incomming message is valid, extracts
+        hop and plm wait time data, passes valid messages onto the
+        dispatcher'''
         ret = None
         self._set_plm_wait(msg)
         self.last_rcvd_msg = msg
@@ -79,6 +83,7 @@ class InsteonDevice(Root_Insteon):
             ret = self._dispatch_msg_rcvd(msg)
 
     def _dispatch_msg_rcvd(self, msg):
+        '''Selects the proper message path based on the message type.'''
         if msg.insteon_msg.message_type == 'direct':
             self._process_direct_msg(msg)
         elif msg.insteon_msg.message_type == 'direct_ack':
@@ -98,53 +103,18 @@ class InsteonDevice(Root_Insteon):
             pprint.pprint(msg.__dict__)
 
     def _process_direct_ack(self, msg):
-        '''processes an incomming direct ack message'''
-        if not self._is_valid_direct_ack(msg):
-            return
-        elif (self.last_sent_msg.insteon_msg.device_cmd_name ==
-              'light_status_request'):
-            print('was status response')
-            aldb_delta = msg.get_byte_by_name('cmd_1')
-            if self.state_machine == 'set_aldb_delta':
-                self.attribute('aldb_delta', aldb_delta)
-                self.remove_state_machine('set_aldb_delta')
-            elif self.attribute('aldb_delta') != aldb_delta:
-                print('aldb has changed, rescanning')
-                self.aldb.query_aldb()
-            # TODO, we want to change aldb_deltas that are at 0x00
-            self.attribute('status', msg.get_byte_by_name('cmd_2'))
-            self.last_sent_msg.insteon_msg.device_ack = True
-        elif (self.last_sent_msg.get_byte_by_name('cmd_1') ==
-              msg.get_byte_by_name('cmd_1')):
-            if msg.get_byte_by_name('cmd_1') in STD_DIRECT_ACK_SCHEMA:
-                command = STD_DIRECT_ACK_SCHEMA[msg.get_byte_by_name('cmd_1')]
-                search_list = [
-                    ['DevCat', self.dev_cat],
-                    ['SubCat', self.sub_cat],
-                    ['Firmware', self.firmware],
-                    ['Cmd2', self.last_sent_msg.get_byte_by_name('cmd_2')]
-                ]
-                for search_item in search_list:
-                    command = self._recursive_search_cmd(command, search_item)
-                    if command is None:
-                        print('not sure how to respond to this')
-                        return
-                is_ack = command(self, msg)
-                if is_ack is False:
-                    msg.allow_trigger = False
-                else:
-                    self.last_sent_msg.insteon_msg.device_ack = True
-
-            else:
-                print('rcvd ack, nothing to do')
-                self.last_sent_msg.insteon_msg.device_ack = True
+        '''processes an incomming direct ack message, sets the
+        allow_tigger flags and device_acks flags'''
+        if not self._is_valid_direct_resp(msg):
+            msg.allow_trigger = False
+        elif self._msg_handler.dispatch_direct_ack(msg) is False:
+            msg.allow_trigger = False
         else:
-            print('ignoring an unmatched ack')
-            pprint.pprint(msg.__dict__)
+            self.last_sent_msg.insteon_msg.device_ack = True
 
     def _process_direct_nack(self, msg):
         '''processes an incomming direct nack message'''
-        if not self._is_valid_direct_ack(msg):
+        if not self._is_valid_direct_resp(msg):
             return
         elif (self.last_sent_msg.get_byte_by_name('cmd_1') ==
               msg.get_byte_by_name('cmd_1')):
@@ -220,7 +190,7 @@ class InsteonDevice(Root_Insteon):
             for position in reversed(to_delete):
                 del self._device_msg_queue[state][position]
 
-    def _is_valid_direct_ack(self, msg):
+    def _is_valid_direct_resp(self, msg):
         ret = True
         if self.last_sent_msg.plm_ack is not True:
             print('ignoring a device response received before PLM ack')
@@ -228,6 +198,13 @@ class InsteonDevice(Root_Insteon):
         elif self.last_sent_msg.insteon_msg.device_ack is not False:
             print('ignoring an unexpected device response')
             ret = False
+        elif (self.last_sent_msg.get_byte_by_name('cmd_1') !=
+                msg.get_byte_by_name('cmd_1')):
+            # This may be a status response STUPID INSTEON
+            ret = False
+            status = self._msg_handler.dispatch_status_resp(msg)
+            if status is False:
+                print('ignoring an unmatched response')
         return ret
 
     def _process_hops(self, msg):
@@ -293,84 +270,37 @@ class InsteonDevice(Root_Insteon):
         self._recent_inc_msgs[search_key] = expire_time
 
     ###################################################################
-    ##
-    # Specific Incoming Message Handling
-    ##
+    #
+    # Device Attributes
+    #
     ###################################################################
 
-    def ack_set_msb(self, msg):
-        '''currently called when set_address_msb ack received'''
-        if (self.last_sent_msg.insteon_msg.device_cmd_name == 'set_address_msb'
-                and (self.last_sent_msg.get_byte_by_name('cmd_2') ==
-                     msg.get_byte_by_name('cmd_2'))):
-            ret = True
-        else:
-            ret = False
-        return ret
+    def set_cached_state(self, state):
+        self.attribute('status', state)
 
-    def ack_peek_aldb(self, msg):
-        if (self.last_sent_msg.insteon_msg.device_cmd_name == 'peek_one_byte'
-                and not self.last_sent_msg.insteon_msg.device_ack):
-            peek_msg = self.search_last_sent_msg(insteon_cmd='peek_one_byte')
-            lsb = peek_msg.get_byte_by_name('cmd_2')
-            msb_msg = self.search_last_sent_msg(insteon_cmd='set_address_msb')
-            msb = msb_msg.get_byte_by_name('cmd_2')
-            if (lsb % 8) == 0:
-                self.aldb.edit_record(
-                    self.aldb.get_aldb_key(msb, lsb), bytearray(8))
-            self.aldb.edit_record_byte(
-                self.aldb.get_aldb_key(msb, lsb),
-                lsb % 8,
-                msg.get_byte_by_name('cmd_2')
-            )
-            if self.aldb.is_last_aldb(self.aldb.get_aldb_key(msb, lsb)):
-                # this is the last entry on this device
-                records = self.aldb.get_all_records()
-                for key in sorted(records):
-                    print(key, ":", BYTE_TO_HEX(records[key]))
-                self.remove_state_machine('query_aldb')
-                self.send_command('light_status_request', 'set_aldb_delta')
-            elif self.aldb.is_empty_aldb(self.aldb.get_aldb_key(msb, lsb)):
-                # this is an empty record
-                print('empty record')
-                lsb = lsb - (8 + (lsb % 8))
-                self.aldb.peek_aldb(lsb)
-            elif lsb == 7:
-                # Change MSB
-                msb -= 1
-                lsb = 0xF8
-                self.aldb.i1_start_aldb_entry_query(msb, lsb)
-            elif (lsb % 8) == 7:
-                lsb -= 15
-                self.aldb.peek_aldb(lsb)
-            else:
-                lsb += 1
-                self.aldb.peek_aldb(lsb)
+    def check_aldb_delta(self, aldb_delta):
+        '''Checks and updates the cached aldb delta as necessary.  If device
+        is in the correct state_machine, will update cache, otherwise will
+        cause an ALDB rescan if the delta doesn't match the cache'''
+        if self.state_machine == 'set_aldb_delta':
+            # TODO, we want to change aldb_deltas that are at 0x00
+            self.attribute('aldb_delta', aldb_delta)
+            self.remove_state_machine('set_aldb_delta')
+        elif self.attribute('aldb_delta') != aldb_delta:
+            print('aldb has changed, rescanning')
+            self.aldb.query_aldb()
 
-    def _ext_aldb_ack(self, msg):
-        # TODO consider adding more time for following message to arrive
-        if (self.last_sent_msg.insteon_msg.device_prelim_ack is False and
-                self.last_sent_msg.insteon_msg.device_ack is False):
-            if self.last_sent_msg.get_byte_by_name('usr_2') == 0x00:
-                # When reading ALDB a subsequent ext msg will contain record
-                self.last_sent_msg.insteon_msg.device_prelim_ack = True
-            else:
-                self.last_sent_msg.insteon_msg.device_ack = True
-        else:
-            print('received spurious ext_aldb_ack')
-        return False  # Never set ack
-
-    def _set_engine_version(self, msg):
-        version = msg.get_byte_by_name('cmd_2')
+    def set_engine_version(self, version):
         if version >= 0xFB:
             # Insteon Hack
             # Some I2CS Devices seem to have a bug in that they ack
             # a message when they mean to nack it, but the cmd_2
             # value is still the correct nack reason
             self.attribute('engine_version', 0x02)
-            self._process_direct_nack(msg)
+            self._msg_handler.dispatch_direct_nack(msg)
         else:
             self.attribute('engine_version', version)
+            # TODO handle this with a trigger?
             # Continue init step
             self._init_step_2()
 
