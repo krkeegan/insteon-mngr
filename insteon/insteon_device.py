@@ -5,11 +5,12 @@ import pprint
 from insteon.aldb import Device_ALDB
 from insteon.base_objects import Root_Insteon
 from insteon.group import Insteon_Group
-from insteon.msg_schema import EXT_DIRECT_SCHEMA, COMMAND_SCHEMA, \
+from insteon.msg_schema import COMMAND_SCHEMA, \
     STD_DIRECT_ACK_SCHEMA
 from insteon.plm_message import PLM_Message
 from insteon.helpers import BYTE_TO_HEX
 from insteon.trigger import Trigger
+from insteon.devices.generic import GenericMsgHandler
 
 
 class InsteonDevice(Root_Insteon):
@@ -21,7 +22,7 @@ class InsteonDevice(Root_Insteon):
         self.last_rcvd_msg = None
         self._recent_inc_msgs = {}
         self.create_group(1, Insteon_Group)
-
+        self._msg_handler = GenericMsgHandler(self)
         self._init_step_1()
 
     def _init_step_1(self):
@@ -91,23 +92,9 @@ class InsteonDevice(Root_Insteon):
 
     def _process_direct_msg(self, msg):
         '''processes an incomming direct message'''
-        if (msg.insteon_msg.msg_length == 'extended' and
-                msg.get_byte_by_name('cmd_1') in EXT_DIRECT_SCHEMA):
-            command = EXT_DIRECT_SCHEMA[msg.get_byte_by_name('cmd_1')]
-            search_list = [
-                ['DevCat', self.dev_cat],
-                ['SubCat', self.sub_cat],
-                ['Firmware', self.firmware],
-                ['Cmd2', msg.get_byte_by_name('cmd_2')]
-            ]
-            for search_item in search_list:
-                command = self._recursive_search_cmd(command, search_item)
-                if command is None:
-                    print('not sure how to respond to this')
-                    return
-            command(self, msg)
-        else:
-            print('direct message, that I dont know how to handle')
+        processed = self._msg_handler.dispatch_direct(msg)
+        if not processed:
+            print('unhandled direct message, perhaps dev_cat is wrong')
             pprint.pprint(msg.__dict__)
 
     def _process_direct_ack(self, msg):
@@ -372,33 +359,6 @@ class InsteonDevice(Root_Insteon):
         else:
             print('received spurious ext_aldb_ack')
         return False  # Never set ack
-
-    def _ext_aldb_rcvd(self, msg):
-        if (self.last_sent_msg.insteon_msg.device_prelim_ack is True and
-                self.last_sent_msg.insteon_msg.device_ack is False):
-            last_msg = self.search_last_sent_msg(insteon_cmd='read_aldb')
-            req_msb = last_msg.get_byte_by_name('msb')
-            req_lsb = last_msg.get_byte_by_name('lsb')
-            msg_msb = msg.get_byte_by_name('usr_3')
-            msg_lsb = msg.get_byte_by_name('usr_4')
-            if ((req_lsb == msg_lsb and req_msb == msg_msb) or
-                    (req_lsb == 0x00 and req_msb == 0x00)):
-                aldb_entry = bytearray([
-                    msg.get_byte_by_name('usr_6'),
-                    msg.get_byte_by_name('usr_7'),
-                    msg.get_byte_by_name('usr_8'),
-                    msg.get_byte_by_name('usr_9'),
-                    msg.get_byte_by_name('usr_10'),
-                    msg.get_byte_by_name('usr_11'),
-                    msg.get_byte_by_name('usr_12'),
-                    msg.get_byte_by_name('usr_13')
-                ])
-                self.aldb.edit_record(self.aldb.get_aldb_key(msg_msb, msg_lsb),
-                                       aldb_entry)
-                self.last_sent_msg.insteon_msg.device_ack = True
-        else:
-            msg.allow_trigger = False
-            print('received spurious ext_aldb record')
 
     def _set_engine_version(self, msg):
         version = msg.get_byte_by_name('cmd_2')

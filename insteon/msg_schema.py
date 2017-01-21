@@ -985,28 +985,6 @@ STD_DIRECT_ACK_SCHEMA = {
     ]
 }
 
-# Extended Direct Messages
-EXT_DIRECT_SCHEMA = {
-    0x2F: [
-        {'name': 'aldb_entry',
-            'DevCat': 'all',
-            'value': [
-                {'SubCat': 'all',
-                    'value': [
-                        {'Firmware': 'all',
-                            'value': [
-                                {'Cmd2': (0x00,),
-                                    'value': lambda x, y: x._ext_aldb_rcvd(y)
-                                 }
-                            ]
-                         }
-                    ]
-                 }
-            ]
-         }
-    ]
-}
-
 # Outgoing message formats
 COMMAND_SCHEMA = {
     # CmdName
