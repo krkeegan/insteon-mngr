@@ -74,6 +74,7 @@ class InsteonDevice(Root_Insteon):
             print('Skipped duplicate msg')
             ret = None
         else:
+            self._process_hops(msg)
             ret = self._dispatch_msg_rcvd(msg)
 
     def _dispatch_msg_rcvd(self, msg):
@@ -90,8 +91,6 @@ class InsteonDevice(Root_Insteon):
 
     def _process_direct_msg(self, msg):
         '''processes an incomming direct message'''
-        hops_used = self._hops_used_from_msg(msg)
-        self._add_to_hop_array(hops_used)
         if (msg.insteon_msg.msg_length == 'extended' and
                 msg.get_byte_by_name('cmd_1') in EXT_DIRECT_SCHEMA):
             command = EXT_DIRECT_SCHEMA[msg.get_byte_by_name('cmd_1')]
@@ -113,8 +112,6 @@ class InsteonDevice(Root_Insteon):
 
     def _process_direct_ack(self, msg):
         '''processes an incomming direct ack message'''
-        hops_used = self._hops_used_from_msg(msg)
-        self._add_to_hop_array(hops_used)
         if not self._is_valid_direct_ack(msg):
             return
         elif (self.last_sent_msg.insteon_msg.device_cmd_name ==
@@ -160,8 +157,6 @@ class InsteonDevice(Root_Insteon):
 
     def _process_direct_nack(self, msg):
         '''processes an incomming direct nack message'''
-        hops_used = self._hops_used_from_msg(msg)
-        self._add_to_hop_array(hops_used)
         if not self._is_valid_direct_ack(msg):
             return
         elif (self.last_sent_msg.get_byte_by_name('cmd_1') ==
@@ -248,18 +243,19 @@ class InsteonDevice(Root_Insteon):
             ret = False
         return ret
 
-    def _hops_used_from_msg(self, msg):
-        return msg.insteon_msg.max_hops - msg.insteon_msg.hops_left
-
-    def _add_to_hop_array(self, hops_used):
-        hop_array = self.attribute('hop_array')
-        if hop_array is None:
-            hop_array = []
-        hop_array.append(hops_used)
-        extra_data = len(hop_array) - 10
-        if extra_data > 0:
-            hop_array = hop_array[extra_data:]
-        self.attribute('hop_array', hop_array)
+    def _process_hops(self, msg):
+        if (msg.insteon_msg.message_type == 'direct' or
+                msg.insteon_msg.message_type == 'direct_ack' or
+                msg.insteon_msg.message_type == 'direct_nack'):
+            hops_used = msg.insteon_msg.max_hops - msg.insteon_msg.hops_left
+            hop_array = self.attribute('hop_array')
+            if hop_array is None:
+                hop_array = []
+            hop_array.append(hops_used)
+            extra_data = len(hop_array) - 10
+            if extra_data > 0:
+                hop_array = hop_array[extra_data:]
+            self.attribute('hop_array', hop_array)
 
     def _set_plm_wait(self, msg):
         # Wait for additional hops to arrive

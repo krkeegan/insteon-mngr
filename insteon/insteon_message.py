@@ -221,7 +221,6 @@ class Insteon_Message(object):
     def device_ack(self, boolean):
         self._device_ack = boolean
         if boolean is True:
-            self._parent.device._add_to_hop_array(self.max_hops)
             self.device_success_callback()
 
     @property
