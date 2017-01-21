@@ -66,12 +66,17 @@ class InsteonDevice(Root_Insteon):
     ###################################################################
 
     def msg_rcvd(self, msg):
+        ret = None
         self._set_plm_wait(msg)
         self.last_rcvd_msg = msg
         if self._is_duplicate(msg):
             msg.allow_trigger = False
             print('Skipped duplicate msg')
-            return
+            ret = None
+        else:
+            ret = self._dispatch_msg_rcvd(msg)
+
+    def _dispatch_msg_rcvd(self, msg):
         if msg.insteon_msg.message_type == 'direct':
             self._process_direct_msg(msg)
         elif msg.insteon_msg.message_type == 'direct_ack':
@@ -79,36 +84,9 @@ class InsteonDevice(Root_Insteon):
         elif msg.insteon_msg.message_type == 'direct_nack':
             self._process_direct_nack(msg)
         elif msg.insteon_msg.message_type == 'broadcast':
-            dev_cat = msg.get_byte_by_name('to_addr_hi')
-            sub_cat = msg.get_byte_by_name('to_addr_mid')
-            firmware = msg.get_byte_by_name('to_addr_low')
-            self.set_dev_version(dev_cat,sub_cat,firmware)
-            print('rcvd, broadcast updated devcat, subcat, and firmware')
+            self._process_broadcast(msg)
         elif msg.insteon_msg.message_type == 'alllink_cleanup_ack':
-            # TODO set state of the device based on cmd acked
-            # Clear queued cleanup messages if they exist
-            self._remove_cleanup_msgs(msg)
-            if (self.last_sent_msg and
-                    self.last_sent_msg.get_byte_by_name('cmd_1') ==
-                    msg.get_byte_by_name('cmd_1') and
-                    self.last_sent_msg.get_byte_by_name('cmd_2') ==
-                    msg.get_byte_by_name('cmd_2')):
-                # Only set ack if this was sent by this device
-                self.last_sent_msg.insteon_msg.device_ack = True
-
-    def _remove_cleanup_msgs(self, msg):
-        cmd_1 = msg.get_byte_by_name('cmd_1')
-        cmd_2 = msg.get_byte_by_name('cmd_2')
-        for state, msgs in self._device_msg_queue.items():
-            i = 0
-            to_delete = []
-            for msg in msgs:
-                if msg.get_byte_by_name('cmd_1') == cmd_1 and \
-                        msg.get_byte_by_name('cmd_2') == cmd_2:
-                    to_delete.append(i)
-                i += 1
-            for position in reversed(to_delete):
-                del self._device_msg_queue[state][position]
+            self._process_alllink_cleanup(msg)
 
     def _process_direct_msg(self, msg):
         '''processes an incomming direct message'''
@@ -226,6 +204,39 @@ class InsteonDevice(Root_Insteon):
                 self.plm.wait_to_send = 1
         else:
             print('ignoring unmatched nack')
+
+    def _process_broadcast(self,msg):
+        dev_cat = msg.get_byte_by_name('to_addr_hi')
+        sub_cat = msg.get_byte_by_name('to_addr_mid')
+        firmware = msg.get_byte_by_name('to_addr_low')
+        self.set_dev_version(dev_cat,sub_cat,firmware)
+        print('rcvd, broadcast updated devcat, subcat, and firmware')
+
+    def _process_alllink_cleanup(self,msg):
+        # TODO set state of the device based on cmd acked
+        # Clear queued cleanup messages if they exist
+        self._remove_cleanup_msgs(msg)
+        if (self.last_sent_msg and
+                self.last_sent_msg.get_byte_by_name('cmd_1') ==
+                msg.get_byte_by_name('cmd_1') and
+                self.last_sent_msg.get_byte_by_name('cmd_2') ==
+                msg.get_byte_by_name('cmd_2')):
+            # Only set ack if this was sent by this device
+            self.last_sent_msg.insteon_msg.device_ack = True
+
+    def _remove_cleanup_msgs(self, msg):
+        cmd_1 = msg.get_byte_by_name('cmd_1')
+        cmd_2 = msg.get_byte_by_name('cmd_2')
+        for state, msgs in self._device_msg_queue.items():
+            i = 0
+            to_delete = []
+            for msg in msgs:
+                if msg.get_byte_by_name('cmd_1') == cmd_1 and \
+                        msg.get_byte_by_name('cmd_2') == cmd_2:
+                    to_delete.append(i)
+                i += 1
+            for position in reversed(to_delete):
+                del self._device_msg_queue[state][position]
 
     def _is_valid_direct_ack(self, msg):
         ret = True
