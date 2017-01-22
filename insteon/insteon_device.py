@@ -19,8 +19,6 @@ class InsteonDevice(Root_Insteon):
         super().__init__(core, plm, **kwargs)
         # TODO move this to command handler?
         self.last_sent_msg = None
-        # TODO move this to msg handler? or even use at all?
-        self.last_rcvd_msg = None
         self._recent_inc_msgs = {}
         self.create_group(1, Insteon_Group)
         self._msg_handler = GenericMsgHandler(self)
@@ -73,13 +71,13 @@ class InsteonDevice(Root_Insteon):
         dispatcher'''
         ret = None
         self._set_plm_wait(msg)
-        self.last_rcvd_msg = msg
         if self._is_duplicate(msg):
             msg.allow_trigger = False
             print('Skipped duplicate msg')
             ret = None
         else:
             self._process_hops(msg)
+            self._msg_handler.last_rcvd_msg = msg
             ret = self._dispatch_msg_rcvd(msg)
 
     def _dispatch_msg_rcvd(self, msg):
@@ -263,6 +261,9 @@ class InsteonDevice(Root_Insteon):
             # TODO handle this with a trigger?
             # Continue init step
             self._init_step_2()
+
+    def get_last_rcvd_msg(self):
+        return self._msg_handler.last_rcvd_msg
 
     ###################################################################
     ##

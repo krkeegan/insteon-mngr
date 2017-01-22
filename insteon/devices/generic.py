@@ -11,12 +11,27 @@ class GenericMsgHandler(object):
         # and replaced with a new object in a different class at runtime
         # if the dev_cat changes
         self._device = device
+        self._last_rcvd_msg = None
 
-###################################################
-#
-# Dispatchers
-#
-###################################################
+    ###################################################
+    #
+    # attributes
+    #
+    ###################################################
+
+    @property
+    def last_rcvd_msg(self):
+        return self._last_rcvd_msg
+
+    @last_rcvd_msg.setter
+    def last_rcvd_msg(self, msg):
+        self._last_rcvd_msg = msg
+
+    ###################################################
+    #
+    # Dispatchers
+    #
+    ###################################################
 
     def dispatch_direct(self, msg):
         '''Dispatchs an incomming direct message to the correct function.
@@ -94,17 +109,17 @@ class GenericMsgHandler(object):
                 print('device nack`ed the last command, no further ',
                       'details, resending')
                 self._device.plm.wait_to_send = 1
-                self._device._resend_msg(self.last_sent_msg)
+                self._device._resend_msg(self._device.last_sent_msg)
         else:
             print('device nack`ed the last command, resending')
             self._device.plm.wait_to_send = 1
-            self._device._resend_msg(self.last_sent_msg)
+            self._device._resend_msg(self._device.last_sent_msg)
 
-###################################################
-#
-# Message Processing Functions
-#
-###################################################
+    ###################################################
+    #
+    # Message Processing Functions
+    #
+    ###################################################
 
     def _ext_aldb_rcvd(self, msg):
         '''Sets the device_ack flag, while not specifically an ack'''
@@ -149,42 +164,11 @@ class GenericMsgHandler(object):
         return ret
 
     def _ack_peek_aldb(self, msg):
-        # TODO this seems like way too much work in the ALDB to be done here
-        # I think we need to move this logic to a public function in ALDB
         lsb = self._device.last_sent_msg.get_byte_by_name('cmd_2')
         msb_msg = self._device.search_last_sent_msg(insteon_cmd='set_address_msb')
         msb = msb_msg.get_byte_by_name('cmd_2')
-        if (lsb % 8) == 0:
-            self._device.aldb.edit_record(
-                self._device.aldb.get_aldb_key(msb, lsb), bytearray(8))
-        self._device.aldb.edit_record_byte(
-            self._device.aldb.get_aldb_key(msb, lsb),
-            lsb % 8,
-            msg.get_byte_by_name('cmd_2')
-        )
-        if self._device.aldb.is_last_aldb(self._device.aldb.get_aldb_key(msb, lsb)):
-            # this is the last entry on this device
-            records = self._device.aldb.get_all_records()
-            for key in sorted(records):
-                print(key, ":", BYTE_TO_HEX(records[key]))
-            self._device.remove_state_machine('query_aldb')
-            self._device.send_command('light_status_request', 'set_aldb_delta')
-        elif self._device.aldb.is_empty_aldb(self._device.aldb.get_aldb_key(msb, lsb)):
-            # this is an empty record
-            print('empty record')
-            lsb = lsb - (8 + (lsb % 8))
-            self._device.aldb.peek_aldb(lsb)
-        elif lsb == 7:
-            # Change MSB
-            msb -= 1
-            lsb = 0xF8
-            self._device.aldb.i1_start_aldb_entry_query(msb, lsb)
-        elif (lsb % 8) == 7:
-            lsb -= 15
-            self._device.aldb.peek_aldb(lsb)
-        else:
-            lsb += 1
-            self._device.aldb.peek_aldb(lsb)
+        byte = msg.get_byte_by_name('cmd_2')
+        self._device.aldb.peeked_byte(msb, lsb, byte)
         return True # Is there a scenario in which we return False?
 
     def _ext_aldb_ack(self, msg):

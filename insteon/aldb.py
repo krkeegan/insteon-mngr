@@ -127,9 +127,9 @@ class Device_ALDB(ALDB):
             self._parent.plm.trigger_mngr.add_trigger(trigger_name, trigger)
 
     def i2_next_aldb(self):
-        # TODO parse by real names on incomming
-        msb = self._parent.last_rcvd_msg.get_byte_by_name('usr_3')
-        lsb = self._parent.last_rcvd_msg.get_byte_by_name('usr_4')
+        last_rcvd_msg = self._parent.get_last_rcvd_msg()
+        msb = last_rcvd_msg.get_byte_by_name('usr_3')
+        lsb = last_rcvd_msg.get_byte_by_name('usr_4')
         if self.is_last_aldb(self.get_aldb_key(msb, lsb)):
             self._parent.remove_state_machine('query_aldb')
             records = self.get_all_records()
@@ -175,6 +175,39 @@ class Device_ALDB(ALDB):
         message.insert_bytes_into_raw({'lsb': lsb})
         message.state_machine = 'query_aldb'
         self._parent._queue_device_msg(message)
+
+    def peeked_byte(self, msb, lsb, byte):
+        if (lsb % 8) == 0:
+            # clear out the record
+            self.edit_record(self.get_aldb_key(msb, lsb), bytearray(8))
+        self.edit_record_byte(
+            self.get_aldb_key(msb, lsb),
+            lsb % 8,
+            byte
+        )
+        if self.is_last_aldb(self.get_aldb_key(msb, lsb)):
+            # this is the last entry on this device
+            records = self.get_all_records()
+            for key in sorted(records):
+                print(key, ":", BYTE_TO_HEX(records[key]))
+            self._parent.remove_state_machine('query_aldb')
+            self._parent.send_command('light_status_request', 'set_aldb_delta')
+        elif self.is_empty_aldb(self.get_aldb_key(msb, lsb)):
+            # this is an empty record
+            print('empty record')
+            lsb = lsb - (8 + (lsb % 8))
+            self.peek_aldb(lsb)
+        elif lsb == 7:
+            # Change MSB
+            msb -= 1
+            lsb = 0xF8
+            self.i1_start_aldb_entry_query(msb, lsb)
+        elif (lsb % 8) == 7:
+            lsb -= 15
+            self.peek_aldb(lsb)
+        else:
+            lsb += 1
+            self.peek_aldb(lsb)
 
     def create_responder(self, controller, d1, d2, d3):
                 # Device Responder
