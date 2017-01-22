@@ -28,7 +28,7 @@ class Device_ALDB(ALDB):
             self.i1_start_aldb_entry_query(0x0F, 0xF8)
         else:
             dev_bytes = {'msb': 0x00, 'lsb': 0x00}
-            self._parent.send_command('read_aldb',
+            self._parent.send_handler.send_command('read_aldb',
                                       'query_aldb',
                                       dev_bytes=dev_bytes)
             # It would be nice to link the trigger to the msb and lsb, but we
@@ -54,7 +54,7 @@ class Device_ALDB(ALDB):
             records = self.get_all_records()
             for key in sorted(records):
                 print(key, ":", BYTE_TO_HEX(records[key]))
-            self._parent.send_command('light_status_request', 'set_aldb_delta')
+            self._parent.send_handler.send_command('light_status_request', 'set_aldb_delta')
         else:
             if lsb == 0x07:
                 msb -= 1
@@ -62,7 +62,7 @@ class Device_ALDB(ALDB):
             else:
                 lsb -= 8
             dev_bytes = {'msb': msb, 'lsb': lsb}
-            self._parent.send_command('read_aldb',
+            self._parent.send_handler.send_command('read_aldb',
                                       'query_aldb',
                                       dev_bytes=dev_bytes)
             # Set Trigger
@@ -130,7 +130,7 @@ class InsteonDevice(Root_Insteon):
 
     def _init_step_1(self):
         if self.attribute('engine_version') is None:
-            self.send_command('get_engine_version')
+            self.send_handler.send_command('get_engine_version')
         else:
             self._init_step_2()
 
@@ -146,11 +146,11 @@ class InsteonDevice(Root_Insteon):
                 'insteon_msg_type': 'broadcast'
             }
             trigger = Trigger(trigger_attributes)
-            trigger.trigger_function = lambda: self.send_command('light_status_request')
+            trigger.trigger_function = lambda: self.send_handler.send_command('light_status_request')
             self.plm.trigger_mngr.add_trigger(self.dev_addr_str + 'init_step_2', trigger)
-            self.send_command('id_request')
+            self.send_handler.send_command('id_request')
         else:
-            self.send_command('light_status_request')
+            self.send_handler.send_command('light_status_request')
 
     @property
     def smart_hops(self):
@@ -368,75 +368,3 @@ class InsteonDevice(Root_Insteon):
 
     def get_last_rcvd_msg(self):
         return self._rcvd_handler.last_rcvd_msg
-
-    ###################################################################
-    ##
-    # Outgoing Message Handling
-    ##
-    ###################################################################
-
-    def send_command(self, command_name, state='', dev_bytes={}):
-        message = self.send_handler.create_message(command_name)
-        if message is not None:
-            message.insert_bytes_into_raw(dev_bytes)
-            message.state_machine = state
-            self.queue_device_msg(message)
-
-    def write_aldb_record(self, msb, lsb):
-        # TODO This is only the base structure still need to add more basically
-        # just deletes things right now
-        dev_bytes = {'msb': msb, 'lsb': lsb}
-        self.send_command('write_aldb', '', dev_bytes=dev_bytes)
-
-    def add_plm_to_dev_link(self):
-        # Put the PLM in Linking Mode
-        # queues a message on the PLM
-        message = self.plm.create_message('all_link_start')
-        plm_bytes = {
-            'link_code': 0x01,
-            'group': 0x00,
-        }
-        message.insert_bytes_into_raw(plm_bytes)
-        message.plm_success_callback = self._add_plm_to_dev_link_step2
-        message.msg_failure_callback = self._add_plm_to_dev_link_fail
-        message.state_machine = 'link plm->device'
-        self.plm.queue_device_msg(message)
-
-    def _add_plm_to_dev_link_step2(self):
-        # Put Device in linking mode
-        message = self.send_handler.create_message('enter_link_mode')
-        dev_bytes = {
-            'cmd_2': 0x00
-        }
-        message.insert_bytes_into_raw(dev_bytes)
-        message.insteon_msg.device_success_callback = (
-            self._add_plm_to_dev_link_step3
-        )
-        message.msg_failure_callback = self._add_plm_to_dev_link_fail
-        message.state_machine = 'link plm->device'
-        self.queue_device_msg(message)
-
-    def _add_plm_to_dev_link_step3(self):
-        trigger_attributes = {
-            'from_addr_hi': self.dev_addr_hi,
-            'from_addr_mid': self.dev_addr_mid,
-            'from_addr_low': self.dev_addr_low,
-            'link_code': 0x01,
-            'plm_cmd': 0x53
-        }
-        trigger = Trigger(trigger_attributes)
-        trigger.trigger_function = lambda: self._add_plm_to_dev_link_step4()
-        self.plm.trigger_mngr.add_trigger(self.dev_addr_str + 'add_plm_step_3', trigger)
-        print('device in linking mode')
-
-    def _add_plm_to_dev_link_step4(self):
-        print('plm->device link created')
-        self.plm.remove_state_machine('link plm->device')
-        self.remove_state_machine('link plm->device')
-        # Next init step
-        self._init_step_2()
-
-    def _add_plm_to_dev_link_fail(self):
-        print('Error, unable to create plm->device link')
-        self.plm.remove_state_machine('link plm->device')
-        self.remove_state_machine('link plm->device')

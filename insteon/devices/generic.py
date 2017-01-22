@@ -1,5 +1,6 @@
 from insteon.helpers import BYTE_TO_HEX
 from insteon.plm_message import PLM_Message
+from insteon.trigger import Trigger
 
 
 class GenericRcvdHandler(object):
@@ -202,7 +203,7 @@ class GenericSendHandler(object):
 
     #################################################################
     #
-    # Generic Message Creation
+    # Outgoing Message Construction
     #
     #################################################################
 
@@ -221,6 +222,80 @@ class GenericSendHandler(object):
                               plm_cmd='insteon_send',
                               dev_cmd=command)
         return ret
+
+    def send_command(self, command_name, state='', dev_bytes={}):
+        message = self.create_message(command_name)
+        if message is not None:
+            message.insert_bytes_into_raw(dev_bytes)
+            message.state_machine = state
+            self._device.queue_device_msg(message)
+
+    #################################################################
+    #
+    # Specific Outgoing messages
+    #
+    #################################################################
+
+    def write_aldb_record(self, msb, lsb):
+        # TODO This is only the base structure still need to add more basically
+        # just deletes things right now
+        dev_bytes = {'msb': msb, 'lsb': lsb}
+        self.send_command('write_aldb', '', dev_bytes=dev_bytes)
+
+    def add_plm_to_dev_link(self):
+        # Put the PLM in Linking Mode
+        # queues a message on the PLM
+        message = self._device.plm.create_message('all_link_start')
+        plm_bytes = {
+            'link_code': 0x01,
+            'group': 0x00,
+        }
+        message.insert_bytes_into_raw(plm_bytes)
+        message.plm_success_callback = self._add_plm_to_dev_link_step2
+        message.msg_failure_callback = self._add_plm_to_dev_link_fail
+        message.state_machine = 'link plm->device'
+        self._device.plm.queue_device_msg(message)
+
+    def _add_plm_to_dev_link_step2(self):
+        # Put Device in linking mode
+        message = self.create_message('enter_link_mode')
+        dev_bytes = {
+            'cmd_2': 0x00
+        }
+        message.insert_bytes_into_raw(dev_bytes)
+        message.insteon_msg.device_success_callback = (
+            self._add_plm_to_dev_link_step3
+        )
+        message.msg_failure_callback = self._add_plm_to_dev_link_fail
+        message.state_machine = 'link plm->device'
+        self._device.queue_device_msg(message)
+
+    def _add_plm_to_dev_link_step3(self):
+        trigger_attributes = {
+            'from_addr_hi': self._device.dev_addr_hi,
+            'from_addr_mid': self._device.dev_addr_mid,
+            'from_addr_low': self._device.dev_addr_low,
+            'link_code': 0x01,
+            'plm_cmd': 0x53
+        }
+        trigger = Trigger(trigger_attributes)
+        trigger.trigger_function = lambda: self._add_plm_to_dev_link_step4()
+        self._device.plm.trigger_mngr.add_trigger(self._device.dev_addr_str +
+                                                  'add_plm_step_3',
+                                                  trigger)
+        print('device in linking mode')
+
+    def _add_plm_to_dev_link_step4(self):
+        print('plm->device link created')
+        self._device.plm.remove_state_machine('link plm->device')
+        self._device.remove_state_machine('link plm->device')
+        # Next init step
+        self._device._init_step_2()
+
+    def _add_plm_to_dev_link_fail(self):
+        print('Error, unable to create plm->device link')
+        self._device.plm.remove_state_machine('link plm->device')
+        self._device.remove_state_machine('link plm->device')
 
     #################################################################
     #
