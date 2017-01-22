@@ -61,6 +61,45 @@ class GenericMsgHandler(object):
             ret = self._ext_aldb_ack(msg)
         return ret
 
+    def dispach_direct_nack(self, msg):
+        engine_version = self._device.attribute('engine_version')
+        if (engine_version == 0x02 or engine_version is None):
+            cmd_2 = msg.get_byte_by_name('cmd_2')
+            if cmd_2 == 0xFF:
+                print('nack received, senders ID not in database')
+                self._device.attribute('engine_version', 0x02)
+                self._device.last_sent_msg.insteon_msg.device_ack = True
+                self._device.remove_state_machine(self._device.last_sent_msg.state_machine)
+                print('creating plm->device link')
+                self._device.add_plm_to_dev_link()
+            elif cmd_2 == 0xFE:
+                print('nack received, no load')
+                self._device.attribute('engine_version', 0x02)
+                self._device.last_sent_msg.insteon_msg.device_ack = True
+            elif cmd_2 == 0xFD:
+                print('nack received, checksum is incorrect, resending')
+                self._device.attribute('engine_version', 0x02)
+                self._device.plm.wait_to_send = 1
+                self._device._resend_msg(self._device.last_sent_msg)
+            elif cmd_2 == 0xFC:
+                print('nack received, Pre nack in case database search ',
+                      'takes too long')
+                self._device.attribute('engine_version', 0x02)
+                self._device.last_sent_msg.insteon_msg.device_ack = True
+            elif cmd_2 == 0xFB:
+                print('nack received, illegal value in command')
+                self._device.attribute('engine_version', 0x02)
+                self._device.last_sent_msg.insteon_msg.device_ack = True
+            else:
+                print('device nack`ed the last command, no further ',
+                      'details, resending')
+                self._device.plm.wait_to_send = 1
+                self._device._resend_msg(self.last_sent_msg)
+        else:
+            print('device nack`ed the last command, resending')
+            self._device.plm.wait_to_send = 1
+            self._device._resend_msg(self.last_sent_msg)
+
 ###################################################
 #
 # Message Processing Functions

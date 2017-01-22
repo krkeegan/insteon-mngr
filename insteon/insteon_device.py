@@ -19,7 +19,7 @@ class InsteonDevice(Root_Insteon):
         super().__init__(core, plm, **kwargs)
         # TODO move this to command handler?
         self.last_sent_msg = None
-        # TODO move this to msg handler?
+        # TODO move this to msg handler? or even use at all?
         self.last_rcvd_msg = None
         self._recent_inc_msgs = {}
         self.create_group(1, Insteon_Group)
@@ -114,48 +114,8 @@ class InsteonDevice(Root_Insteon):
 
     def _process_direct_nack(self, msg):
         '''processes an incomming direct nack message'''
-        if not self._is_valid_direct_resp(msg):
-            return
-        elif (self.last_sent_msg.get_byte_by_name('cmd_1') ==
-              msg.get_byte_by_name('cmd_1')):
-            if (self.attribute('engine_version') == 0x02 or
-                    self.attribute('engine_version') is None):
-                cmd_2 = msg.get_byte_by_name('cmd_2')
-                if cmd_2 == 0xFF:
-                    print('nack received, senders ID not in database')
-                    self.attribute('engine_version', 0x02)
-                    self.last_sent_msg.insteon_msg.device_ack = True
-                    self.remove_state_machine(self.last_sent_msg.state_machine)
-                    print('creating plm->device link')
-                    self.add_plm_to_dev_link()
-                elif cmd_2 == 0xFE:
-                    print('nack received, no load')
-                    self.attribute('engine_version', 0x02)
-                    self.last_sent_msg.insteon_msg.device_ack = True
-                elif cmd_2 == 0xFD:
-                    print('nack received, checksum is incorrect, resending')
-                    self.attribute('engine_version', 0x02)
-                    self.plm.wait_to_send = 1
-                    self._resend_msg(self.last_sent_msg)
-                elif cmd_2 == 0xFC:
-                    print('nack received, Pre nack in case database search ',
-                          'takes too long')
-                    self.attribute('engine_version', 0x02)
-                    self.last_sent_msg.insteon_msg.device_ack = True
-                elif cmd_2 == 0xFB:
-                    print('nack received, illegal value in command')
-                    self.attribute('engine_version', 0x02)
-                    self.last_sent_msg.insteon_msg.device_ack = True
-                else:
-                    print('device nack`ed the last command, no further ',
-                          'details, resending')
-                    self.plm.wait_to_send = 1
-                    self._resend_msg(self.last_sent_msg)
-            else:
-                print('device nack`ed the last command, resending')
-                self.plm.wait_to_send = 1
-        else:
-            print('ignoring unmatched nack')
+        if self._is_valid_direct_resp(msg):
+            self._msg_handler.dispach_direct_nack(msg)
 
     def _process_broadcast(self,msg):
         dev_cat = msg.get_byte_by_name('to_addr_hi')
