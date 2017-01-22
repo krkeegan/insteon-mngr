@@ -17,6 +17,7 @@ def hub_thread(hub):
         # Read First
         bytestring = ''
         current_end_pos = 0
+        start_time = time.time()
 
         # Get Buffer Contents
         try:
@@ -25,7 +26,7 @@ def hub_thread(hub):
                                 auth=requests.auth.HTTPBasicAuth(
                                     hub.user,
                                     hub.password),
-                                    timeout=0.3)
+                                    timeout=1)
         except requests.exceptions.Timeout:
             # TODO handle multiple timeouts, close connection or something
             print('-----------Timeout Occurred--------')
@@ -83,7 +84,9 @@ def hub_thread(hub):
         # that. Could consider slowing down, but waiting too long could cause
         # the buffer to overflow and would slow down our responses.  Would also
         # need to increase the hub ack_time accordingly too.
-        time.sleep(.3)
+        sleep_time = (start_time + .3) - time.time()
+        if sleep_time > 0:
+            time.sleep(sleep_time)
 
 
 class Hub(Modem):
