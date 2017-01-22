@@ -1,7 +1,7 @@
 from insteon.helpers import BYTE_TO_HEX
 
 
-class GenericMsgHandler(object):
+class GenericRcvdHandler(object):
     '''Provides the generic message handling that does not conflict with
     any Insteon devices.  Devices with distinct messages and needs should
     create their own message handler class that inherits and overrides the
@@ -185,3 +185,15 @@ class GenericMsgHandler(object):
         else:
             print('received spurious ext_aldb_ack')
         return False  # Never set ack
+
+class GenericCmdHandler(object):
+    '''Provides the generic command handling that does not conflict with
+    any Insteon devices.  Devices with distinct commands and needs should
+    create their own message handler class that inherits and overrides the
+    necessary elements'''
+    def __init__(self, device):
+        # Be careful storing any attributes, this object may be dropped
+        # and replaced with a new object in a different class at runtime
+        # if the dev_cat changes
+        self._device = device
+        self._last_rcvd_msg = None

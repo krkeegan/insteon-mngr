@@ -9,7 +9,7 @@ from insteon.msg_schema import COMMAND_SCHEMA
 from insteon.plm_message import PLM_Message
 from insteon.helpers import BYTE_TO_HEX
 from insteon.trigger import Trigger
-from insteon.devices.generic import GenericMsgHandler
+from insteon.devices.generic import GenericRcvdHandler
 
 
 class InsteonDevice(Root_Insteon):
@@ -21,7 +21,7 @@ class InsteonDevice(Root_Insteon):
         self.last_sent_msg = None
         self._recent_inc_msgs = {}
         self.create_group(1, Insteon_Group)
-        self._msg_handler = GenericMsgHandler(self)
+        self._rcvd_handler = GenericRcvdHandler(self)
         self._init_step_1()
 
     def _init_step_1(self):
@@ -77,7 +77,7 @@ class InsteonDevice(Root_Insteon):
             ret = None
         else:
             self._process_hops(msg)
-            self._msg_handler.last_rcvd_msg = msg
+            self._rcvd_handler.last_rcvd_msg = msg
             ret = self._dispatch_msg_rcvd(msg)
 
     def _dispatch_msg_rcvd(self, msg):
@@ -95,7 +95,7 @@ class InsteonDevice(Root_Insteon):
 
     def _process_direct_msg(self, msg):
         '''processes an incomming direct message'''
-        processed = self._msg_handler.dispatch_direct(msg)
+        processed = self._rcvd_handler.dispatch_direct(msg)
         if not processed:
             print('unhandled direct message, perhaps dev_cat is wrong')
             pprint.pprint(msg.__dict__)
@@ -105,7 +105,7 @@ class InsteonDevice(Root_Insteon):
         allow_tigger flags and device_acks flags'''
         if not self._is_valid_direct_resp(msg):
             msg.allow_trigger = False
-        elif self._msg_handler.dispatch_direct_ack(msg) is False:
+        elif self._rcvd_handler.dispatch_direct_ack(msg) is False:
             msg.allow_trigger = False
         else:
             self.last_sent_msg.insteon_msg.device_ack = True
@@ -113,7 +113,7 @@ class InsteonDevice(Root_Insteon):
     def _process_direct_nack(self, msg):
         '''processes an incomming direct nack message'''
         if self._is_valid_direct_resp(msg):
-            self._msg_handler.dispach_direct_nack(msg)
+            self._rcvd_handler.dispach_direct_nack(msg)
 
     def _process_broadcast(self,msg):
         dev_cat = msg.get_byte_by_name('to_addr_hi')
@@ -160,7 +160,7 @@ class InsteonDevice(Root_Insteon):
                 msg.get_byte_by_name('cmd_1')):
             # This may be a status response STUPID INSTEON
             ret = False
-            status = self._msg_handler.dispatch_status_resp(msg)
+            status = self._rcvd_handler.dispatch_status_resp(msg)
             if status is False:
                 print('ignoring an unmatched response')
         return ret
@@ -255,7 +255,7 @@ class InsteonDevice(Root_Insteon):
             # a message when they mean to nack it, but the cmd_2
             # value is still the correct nack reason
             self.attribute('engine_version', 0x02)
-            self._msg_handler.dispatch_direct_nack(msg)
+            self._rcvd_handler.dispatch_direct_nack(msg)
         else:
             self.attribute('engine_version', version)
             # TODO handle this with a trigger?
@@ -263,7 +263,7 @@ class InsteonDevice(Root_Insteon):
             self._init_step_2()
 
     def get_last_rcvd_msg(self):
-        return self._msg_handler.last_rcvd_msg
+        return self._rcvd_handler.last_rcvd_msg
 
     ###################################################################
     ##
