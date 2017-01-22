@@ -5,11 +5,10 @@ import pprint
 from insteon.aldb import Device_ALDB
 from insteon.base_objects import Root_Insteon
 from insteon.group import Insteon_Group
-from insteon.msg_schema import COMMAND_SCHEMA
 from insteon.plm_message import PLM_Message
 from insteon.helpers import BYTE_TO_HEX
 from insteon.trigger import Trigger
-from insteon.devices.generic import GenericRcvdHandler
+from insteon.devices.generic import GenericRcvdHandler, GenericSendHandler
 
 
 class InsteonDevice(Root_Insteon):
@@ -22,6 +21,7 @@ class InsteonDevice(Root_Insteon):
         self._recent_inc_msgs = {}
         self.create_group(1, Insteon_Group)
         self._rcvd_handler = GenericRcvdHandler(self)
+        self._send_handler = GenericSendHandler(self)
         self._init_step_1()
 
     def _init_step_1(self):
@@ -281,29 +281,17 @@ class InsteonDevice(Root_Insteon):
     def create_message(self, command_name):
         ret = None
         try:
-            cmd_schema = COMMAND_SCHEMA[command_name]
-        except Exception as e:
-            print('command not found', e)
+            cmd_schema = self._send_handler.msg_schema[command_name]
+        except KeyError:
+            print('command', command_name,
+                  'not found for this device. Run DevCat?')
         else:
-            search_list = [
-                ['DevCat', self.dev_cat],
-                ['SubCat', self.sub_cat],
-                ['Firmware', self.firmware]
-            ]
-            for search_item in search_list:
-                cmd_schema = self._recursive_search_cmd(
-                    cmd_schema, search_item)
-                if not cmd_schema:
-                    # TODO figure out some way to allow queuing prior to devcat
-                    print(command_name, ' not available for this device')
-                    break
-            if cmd_schema is not None:
-                command = cmd_schema.copy()
-                command['name'] = command_name
-                ret = PLM_Message(self.plm,
-                                  device=self,
-                                  plm_cmd='insteon_send',
-                                  dev_cmd=command)
+            command = cmd_schema.copy()
+            command['name'] = command_name
+            ret = PLM_Message(self.plm,
+                              device=self,
+                              plm_cmd='insteon_send',
+                              dev_cmd=command)
         return ret
 
     def _recursive_search_cmd(self, command, search_item):
@@ -337,12 +325,12 @@ class InsteonDevice(Root_Insteon):
             'group': 0x00,
         }
         message.insert_bytes_into_raw(plm_bytes)
-        message.plm_success_callback = self.add_plm_to_dev_link_step2
-        message.msg_failure_callback = self.add_plm_to_dev_link_fail
+        message.plm_success_callback = self._add_plm_to_dev_link_step2
+        message.msg_failure_callback = self._add_plm_to_dev_link_fail
         message.state_machine = 'link plm->device'
         self.plm.queue_device_msg(message)
 
-    def add_plm_to_dev_link_step2(self):
+    def _add_plm_to_dev_link_step2(self):
         # Put Device in linking mode
         message = self.create_message('enter_link_mode')
         dev_bytes = {
@@ -350,13 +338,13 @@ class InsteonDevice(Root_Insteon):
         }
         message.insert_bytes_into_raw(dev_bytes)
         message.insteon_msg.device_success_callback = (
-            self.add_plm_to_dev_link_step3
+            self._add_plm_to_dev_link_step3
         )
-        message.msg_failure_callback = self.add_plm_to_dev_link_fail
+        message.msg_failure_callback = self._add_plm_to_dev_link_fail
         message.state_machine = 'link plm->device'
         self.queue_device_msg(message)
 
-    def add_plm_to_dev_link_step3(self):
+    def _add_plm_to_dev_link_step3(self):
         trigger_attributes = {
             'from_addr_hi': self.dev_addr_hi,
             'from_addr_mid': self.dev_addr_mid,
@@ -365,18 +353,18 @@ class InsteonDevice(Root_Insteon):
             'plm_cmd': 0x53
         }
         trigger = Trigger(trigger_attributes)
-        trigger.trigger_function = lambda: self.add_plm_to_dev_link_step4()
+        trigger.trigger_function = lambda: self._add_plm_to_dev_link_step4()
         self.plm.trigger_mngr.add_trigger(self.dev_addr_str + 'add_plm_step_3', trigger)
         print('device in linking mode')
 
-    def add_plm_to_dev_link_step4(self):
+    def _add_plm_to_dev_link_step4(self):
         print('plm->device link created')
         self.plm.remove_state_machine('link plm->device')
         self.remove_state_machine('link plm->device')
         # Next init step
         self._init_step_2()
 
-    def add_plm_to_dev_link_fail(self):
+    def _add_plm_to_dev_link_fail(self):
         print('Error, unable to create plm->device link')
         self.plm.remove_state_machine('link plm->device')
         self.remove_state_machine('link plm->device')

@@ -186,7 +186,7 @@ class GenericRcvdHandler(object):
             print('received spurious ext_aldb_ack')
         return False  # Never set ack
 
-class GenericCmdHandler(object):
+class GenericSendHandler(object):
     '''Provides the generic command handling that does not conflict with
     any Insteon devices.  Devices with distinct commands and needs should
     create their own message handler class that inherits and overrides the
@@ -196,4 +196,141 @@ class GenericCmdHandler(object):
         # and replaced with a new object in a different class at runtime
         # if the dev_cat changes
         self._device = device
-        self._last_rcvd_msg = None
+        self._last_sent_msg = None
+
+    #################################################################
+    #
+    # Message Schema
+    #
+    #################################################################
+
+    @property
+    def msg_schema(self):
+        '''Returns a dictionary of all outgoing message types'''
+        schema = {'product_data_request': {
+                'cmd_1': {'default': 0x03},
+                'cmd_2': {'default': 0x00},
+                'msg_length': 'standard',
+                'message_type': 'direct'
+            },
+            'enter_link_mode': {
+                'cmd_1': {'default': 0x09},
+                'cmd_2': {'default': 0x00,
+                          'name': 'group'},
+                'usr_1': {'default': 0x00},
+                'usr_2': {'default': 0x00},
+                'usr_3': {'default': 0x00},
+                'usr_4': {'default': 0x00},
+                'usr_5': {'default': 0x00},
+                'usr_6': {'default': 0x00},
+                'usr_7': {'default': 0x00},
+                'usr_8': {'default': 0x00},
+                'usr_9': {'default': 0x00},
+                'usr_10': {'default': 0x00},
+                'usr_11': {'default': 0x00},
+                'usr_12': {'default': 0x00},
+                'usr_13': {'default': 0x00},
+                'usr_14': {'default': 0x00},
+                'msg_length': 'extended',
+                'message_type': 'direct'
+            },
+            'get_engine_version': {
+                'cmd_1': {'default': 0x0D},
+                'cmd_2': {'default': 0x00},
+                'msg_length': 'standard',
+                'message_type': 'direct'
+            },
+            'light_status_request': {
+                'cmd_1': {'default': 0x19},
+                'cmd_2': {'default': 0x00},
+                'msg_length': 'standard',
+                'message_type': 'direct'
+            },
+            'id_request': {
+                'cmd_1': {'default': 0x10},
+                'cmd_2': {'default': 0x00},
+                'msg_length': 'standard',
+                'message_type': 'direct'
+            },
+            'on': {
+                'cmd_1': {'default': 0x11},
+                'cmd_2': {'default': 0xFF},
+                'msg_length': 'standard',
+                'message_type': 'direct'
+            },
+            'off': {
+                'cmd_1': {'default': 0x13},
+                'cmd_2': {'default': 0x00},
+                'msg_length': 'standard',
+                'message_type': 'direct'
+            },
+            'set_address_msb': {
+                'cmd_1': {'default': 0x28},
+                'cmd_2': {'default': 0x00,
+                          'name': 'msb'},
+                'msg_length': 'standard',
+                'message_type': 'direct'
+            },
+            'peek_one_byte': {
+                'cmd_1': {'default': 0x2B},
+                'cmd_2': {'default': 0x00,
+                          'name': 'lsb'},
+                'msg_length': 'standard',
+                'message_type': 'direct'
+            },
+            'read_aldb': {
+                'cmd_1': {'default': 0x2F},
+                'cmd_2': {'default': 0x00},
+                'usr_1': {'default': 0x00},
+                'usr_2': {'default': 0x00},
+                'usr_3': {'default': 0x00,
+                          'name': 'msb'},
+                'usr_4': {'default': 0x00,
+                          'name': 'lsb'},
+                'usr_5': {'default': 0x01,
+                          'name': 'num_records'},  # 0x00 = All, 0x01 = 1 Record
+                'usr_6': {'default': 0x00},
+                'usr_7': {'default': 0x00},
+                'usr_8': {'default': 0x00},
+                'usr_9': {'default': 0x00},
+                'usr_10': {'default': 0x00},
+                'usr_11': {'default': 0x00},
+                'usr_12': {'default': 0x00},
+                'usr_13': {'default': 0x00},
+                'usr_14': {'default': 0x00},
+                'msg_length': 'extended',
+                'message_type': 'direct'
+            },
+            'write_aldb': {
+                'cmd_1': {'default': 0x2F},
+                'cmd_2': {'default': 0x00},
+                'usr_1': {'default': 0x00},
+                'usr_2': {'default': 0x02},
+                'usr_3': {'default': 0x00,
+                          'name': 'msb'},
+                'usr_4': {'default': 0x00,
+                          'name': 'lsb'},
+                'usr_5': {'default': 0x08,
+                          'name': 'num_bytes'},
+                'usr_6': {'default': 0x00,
+                          'name': 'link_flags'},
+                'usr_7': {'default': 0x00,
+                          'name': 'group'},
+                'usr_8': {'default': 0x00,
+                          'name': 'dev_addr_hi'},
+                'usr_9': {'default': 0x00,
+                          'name': 'dev_addr_mid'},
+                'usr_10': {'default': 0x00,
+                           'name': 'dev_addr_low'},
+                'usr_11': {'default': 0x00,
+                           'name': 'data_1'},
+                'usr_12': {'default': 0x00,
+                           'name': 'data_2'},
+                'usr_13': {'default': 0x00,
+                           'name': 'data_3'},
+                'usr_14': {'default': 0x00},
+                'msg_length': 'extended',
+                'message_type': 'direct'
+            }
+        }
+        return schema
