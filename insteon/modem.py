@@ -3,20 +3,84 @@ import datetime
 
 from .insteon_device import InsteonDevice
 from .base_objects import Root_Insteon
-from .aldb import PLM_ALDB
+from .aldb import ALDB
 from .trigger import Trigger_Manager, Trigger
 from .plm_message import PLM_Message
 from .helpers import BYTE_TO_HEX, BYTE_TO_ID, HOUSE_TO_BYTE, UNIT_TO_BYTE
-from .msg_schema import PLM_SCHEMA
+from .plm_schema import PLM_SCHEMA
 from .x10_device import X10_Device
 from .group import PLM_Group
+
+
+class Modem_ALDB(ALDB):
+
+    def add_record(self, aldb):
+        position = str(len(self.aldb) + 1)
+        position = position.zfill(4)
+        self.aldb[position] = aldb
+        parsed_record = self.parse_record(position)
+        # TODO if this is a PLM controller record, we may also know the
+        # dev_cat sub_cat and firmware of this device, although they may
+        # not be accurate.  Should we do something with this just in case
+        # we are unable to reach the device such as motion sensors, remotes...
+        self._parent.add_device(BYTE_TO_ID(parsed_record['dev_addr_hi'],
+                                parsed_record['dev_addr_mid'],
+                                parsed_record['dev_addr_low']))
+
+    def have_aldb_cache(self):
+        # TODO This will return false for an empty aldb as well, do we care?
+        ret = True
+        if len(self.aldb) == 0:
+            ret = False
+        return ret
+
+    def query_aldb(self):
+        '''Queries the PLM for a list of the link records saved on
+        the PLM and stores them in the cache'''
+        self.clear_all_records()
+        self._parent.send_command('all_link_first_rec', 'query_aldb')
+
+    def create_responder(self, controller, *args):
+        self._write_link(controller, is_plm_controller=False)
+
+    def create_controller(self, controller, *args):
+        self._write_link(controller, is_plm_controller=True)
+
+    def _write_link(self, linked_obj, is_plm_controller):
+        group = linked_obj.group_number
+        if is_plm_controller:
+            group = self._parent.group_number
+        link_bytes = {
+            'controller': True if is_plm_controller else False,
+            'responder': False if is_plm_controller else True,
+            'group': group,
+            'dev_addr_hi': linked_obj.dev_addr_hi,
+            'dev_addr_mid': linked_obj.dev_addr_mid,
+            'dev_addr_low': linked_obj.dev_addr_low,
+        }
+        del link_bytes['controller']
+        del link_bytes['responder']
+        records = self.get_matching_records(link_bytes)
+        link_flags = 0xE2 if is_plm_controller else 0xA2
+        ctrl_code = 0x20
+        if (len(records) == 0):
+            ctrl_code = 0x40 if is_plm_controller else 0x41
+        link_bytes.update({
+            'ctrl_code': ctrl_code,
+            'link_flags': link_flags,
+            'data_1': linked_obj.dev_cat,
+            'data_2': linked_obj.sub_cat,
+            'data_3': linked_obj.firmware
+        })
+        self._parent.send_command('all_link_manage_rec', '', link_bytes)
+
 
 
 class Modem(Root_Insteon):
 
     def __init__(self, core, **kwargs):
         self._devices = {}
-        self.aldb = PLM_ALDB(self)
+        self.aldb = Modem_ALDB(self)
         self.trigger_mngr = Trigger_Manager(self)
         super().__init__(core, self, **kwargs)
         self._read_buffer = bytearray()

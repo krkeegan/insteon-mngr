@@ -2,13 +2,117 @@ import math
 import time
 import pprint
 
-from insteon.aldb import Device_ALDB
+from .aldb import ALDB
 from insteon.base_objects import Root_Insteon
 from insteon.group import Insteon_Group
 from insteon.plm_message import PLM_Message
 from insteon.helpers import BYTE_TO_HEX
 from insteon.trigger import Trigger
 from insteon.devices.generic import GenericRcvdHandler, GenericSendHandler
+
+
+class Device_ALDB(ALDB):
+
+    def __init__(self, parent):
+        super().__init__(parent)
+
+    def get_aldb_key(self, msb, lsb):
+        offset = 7 - (lsb % 8)
+        highest_byte = lsb + offset
+        key = bytes([msb, highest_byte])
+        return BYTE_TO_HEX(key)
+
+    def query_aldb(self):
+        self.clear_all_records()
+        if self._parent.attribute('engine_version') == 0:
+            self.i1_start_aldb_entry_query(0x0F, 0xF8)
+        else:
+            dev_bytes = {'msb': 0x00, 'lsb': 0x00}
+            self._parent.send_command('read_aldb',
+                                      'query_aldb',
+                                      dev_bytes=dev_bytes)
+            # It would be nice to link the trigger to the msb and lsb, but we
+            # don't technically have that yet at this point
+            trigger_attributes = {
+                'plm_cmd': 0x51,
+                'cmd_1': 0x2F,
+                'from_addr_hi': self._parent.dev_addr_hi,
+                'from_addr_mid': self._parent.dev_addr_mid,
+                'from_addr_low': self._parent.dev_addr_low,
+            }
+            trigger = Trigger(trigger_attributes)
+            trigger.trigger_function = lambda: self.i2_next_aldb()
+            trigger_name = self._parent.dev_addr_str + 'query_aldb'
+            self._parent.plm.trigger_mngr.add_trigger(trigger_name, trigger)
+
+    def i2_next_aldb(self):
+        # TODO parse by real names on incomming
+        msb = self._parent.last_rcvd_msg.get_byte_by_name('usr_3')
+        lsb = self._parent.last_rcvd_msg.get_byte_by_name('usr_4')
+        if self.is_last_aldb(self.get_aldb_key(msb, lsb)):
+            self._parent.remove_state_machine('query_aldb')
+            records = self.get_all_records()
+            for key in sorted(records):
+                print(key, ":", BYTE_TO_HEX(records[key]))
+            self._parent.send_command('light_status_request', 'set_aldb_delta')
+        else:
+            if lsb == 0x07:
+                msb -= 1
+                lsb = 0xFF
+            else:
+                lsb -= 8
+            dev_bytes = {'msb': msb, 'lsb': lsb}
+            self._parent.send_command('read_aldb',
+                                      'query_aldb',
+                                      dev_bytes=dev_bytes)
+            # Set Trigger
+            trigger_attributes = {
+                'plm_cmd': 0x51,
+                'cmd_1': 0x2F,
+                'usr_3': msb,
+                'usr_4': lsb,
+                'from_addr_hi': self._parent.dev_addr_hi,
+                'from_addr_mid': self._parent.dev_addr_mid,
+                'from_addr_low': self._parent.dev_addr_low,
+            }
+            trigger = Trigger(trigger_attributes)
+            trigger.trigger_function = lambda: self.i2_next_aldb()
+            trigger_name = self._parent.dev_addr_str + 'query_aldb'
+            self._parent.plm.trigger_mngr.add_trigger(trigger_name, trigger)
+
+    def i1_start_aldb_entry_query(self, msb, lsb):
+        message = self._parent.send_handler.create_message('set_address_msb')
+        message.insert_bytes_into_raw({'msb': msb})
+        message.insteon_msg.device_success_callback = \
+            lambda: \
+            self.peek_aldb(lsb)
+        message.state_machine = 'query_aldb'
+        self._parent._queue_device_msg(message)
+
+    def peek_aldb(self, lsb):
+        message = self._parent.send_handler.create_message('peek_one_byte')
+        message.insert_bytes_into_raw({'lsb': lsb})
+        message.state_machine = 'query_aldb'
+        self._parent._queue_device_msg(message)
+
+    def create_responder(self, controller, d1, d2, d3):
+                # Device Responder
+                # D1 On Level D2 Ramp Rate D3 Group of responding device i1 00
+                # i2 01
+        pass
+
+    def create_controller(responder):
+                # Device controller
+                # D1 03 Hops?? D2 00 D3 Group 01 of responding device??
+        pass
+
+    def _write_link(self, linked_obj, is_controller):
+        if self._parent.attribute('engine_version') == 2:
+            pass  # run i2cs commands
+        else:
+            pass  # run i1 commands
+        pass
+
 
 
 class InsteonDevice(Root_Insteon):
@@ -21,7 +125,7 @@ class InsteonDevice(Root_Insteon):
         self._recent_inc_msgs = {}
         self.create_group(1, Insteon_Group)
         self._rcvd_handler = GenericRcvdHandler(self)
-        self._send_handler = GenericSendHandler(self)
+        self.send_handler = GenericSendHandler(self)
         self._init_step_1()
 
     def _init_step_1(self):
@@ -272,43 +376,11 @@ class InsteonDevice(Root_Insteon):
     ###################################################################
 
     def send_command(self, command_name, state='', dev_bytes={}):
-        message = self.create_message(command_name)
+        message = self.send_handler.create_message(command_name)
         if message is not None:
             message.insert_bytes_into_raw(dev_bytes)
             message.state_machine = state
             self.queue_device_msg(message)
-
-    def create_message(self, command_name):
-        ret = None
-        try:
-            cmd_schema = self._send_handler.msg_schema[command_name]
-        except KeyError:
-            print('command', command_name,
-                  'not found for this device. Run DevCat?')
-        else:
-            command = cmd_schema.copy()
-            command['name'] = command_name
-            ret = PLM_Message(self.plm,
-                              device=self,
-                              plm_cmd='insteon_send',
-                              dev_cmd=command)
-        return ret
-
-    def _recursive_search_cmd(self, command, search_item):
-        unique_cmd = ''
-        catch_all_cmd = ''
-        for command_item in command:
-            if isinstance(command_item[search_item[0]], tuple):
-                if search_item[1] in command_item[search_item[0]]:
-                    unique_cmd = command_item['value']
-            elif command_item[search_item[0]] == 'all':
-                catch_all_cmd = command_item['value']
-        if unique_cmd != '':
-            return unique_cmd
-        elif catch_all_cmd != '':
-            return catch_all_cmd
-        else:
-            return None
 
     def write_aldb_record(self, msb, lsb):
         # TODO This is only the base structure still need to add more basically
@@ -332,7 +404,7 @@ class InsteonDevice(Root_Insteon):
 
     def _add_plm_to_dev_link_step2(self):
         # Put Device in linking mode
-        message = self.create_message('enter_link_mode')
+        message = self.send_handler.create_message('enter_link_mode')
         dev_bytes = {
             'cmd_2': 0x00
         }

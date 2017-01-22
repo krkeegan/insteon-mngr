@@ -1,4 +1,5 @@
 from insteon.helpers import BYTE_TO_HEX
+from insteon.plm_message import PLM_Message
 
 
 class GenericRcvdHandler(object):
@@ -186,6 +187,7 @@ class GenericRcvdHandler(object):
             print('received spurious ext_aldb_ack')
         return False  # Never set ack
 
+
 class GenericSendHandler(object):
     '''Provides the generic command handling that does not conflict with
     any Insteon devices.  Devices with distinct commands and needs should
@@ -197,6 +199,28 @@ class GenericSendHandler(object):
         # if the dev_cat changes
         self._device = device
         self._last_sent_msg = None
+
+    #################################################################
+    #
+    # Generic Message Creation
+    #
+    #################################################################
+
+    def create_message(self, command_name):
+        ret = None
+        try:
+            cmd_schema = self.msg_schema[command_name]
+        except KeyError:
+            print('command', command_name,
+                  'not found for this device. Run DevCat?')
+        else:
+            command = cmd_schema.copy()
+            command['name'] = command_name
+            ret = PLM_Message(self._device.plm,
+                              device=self._device,
+                              plm_cmd='insteon_send',
+                              dev_cmd=command)
+        return ret
 
     #################################################################
     #

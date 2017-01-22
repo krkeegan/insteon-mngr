@@ -1,5 +1,5 @@
 import time
-from .msg_schema import PLM_SCHEMA
+from .plm_schema import PLM_SCHEMA
 from .insteon_message import Insteon_Message
 
 
