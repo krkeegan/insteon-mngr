@@ -1,4 +1,3 @@
-from insteon.helpers import BYTE_TO_HEX
 from insteon.plm_message import PLM_Message
 from insteon.trigger import Trigger
 
@@ -88,7 +87,8 @@ class GenericRcvdHandler(object):
                 print('nack received, senders ID not in database')
                 self._device.attribute('engine_version', 0x02)
                 self._device.last_sent_msg.insteon_msg.device_ack = True
-                self._device.remove_state_machine(self._device.last_sent_msg.state_machine)
+                self._device.remove_state_machine(
+                    self._device.last_sent_msg.state_machine)
                 print('creating plm->device link')
                 self._device.add_plm_to_dev_link()
             elif cmd_2 == 0xFE:
@@ -134,9 +134,11 @@ class GenericRcvdHandler(object):
 
     def _ext_aldb_rcvd(self, msg):
         '''Sets the device_ack flag, while not specifically an ack'''
-        if (self._device.last_sent_msg.insteon_msg.device_prelim_ack is True and
-                self._device.last_sent_msg.insteon_msg.device_ack is False):
-            last_msg = self._device.search_last_sent_msg(insteon_cmd='read_aldb')
+        last_sent_msg = self._device.last_sent_msg
+        if (last_sent_msg.insteon_msg.device_prelim_ack is True and
+                last_sent_msg.insteon_msg.device_ack is False):
+            last_msg = self._device.search_last_sent_msg(
+                insteon_cmd='read_aldb')
             req_msb = last_msg.get_byte_by_name('msb')
             req_lsb = last_msg.get_byte_by_name('lsb')
             msg_msb = msg.get_byte_by_name('usr_3')
@@ -153,7 +155,9 @@ class GenericRcvdHandler(object):
                     msg.get_byte_by_name('usr_12'),
                     msg.get_byte_by_name('usr_13')
                 ])
-                self._device.aldb.edit_record(self._device.aldb.get_aldb_key(msg_msb, msg_lsb),
+                self._device.aldb.edit_record(self._device.aldb.get_aldb_key(
+                                                                msg_msb,
+                                                                msg_lsb),
                                               aldb_entry)
                 self._device.last_sent_msg.insteon_msg.device_ack = True
         else:
@@ -176,7 +180,8 @@ class GenericRcvdHandler(object):
 
     def _ack_peek_aldb(self, msg):
         lsb = self._device.last_sent_msg.get_byte_by_name('cmd_2')
-        msb_msg = self._device.search_last_sent_msg(insteon_cmd='set_address_msb')
+        msb_msg = self._device.search_last_sent_msg(
+            insteon_cmd='set_address_msb')
         msb = msb_msg.get_byte_by_name('cmd_2')
         byte = msg.get_byte_by_name('cmd_2')
         self._device.aldb.store_peeked_byte(msb, lsb, byte)
@@ -193,14 +198,15 @@ class GenericRcvdHandler(object):
                                                        dev_bytes['lsb'])
             else:
                 send_handler.peek_aldb(dev_bytes['lsb'])
-        return True # Is there a scenario in which we return False?
+        return True  # Is there a scenario in which we return False?
 
     def _ext_aldb_ack(self, msg):
         # pylint: disable=W0613
         # msg is passed to all similar functions
         # TODO consider adding more time for following message to arrive
-        if (self._device.last_sent_msg.insteon_msg.device_prelim_ack is False and
-                self._device.last_sent_msg.insteon_msg.device_ack is False):
+        last_sent_msg = self._device.last_sent_msg
+        if (last_sent_msg.insteon_msg.device_prelim_ack is False and
+                last_sent_msg.insteon_msg.device_ack is False):
             if self._device.last_sent_msg.get_byte_by_name('usr_2') == 0x00:
                 # When reading ALDB a subsequent ext msg will contain record
                 self._device.last_sent_msg.insteon_msg.device_prelim_ack = True
@@ -214,8 +220,9 @@ class GenericRcvdHandler(object):
         # pylint: disable=W0613
         # msg is passed to all similar functions
         # TODO consider adding more time for following message to arrive
-        if (self._device.last_sent_msg.insteon_msg.device_prelim_ack is False and
-                self._device.last_sent_msg.insteon_msg.device_ack is False):
+        last_sent_msg = self._device.last_sent_msg
+        if (last_sent_msg.insteon_msg.device_prelim_ack is False and
+                last_sent_msg.insteon_msg.device_ack is False):
             self._device.last_sent_msg.insteon_msg.device_prelim_ack = True
         else:
             print('received spurious device ack')
@@ -229,11 +236,12 @@ class GenericRcvdHandler(object):
             dev_cat = msg.get_byte_by_name('to_addr_hi')
             sub_cat = msg.get_byte_by_name('to_addr_mid')
             firmware = msg.get_byte_by_name('to_addr_low')
-            self._device.set_dev_version(dev_cat,sub_cat,firmware)
+            self._device.set_dev_version(dev_cat, sub_cat, firmware)
             last_insteon_msg.device_ack = True
             print('rcvd, broadcast updated devcat, subcat, and firmware')
         else:
             print('rcvd spurious set button pressed from device')
+
 
 class GenericSendHandler(object):
     '''Provides the generic command handling that does not conflict with
@@ -380,8 +388,9 @@ class GenericSendHandler(object):
 
     def i2_next_aldb(self):
         # TODO parse by real names on incomming
-        msb = self._device._rcvd_handler.last_rcvd_msg.get_byte_by_name('usr_3')
-        lsb = self._device._rcvd_handler.last_rcvd_msg.get_byte_by_name('usr_4')
+        rcvd_handler = self._device._rcvd_handler
+        msb = rcvd_handler.last_rcvd_msg.get_byte_by_name('usr_3')
+        lsb = rcvd_handler.last_rcvd_msg.get_byte_by_name('usr_4')
         aldb_key = self._device.aldb.get_aldb_key(msb, lsb)
         if self._device.aldb.is_last_aldb(aldb_key):
             self._device.remove_state_machine('query_aldb')
@@ -417,6 +426,8 @@ class GenericSendHandler(object):
         self._device.queue_device_msg(message)
 
     def peek_aldb(self, lsb):
+        # TODO this needs to use triggers in order to allow for the
+        # complex process that is the i1 engine version
         message = self.create_message('peek_one_byte')
         message.insert_bytes_into_raw({'lsb': lsb})
         message.state_machine = 'query_aldb'
@@ -439,7 +450,7 @@ class GenericSendHandler(object):
         else:
             pass  # run i1 commands
 
-    def write_aldb_record(self, msb, lsb):
+    def write_aldb_record(self, msb, lsb, record):
         # TODO This is only the base structure still need to add more basically
         # just deletes things right now
         dev_bytes = {'msb': msb, 'lsb': lsb}
@@ -538,7 +549,7 @@ class GenericSendHandler(object):
                 'usr_4': {'default': 0x00,
                           'name': 'lsb'},
                 'usr_5': {'default': 0x01,
-                          'name': 'num_records'},  # 0x00 = All, 0x01 = 1 Record
+                          'name': 'num_records'},  # 0x00 = All,0x01 = 1 Record
                 'usr_6': {'default': 0x00},
                 'usr_7': {'default': 0x00},
                 'usr_8': {'default': 0x00},

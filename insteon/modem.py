@@ -94,6 +94,10 @@ class Modem(Root_Insteon):
         for group_num in range(0x01, 0xFF):
             self.create_group(group_num, PLM_Group)
 
+    def _load_devices(self, devices):
+        for id, attributes in devices.items():
+            self.add_device(id, attributes=attributes)
+
     def setup(self):
         if self.dev_addr_str == '000000':
             self.send_command('plm_info')

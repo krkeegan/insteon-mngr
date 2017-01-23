@@ -155,10 +155,6 @@ class Base_Device(object):
             else:
                 self.attribute(name, value)
 
-    def _load_devices(self, devices):
-        for id, attributes in devices.items():
-            self.add_device(id, attributes=attributes)
-
 
 class Base_Insteon(Base_Device):
 
@@ -193,19 +189,15 @@ class Base_Insteon(Base_Device):
     @property
     def sub_cat(self):
         return self.attribute('sub_cat')
+
     @property
     def firmware(self):
         return self.attribute('firmware')
 
-    def set_dev_addr(self, addr):
-        self._id_bytes = ID_STR_TO_BYTES(addr)
-        return
+    @property
+    def group(self):
+        return NotImplemented
 
-    def set_dev_version(self, dev_cat=None, sub_cat=None, firmware=None):
-        self.attribute('dev_cat', dev_cat)
-        self.attribute('sub_cat', sub_cat)
-        self.attribute('firmware', firmware)
-        return
 
 class Root_Insteon(Base_Insteon):
     '''The base of the primary group'''
@@ -228,3 +220,17 @@ class Root_Insteon(Base_Insteon):
                     ret = group_obj
                     break
         return ret
+
+    @property
+    def group(self):
+        return 0x01
+
+    def set_dev_addr(self, addr):
+        self._id_bytes = ID_STR_TO_BYTES(addr)
+        return
+
+    def set_dev_version(self, dev_cat=None, sub_cat=None, firmware=None):
+        self.attribute('dev_cat', dev_cat)
+        self.attribute('sub_cat', sub_cat)
+        self.attribute('firmware', firmware)
+        return
