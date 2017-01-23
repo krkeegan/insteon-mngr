@@ -22,23 +22,6 @@ class Device_ALDB(ALDB):
         key = bytes([msb, highest_byte])
         return BYTE_TO_HEX(key)
 
-    def create_responder(self, controller, d1, d2, d3):
-                # Device Responder
-                # D1 On Level D2 Ramp Rate D3 Group of responding device i1 00
-                # i2 01
-        pass
-
-    def create_controller(self, responder):
-                # Device controller
-                # D1 03 Hops?? D2 00 D3 Group 01 of responding device??
-        pass
-
-    def _write_link(self, linked_obj, is_controller):
-        if self._parent.attribute('engine_version') == 2:
-            pass  # run i2cs commands
-        else:
-            pass  # run i1 commands
-
     def get_next_aldb_address(self, msb, lsb):
         ret = {}
         if (self._parent.attribute('engine_version') == 0x00):
@@ -177,7 +160,7 @@ class InsteonDevice(Root_Insteon):
     def _process_direct_nack(self, msg):
         '''processes an incomming direct nack message'''
         if self._is_valid_direct_resp(msg):
-            self._rcvd_handler.dispach_direct_nack(msg)
+            self._rcvd_handler.dispatch_direct_nack(msg)
 
     def _process_broadcast(self,msg):
         self._rcvd_handler.dispatch_broadcast(msg)

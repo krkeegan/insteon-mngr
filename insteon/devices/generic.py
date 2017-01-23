@@ -360,9 +360,10 @@ class GenericSendHandler(object):
             self.i1_start_aldb_entry_query(0x0F, 0xF8)
         else:
             dev_bytes = {'msb': 0x00, 'lsb': 0x00}
-            self.send_command('read_aldb',
-                              'query_aldb',
-                              dev_bytes=dev_bytes)
+            message = self.create_message('read_aldb')
+            message.insert_bytes_into_raw(dev_bytes)
+            message.state_machine = 'query_aldb'
+            self._device.queue_device_msg(message)
             # It would be nice to link the trigger to the msb and lsb, but we
             # don't technically have that yet at this point
             trigger_attributes = {
@@ -388,9 +389,10 @@ class GenericSendHandler(object):
             self.set_aldb_delta()
         else:
             dev_bytes = self._device.aldb.get_next_aldb_address(msb, lsb)
-            self.send_command('read_aldb',
-                              'query_aldb',
-                              dev_bytes=dev_bytes)
+            message = self.create_message('read_aldb')
+            message.insert_bytes_into_raw(dev_bytes)
+            message.state_machine = 'query_aldb'
+            self._device.queue_device_msg(message)
             # Set Trigger
             trigger_attributes = {
                 'plm_cmd': 0x51,
