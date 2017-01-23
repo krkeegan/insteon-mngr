@@ -22,79 +22,6 @@ class Device_ALDB(ALDB):
         key = bytes([msb, highest_byte])
         return BYTE_TO_HEX(key)
 
-    def query_aldb(self):
-        self.clear_all_records()
-        if self._parent.attribute('engine_version') == 0:
-            self.i1_start_aldb_entry_query(0x0F, 0xF8)
-        else:
-            dev_bytes = {'msb': 0x00, 'lsb': 0x00}
-            self._parent.send_handler.send_command('read_aldb',
-                                      'query_aldb',
-                                      dev_bytes=dev_bytes)
-            # It would be nice to link the trigger to the msb and lsb, but we
-            # don't technically have that yet at this point
-            trigger_attributes = {
-                'plm_cmd': 0x51,
-                'cmd_1': 0x2F,
-                'from_addr_hi': self._parent.dev_addr_hi,
-                'from_addr_mid': self._parent.dev_addr_mid,
-                'from_addr_low': self._parent.dev_addr_low,
-            }
-            trigger = Trigger(trigger_attributes)
-            trigger.trigger_function = lambda: self.i2_next_aldb()
-            trigger_name = self._parent.dev_addr_str + 'query_aldb'
-            self._parent.plm.trigger_mngr.add_trigger(trigger_name, trigger)
-
-    def i2_next_aldb(self):
-        # TODO parse by real names on incomming
-        msb = self._parent.last_rcvd_msg.get_byte_by_name('usr_3')
-        lsb = self._parent.last_rcvd_msg.get_byte_by_name('usr_4')
-        if self.is_last_aldb(self.get_aldb_key(msb, lsb)):
-            self._parent.remove_state_machine('query_aldb')
-            records = self.get_all_records()
-            for key in sorted(records):
-                print(key, ":", BYTE_TO_HEX(records[key]))
-            self._parent.send_handler.send_command('light_status_request', 'set_aldb_delta')
-        else:
-            if lsb == 0x07:
-                msb -= 1
-                lsb = 0xFF
-            else:
-                lsb -= 8
-            dev_bytes = {'msb': msb, 'lsb': lsb}
-            self._parent.send_handler.send_command('read_aldb',
-                                      'query_aldb',
-                                      dev_bytes=dev_bytes)
-            # Set Trigger
-            trigger_attributes = {
-                'plm_cmd': 0x51,
-                'cmd_1': 0x2F,
-                'usr_3': msb,
-                'usr_4': lsb,
-                'from_addr_hi': self._parent.dev_addr_hi,
-                'from_addr_mid': self._parent.dev_addr_mid,
-                'from_addr_low': self._parent.dev_addr_low,
-            }
-            trigger = Trigger(trigger_attributes)
-            trigger.trigger_function = lambda: self.i2_next_aldb()
-            trigger_name = self._parent.dev_addr_str + 'query_aldb'
-            self._parent.plm.trigger_mngr.add_trigger(trigger_name, trigger)
-
-    def i1_start_aldb_entry_query(self, msb, lsb):
-        message = self._parent.send_handler.create_message('set_address_msb')
-        message.insert_bytes_into_raw({'msb': msb})
-        message.insteon_msg.device_success_callback = \
-            lambda: \
-            self.peek_aldb(lsb)
-        message.state_machine = 'query_aldb'
-        self._parent._queue_device_msg(message)
-
-    def peek_aldb(self, lsb):
-        message = self._parent.send_handler.create_message('peek_one_byte')
-        message.insert_bytes_into_raw({'lsb': lsb})
-        message.state_machine = 'query_aldb'
-        self._parent._queue_device_msg(message)
-
     def create_responder(self, controller, d1, d2, d3):
                 # Device Responder
                 # D1 On Level D2 Ramp Rate D3 Group of responding device i1 00
@@ -113,7 +40,21 @@ class Device_ALDB(ALDB):
             pass  # run i1 commands
         pass
 
+    def print_records(self):
+        records = self.get_all_records()
+        for key in sorted(records):
+            print(key, ":", BYTE_TO_HEX(records[key]))
 
+    def get_next_aldb_address(self, msb, lsb):
+        ret = {}
+        if lsb == 0x07:
+            msb -= 1
+            lsb = 0xFF
+        else:
+            lsb -= 8
+        ret['msb'] = msb
+        ret['lsb'] = lsb
+        return ret
 
 class InsteonDevice(Root_Insteon):
 
@@ -350,7 +291,7 @@ class InsteonDevice(Root_Insteon):
             self.remove_state_machine('set_aldb_delta')
         elif self.attribute('aldb_delta') != aldb_delta:
             print('aldb has changed, rescanning')
-            self.aldb.query_aldb()
+            self.send_handler.query_aldb()
 
     def set_engine_version(self, version):
         if version >= 0xFB:

@@ -297,6 +297,76 @@ class GenericSendHandler(object):
         self._device.plm.remove_state_machine('link plm->device')
         self._device.remove_state_machine('link plm->device')
 
+    # ALDB commands
+    ######################
+
+    def query_aldb(self):
+        self._device.aldb.clear_all_records()
+        if self._device.attribute('engine_version') == 0:
+            self.i1_start_aldb_entry_query(0x0F, 0xF8)
+        else:
+            dev_bytes = {'msb': 0x00, 'lsb': 0x00}
+            self.send_command('read_aldb',
+                              'query_aldb',
+                              dev_bytes=dev_bytes)
+            # It would be nice to link the trigger to the msb and lsb, but we
+            # don't technically have that yet at this point
+            trigger_attributes = {
+                'plm_cmd': 0x51,
+                'cmd_1': 0x2F,
+                'from_addr_hi': self._device.dev_addr_hi,
+                'from_addr_mid': self._device.dev_addr_mid,
+                'from_addr_low': self._device.dev_addr_low,
+            }
+            trigger = Trigger(trigger_attributes)
+            trigger.trigger_function = lambda: self.i2_next_aldb()
+            trigger_name = self._device.dev_addr_str + 'query_aldb'
+            self._device.plm.trigger_mngr.add_trigger(trigger_name, trigger)
+
+    def i2_next_aldb(self):
+        # TODO parse by real names on incomming
+        msb = self._device._rcvd_handler.last_rcvd_msg.get_byte_by_name('usr_3')
+        lsb = self._device._rcvd_handler.last_rcvd_msg.get_byte_by_name('usr_4')
+        aldb_key = self._device.aldb.get_aldb_key(msb, lsb)
+        if self._device.aldb.is_last_aldb(aldb_key):
+            self._device.remove_state_machine('query_aldb')
+            self._device.aldb.print_records()
+            self.send_command('light_status_request', 'set_aldb_delta')
+        else:
+            dev_bytes = self._device.aldb.get_next_aldb_address(msb, lsb)
+            self.send_command('read_aldb',
+                              'query_aldb',
+                              dev_bytes=dev_bytes)
+            # Set Trigger
+            trigger_attributes = {
+                'plm_cmd': 0x51,
+                'cmd_1': 0x2F,
+                'usr_3': dev_bytes['msb'],
+                'usr_4': dev_bytes['lsb'],
+                'from_addr_hi': self._device.dev_addr_hi,
+                'from_addr_mid': self._device.dev_addr_mid,
+                'from_addr_low': self._device.dev_addr_low,
+            }
+            trigger = Trigger(trigger_attributes)
+            trigger.trigger_function = lambda: self.i2_next_aldb()
+            trigger_name = self._device.dev_addr_str + 'query_aldb'
+            self._device.plm.trigger_mngr.add_trigger(trigger_name, trigger)
+
+    def i1_start_aldb_entry_query(self, msb, lsb, callback):
+        message = self.create_message('set_address_msb')
+        message.insert_bytes_into_raw({'msb': msb})
+        message.insteon_msg.device_success_callback = \
+            lambda: \
+            self.peek_aldb(lsb)
+        message.state_machine = 'query_aldb'
+        self._device._queue_device_msg(message)
+
+    def peek_aldb(self, lsb):
+        message = self.create_message('peek_one_byte')
+        message.insert_bytes_into_raw({'lsb': lsb})
+        message.state_machine = 'query_aldb'
+        self._device._queue_device_msg(message)
+
     #################################################################
     #
     # Message Schema
