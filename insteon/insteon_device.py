@@ -71,7 +71,7 @@ class InsteonDevice(Root_Insteon):
 
     def _init_step_1(self):
         if self.attribute('engine_version') is None:
-            self.send_handler.send_command('get_engine_version')
+            self.send_handler.get_engine_version()
         else:
             self._init_step_2()
 
@@ -87,11 +87,12 @@ class InsteonDevice(Root_Insteon):
                 'insteon_msg_type': 'broadcast'
             }
             trigger = Trigger(trigger_attributes)
-            trigger.trigger_function = lambda: self.send_handler.send_command('light_status_request')
-            self.plm.trigger_mngr.add_trigger(self.dev_addr_str + 'init_step_2', trigger)
-            self.send_handler.send_command('id_request')
+            trigger.trigger_function = lambda: self.send_handler.get_status()
+            trigger_name = self.dev_addr_str + 'init_step_2'
+            self.plm.trigger_mngr.add_trigger(trigger_name, trigger)
+            self.send_handler.get_device_version()
         else:
-            self.send_handler.send_command('light_status_request')
+            self.send_handler.get_status()
 
     @property
     def smart_hops(self):

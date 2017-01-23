@@ -242,6 +242,18 @@ class GenericSendHandler(object):
         dev_bytes = {'msb': msb, 'lsb': lsb}
         self.send_command('write_aldb', '', dev_bytes=dev_bytes)
 
+    def get_status(self):
+        self.send_command('light_status_request')
+
+    def get_engine_version(self):
+        self.send_command('get_engine_version')
+
+    def get_device_version(self):
+        self.send_command('id_request')
+
+    # Create PLM->Device Link
+    #########################
+
     def add_plm_to_dev_link(self):
         # Put the PLM in Linking Mode
         # queues a message on the PLM
