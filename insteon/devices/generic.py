@@ -69,6 +69,8 @@ class GenericRcvdHandler(object):
             version = msg.get_byte_by_name('cmd_2')
             self._device.set_engine_version(version)
             ret = True
+        elif cmd_byte == 0x10:
+            ret = self._common_prelim_ack(msg)
         elif cmd_byte == 0x28:
             ret = self._ack_set_msb(msg)
         elif cmd_byte == 0x2B:
@@ -78,7 +80,7 @@ class GenericRcvdHandler(object):
             ret = self._ext_aldb_ack(msg)
         return ret
 
-    def dispach_direct_nack(self, msg):
+    def dispatch_direct_nack(self, msg):
         engine_version = self._device.attribute('engine_version')
         if (engine_version == 0x02 or engine_version is None):
             cmd_2 = msg.get_byte_by_name('cmd_2')
@@ -116,6 +118,13 @@ class GenericRcvdHandler(object):
             print('device nack`ed the last command, resending')
             self._device.plm.wait_to_send = 1
             self._device._resend_msg(self._device.last_sent_msg)
+
+    def dispatch_broadcast(self, msg):
+        cmd_byte = msg.get_byte_by_name('cmd_1')
+        if cmd_byte == 0X01:
+            self._set_button_responder(msg)
+        else:
+            print('rcvd broadcast message of unknown type')
 
     ###################################################
     #
@@ -170,7 +179,20 @@ class GenericRcvdHandler(object):
         msb_msg = self._device.search_last_sent_msg(insteon_cmd='set_address_msb')
         msb = msb_msg.get_byte_by_name('cmd_2')
         byte = msg.get_byte_by_name('cmd_2')
-        self._device.aldb.peeked_byte(msb, lsb, byte)
+        self._device.aldb.store_peeked_byte(msb, lsb, byte)
+        aldb_key = self._device.aldb.get_aldb_key(msb, lsb)
+        if self._device.aldb.is_last_aldb(aldb_key):
+            self._device.aldb.print_records()
+            self._device.remove_state_machine('query_aldb')
+            self._device.send_handler.set_aldb_delta()
+        else:
+            dev_bytes = self._device.aldb.get_next_aldb_address(msb, lsb)
+            send_handler = self._device.send_handler
+            if msb != dev_bytes['msb']:
+                send_handler.i1_start_aldb_entry_query(dev_bytes['msb'],
+                                                       dev_bytes['lsb'])
+            else:
+                send_handler.peek_aldb(dev_bytes['lsb'])
         return True # Is there a scenario in which we return False?
 
     def _ext_aldb_ack(self, msg):
@@ -188,6 +210,30 @@ class GenericRcvdHandler(object):
             print('received spurious ext_aldb_ack')
         return False  # Never set ack
 
+    def _common_prelim_ack(self, msg):
+        # pylint: disable=W0613
+        # msg is passed to all similar functions
+        # TODO consider adding more time for following message to arrive
+        if (self._device.last_sent_msg.insteon_msg.device_prelim_ack is False and
+                self._device.last_sent_msg.insteon_msg.device_ack is False):
+            self._device.last_sent_msg.insteon_msg.device_prelim_ack = True
+        else:
+            print('received spurious device ack')
+        return False  # Never set ack
+
+    def _set_button_responder(self, msg):
+        last_insteon_msg = self._device.last_sent_msg.insteon_msg
+        if (last_insteon_msg.device_cmd_name == 'id_request' and
+                last_insteon_msg.device_prelim_ack is True and
+                last_insteon_msg.device_ack is False):
+            dev_cat = msg.get_byte_by_name('to_addr_hi')
+            sub_cat = msg.get_byte_by_name('to_addr_mid')
+            firmware = msg.get_byte_by_name('to_addr_low')
+            self._device.set_dev_version(dev_cat,sub_cat,firmware)
+            last_insteon_msg.device_ack = True
+            print('rcvd, broadcast updated devcat, subcat, and firmware')
+        else:
+            print('rcvd spurious set button pressed from device')
 
 class GenericSendHandler(object):
     '''Provides the generic command handling that does not conflict with
@@ -244,6 +290,9 @@ class GenericSendHandler(object):
 
     def get_status(self):
         self.send_command('light_status_request')
+
+    def set_aldb_delta(self):
+        self.send_command('light_status_request', 'set_aldb_delta')
 
     def get_engine_version(self):
         self.send_command('get_engine_version')
@@ -343,7 +392,7 @@ class GenericSendHandler(object):
         if self._device.aldb.is_last_aldb(aldb_key):
             self._device.remove_state_machine('query_aldb')
             self._device.aldb.print_records()
-            self.send_command('light_status_request', 'set_aldb_delta')
+            self.set_aldb_delta()
         else:
             dev_bytes = self._device.aldb.get_next_aldb_address(msb, lsb)
             self.send_command('read_aldb',
@@ -364,20 +413,19 @@ class GenericSendHandler(object):
             trigger_name = self._device.dev_addr_str + 'query_aldb'
             self._device.plm.trigger_mngr.add_trigger(trigger_name, trigger)
 
-    def i1_start_aldb_entry_query(self, msb, lsb, callback):
+    def i1_start_aldb_entry_query(self, msb, lsb):
         message = self.create_message('set_address_msb')
         message.insert_bytes_into_raw({'msb': msb})
-        message.insteon_msg.device_success_callback = \
-            lambda: \
-            self.peek_aldb(lsb)
+        callback = lambda: self.peek_aldb(lsb)
+        message.insteon_msg.device_success_callback = callback
         message.state_machine = 'query_aldb'
-        self._device._queue_device_msg(message)
+        self._device.queue_device_msg(message)
 
     def peek_aldb(self, lsb):
         message = self.create_message('peek_one_byte')
         message.insert_bytes_into_raw({'lsb': lsb})
         message.state_machine = 'query_aldb'
-        self._device._queue_device_msg(message)
+        self._device.queue_device_msg(message)
 
     #################################################################
     #
@@ -388,7 +436,8 @@ class GenericSendHandler(object):
     @property
     def msg_schema(self):
         '''Returns a dictionary of all outgoing message types'''
-        schema = {'product_data_request': {
+        schema = {
+            'product_data_request': {
                 'cmd_1': {'default': 0x03},
                 'cmd_2': {'default': 0x00},
                 'msg_length': 'standard',

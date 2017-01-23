@@ -2,7 +2,7 @@ import math
 import time
 import pprint
 
-from .aldb import ALDB
+from insteon.aldb import ALDB
 from insteon.base_objects import Root_Insteon
 from insteon.group import Insteon_Group
 from insteon.plm_message import PLM_Message
@@ -28,7 +28,7 @@ class Device_ALDB(ALDB):
                 # i2 01
         pass
 
-    def create_controller(responder):
+    def create_controller(self, responder):
                 # Device controller
                 # D1 03 Hops?? D2 00 D3 Group 01 of responding device??
         pass
@@ -38,7 +38,6 @@ class Device_ALDB(ALDB):
             pass  # run i2cs commands
         else:
             pass  # run i1 commands
-        pass
 
     def print_records(self):
         records = self.get_all_records()
@@ -47,14 +46,38 @@ class Device_ALDB(ALDB):
 
     def get_next_aldb_address(self, msb, lsb):
         ret = {}
-        if lsb == 0x07:
-            msb -= 1
-            lsb = 0xFF
+        if (self._parent.attribute('engine_version') == 0x00):
+            ret['msb'] = msb
+            if self.is_empty_aldb(self.get_aldb_key(msb, lsb)):
+                ret['lsb'] = lsb - (8 + (lsb % 8))
+            elif (lsb % 8) == 7: # End of Entry
+                ret['lsb'] = lsb - 15
+            else: # In an entry, keep counting up
+                ret['lsb'] = lsb + 1
+            if ret['lsb'] < 0: #Bottom of LSB start over
+                ret['msb'] = msb - 1
+                ret['lsb'] = 0xF8
         else:
-            lsb -= 8
-        ret['msb'] = msb
-        ret['lsb'] = lsb
+            # TODO the i2 version is not very robust, it would explode if
+            # it was sent anything other than the starting byte of an address
+            if lsb == 0x07:
+                msb -= 1
+                lsb = 0xFF
+            else:
+                lsb -= 8
+            ret['msb'] = msb
+            ret['lsb'] = lsb
         return ret
+
+    def store_peeked_byte(self, msb, lsb, byte):
+        if (lsb % 8) == 0:
+            # First byte, clear out the record
+            self.edit_record(self.get_aldb_key(msb, lsb), bytearray(8))
+        self.edit_record_byte(
+            self.get_aldb_key(msb, lsb),
+            lsb % 8,
+            byte
+        )
 
 class InsteonDevice(Root_Insteon):
 
@@ -162,11 +185,7 @@ class InsteonDevice(Root_Insteon):
             self._rcvd_handler.dispach_direct_nack(msg)
 
     def _process_broadcast(self,msg):
-        dev_cat = msg.get_byte_by_name('to_addr_hi')
-        sub_cat = msg.get_byte_by_name('to_addr_mid')
-        firmware = msg.get_byte_by_name('to_addr_low')
-        self.set_dev_version(dev_cat,sub_cat,firmware)
-        print('rcvd, broadcast updated devcat, subcat, and firmware')
+        self._rcvd_handler.dispatch_broadcast(msg)
 
     def _process_alllink_cleanup(self,msg):
         # TODO set state of the device based on cmd acked
@@ -301,7 +320,7 @@ class InsteonDevice(Root_Insteon):
             # a message when they mean to nack it, but the cmd_2
             # value is still the correct nack reason
             self.attribute('engine_version', 0x02)
-            self._rcvd_handler.dispatch_direct_nack(msg)
+            self.send_handler.add_plm_to_dev_link()
         else:
             self.attribute('engine_version', version)
             # TODO handle this with a trigger?
