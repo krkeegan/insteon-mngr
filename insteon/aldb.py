@@ -90,3 +90,8 @@ class ALDB(object):
         if self.get_record(key)[0] & 0b10000000:
             ret = False
         return ret
+
+    def print_records(self):
+        records = self.get_all_records()
+        for key in sorted(records):
+            print(key, ":", BYTE_TO_HEX(records[key]))

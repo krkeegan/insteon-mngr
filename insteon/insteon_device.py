@@ -39,11 +39,6 @@ class Device_ALDB(ALDB):
         else:
             pass  # run i1 commands
 
-    def print_records(self):
-        records = self.get_all_records()
-        for key in sorted(records):
-            print(key, ":", BYTE_TO_HEX(records[key]))
-
     def get_next_aldb_address(self, msb, lsb):
         ret = {}
         if (self._parent.attribute('engine_version') == 0x00):

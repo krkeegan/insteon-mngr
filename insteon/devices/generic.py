@@ -269,10 +269,9 @@ class GenericSendHandler(object):
                               dev_cmd=command)
         return ret
 
-    def send_command(self, command_name, state='', dev_bytes={}):
+    def send_command(self, command_name, state=''):
         message = self.create_message(command_name)
         if message is not None:
-            message.insert_bytes_into_raw(dev_bytes)
             message.state_machine = state
             self._device.queue_device_msg(message)
 
@@ -281,12 +280,6 @@ class GenericSendHandler(object):
     # Specific Outgoing messages
     #
     #################################################################
-
-    def write_aldb_record(self, msb, lsb):
-        # TODO This is only the base structure still need to add more basically
-        # just deletes things right now
-        dev_bytes = {'msb': msb, 'lsb': lsb}
-        self.send_command('write_aldb', '', dev_bytes=dev_bytes)
 
     def get_status(self):
         self.send_command('light_status_request')
@@ -426,6 +419,31 @@ class GenericSendHandler(object):
         message.insert_bytes_into_raw({'lsb': lsb})
         message.state_machine = 'query_aldb'
         self._device.queue_device_msg(message)
+
+    def create_responder(self, controller, d1, d2, d3):
+                # Device Responder
+                # D1 On Level D2 Ramp Rate D3 Group of responding device i1 00
+                # i2 01
+        pass
+
+    def create_controller(self, responder):
+                # Device controller
+                # D1 03 Hops?? D2 00 D3 Group 01 of responding device??
+        pass
+
+    def _write_link(self, linked_obj, is_controller):
+        if self._device.attribute('engine_version') == 2:
+            pass  # run i2cs commands
+        else:
+            pass  # run i1 commands
+
+    def write_aldb_record(self, msb, lsb):
+        # TODO This is only the base structure still need to add more basically
+        # just deletes things right now
+        dev_bytes = {'msb': msb, 'lsb': lsb}
+        msg = self.create_message('write_aldb')
+        msg.insert_bytes_into_raw(dev_bytes)
+        self._device.queue_device_msg(msg)
 
     #################################################################
     #
