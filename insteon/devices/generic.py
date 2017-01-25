@@ -1,5 +1,6 @@
 from insteon.plm_message import PLM_Message
 from insteon.trigger import Trigger
+from insteon.sequences.device import ScanDeviceALDB
 
 
 class GenericRcvdHandler(object):
@@ -132,6 +133,22 @@ class GenericRcvdHandler(object):
     #
     ###################################################
 
+    def _ext_aldb_ack(self, msg):
+        # pylint: disable=W0613
+        # msg is passed to all similar functions
+        # TODO consider adding more time for following message to arrive
+        last_sent_msg = self._device.last_sent_msg
+        if (last_sent_msg.insteon_msg.device_prelim_ack is False and
+                last_sent_msg.insteon_msg.device_ack is False):
+            if self._device.last_sent_msg.get_byte_by_name('usr_2') == 0x00:
+                # When reading ALDB a subsequent ext msg will contain record
+                self._device.last_sent_msg.insteon_msg.device_prelim_ack = True
+            else:
+                self._device.last_sent_msg.insteon_msg.device_ack = True
+        else:
+            print('received spurious ext_aldb_ack')
+        return False  # Never set ack
+
     def _ext_aldb_rcvd(self, msg):
         '''Sets the device_ack flag, while not specifically an ack'''
         last_sent_msg = self._device.last_sent_msg
@@ -171,6 +188,7 @@ class GenericRcvdHandler(object):
         self._device.last_sent_msg.insteon_msg.device_ack = True
 
     def _ack_set_msb(self, msg):
+        '''Returns true if the MSB Byte returned matches what we asked for'''
         if (self._device.last_sent_msg.get_byte_by_name('cmd_2') ==
                 msg.get_byte_by_name('cmd_2')):
             ret = True
@@ -179,44 +197,20 @@ class GenericRcvdHandler(object):
         return ret
 
     def _ack_peek_aldb(self, msg):
+        '''Parses out the single ALDB byte and determines the MSB and LSB of the
+        Byte.  Calls aldb function to store it'''
         lsb = self._device.last_sent_msg.get_byte_by_name('cmd_2')
         msb_msg = self._device.search_last_sent_msg(
             insteon_cmd='set_address_msb')
         msb = msb_msg.get_byte_by_name('cmd_2')
         byte = msg.get_byte_by_name('cmd_2')
         self._device.aldb.store_peeked_byte(msb, lsb, byte)
-        aldb_key = self._device.aldb.get_aldb_key(msb, lsb)
-        if self._device.aldb.is_last_aldb(aldb_key):
-            self._device.aldb.print_records()
-            self._device.remove_state_machine('query_aldb')
-            self._device.send_handler.set_aldb_delta()
-        else:
-            dev_bytes = self._device.aldb.get_next_aldb_address(msb, lsb)
-            send_handler = self._device.send_handler
-            if msb != dev_bytes['msb']:
-                send_handler.i1_start_aldb_entry_query(dev_bytes['msb'],
-                                                       dev_bytes['lsb'])
-            else:
-                send_handler.peek_aldb(dev_bytes['lsb'])
         return True  # Is there a scenario in which we return False?
 
-    def _ext_aldb_ack(self, msg):
-        # pylint: disable=W0613
-        # msg is passed to all similar functions
-        # TODO consider adding more time for following message to arrive
-        last_sent_msg = self._device.last_sent_msg
-        if (last_sent_msg.insteon_msg.device_prelim_ack is False and
-                last_sent_msg.insteon_msg.device_ack is False):
-            if self._device.last_sent_msg.get_byte_by_name('usr_2') == 0x00:
-                # When reading ALDB a subsequent ext msg will contain record
-                self._device.last_sent_msg.insteon_msg.device_prelim_ack = True
-            else:
-                self._device.last_sent_msg.insteon_msg.device_ack = True
-        else:
-            print('received spurious ext_aldb_ack')
-        return False  # Never set ack
-
     def _common_prelim_ack(self, msg):
+        '''If prelim_ack and device_ack of last sent message are false, sets
+        the prelim_ack, otherwise warns of spurious ack.  Always returns
+        False'''
         # pylint: disable=W0613
         # msg is passed to all similar functions
         # TODO consider adding more time for following message to arrive
@@ -363,10 +357,11 @@ class GenericSendHandler(object):
     ######################
 
     def query_aldb(self):
-        self._device.aldb.clear_all_records()
         if self._device.attribute('engine_version') == 0:
-            self.i1_start_aldb_entry_query(0x0F, 0xF8)
+            scan_object = ScanDeviceALDB(self._device)
+            scan_object.start_query_aldb()
         else:
+            self._device.aldb.clear_all_records()
             dev_bytes = {'msb': 0x00, 'lsb': 0x00}
             message = self.create_message('read_aldb')
             message.insert_bytes_into_raw(dev_bytes)
@@ -417,20 +412,11 @@ class GenericSendHandler(object):
             trigger_name = self._device.dev_addr_str + 'query_aldb'
             self._device.plm.trigger_mngr.add_trigger(trigger_name, trigger)
 
-    def i1_start_aldb_entry_query(self, msb, lsb):
-        message = self.create_message('set_address_msb')
-        message.insert_bytes_into_raw({'msb': msb})
-        callback = lambda: self.peek_aldb(lsb)
-        message.insteon_msg.device_success_callback = callback
-        message.state_machine = 'query_aldb'
-        self._device.queue_device_msg(message)
-
-    def peek_aldb(self, lsb):
-        # TODO this needs to use triggers in order to allow for the
-        # complex process that is the i1 engine version
+    def peek_aldb(self, lsb, state_machine=''):
+        '''Sends a peek_one_byte command to the device for the lsb'''
         message = self.create_message('peek_one_byte')
         message.insert_bytes_into_raw({'lsb': lsb})
-        message.state_machine = 'query_aldb'
+        message.state_machine = state_machine
         self._device.queue_device_msg(message)
 
     def create_responder(self, controller, d1, d2, d3):
