@@ -1,13 +1,12 @@
 import math
 import time
-import pprint
 
 from insteon.aldb import ALDB
 from insteon.base_objects import Root_Insteon
 from insteon.group import Insteon_Group
 from insteon.helpers import BYTE_TO_HEX
 from insteon.trigger import InsteonTrigger
-from insteon.devices.generic import GenericRcvdHandler, GenericSendHandler
+from insteon.devices import GenericRcvdHandler, GenericSendHandler, GenericFunctions, select_device
 
 
 class Device_ALDB(ALDB):
@@ -67,6 +66,7 @@ class InsteonDevice(Root_Insteon):
         self.create_group(1, Insteon_Group)
         self._rcvd_handler = GenericRcvdHandler(self)
         self.send_handler = GenericSendHandler(self)
+        self.functions = GenericFunctions(self)
         self._init_step_1()
 
     def _init_step_1(self):
@@ -90,6 +90,7 @@ class InsteonDevice(Root_Insteon):
             self.plm.trigger_mngr.add_trigger(trigger_name, trigger)
             self.send_handler.get_device_version()
         else:
+            self._update_device_classes()
             self.send_handler.get_status()
 
     @property
@@ -102,6 +103,10 @@ class InsteonDevice(Root_Insteon):
         else:
             avg = 3
         return math.ceil(avg)
+
+    @property
+    def engine_version(self):
+        return self.attribute('engine_version')
 
     ###################################################################
     ##
@@ -227,3 +232,20 @@ class InsteonDevice(Root_Insteon):
 
     def get_last_rcvd_msg(self):
         return self._rcvd_handler.last_rcvd_msg
+
+    def get_responder_data3(self):
+        return self.functions.get_responder_data3()
+
+    def set_dev_version(self, dev_cat=None, sub_cat=None, firmware=None):
+        super().set_dev_version(dev_cat=dev_cat,
+                                sub_cat=sub_cat, firmware=firmware)
+        self._update_device_classes()
+        return
+
+    def _update_device_classes(self):
+        classes = select_device(device=self, dev_cat=self.dev_cat,
+                                sub_cat=self.sub_cat, firmware=self.firmware,
+                                engine_version=self.engine_version)
+        self._rcvd_handler = classes['rcvd_handler']
+        self.send_handler = classes['send_handler']
+        self.functions = classes['functions']
