@@ -1,4 +1,5 @@
-from insteon.devices.generic import GenericSendHandler
+from insteon.devices import GenericSendHandler
+
 
 class DimmerSendHandler(GenericSendHandler):
     '''Provides the specific command handling for the dimmer category of

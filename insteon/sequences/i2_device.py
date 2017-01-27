@@ -101,27 +101,18 @@ class WriteALDBRecordi2(BaseSequence):
     def data2(self, byte):
         self._d2 = byte
 
-    @property
-    def data3(self):
-        '''The device specific byte to write to the data3 location defaults
-        to 0x00.'''
-        return self._d3
-
-    @data3.setter
-    def data3(self, byte):
-        self._d3 = byte
-
     def start(self):
         '''Starts the sequence to write the aldb record'''
         if self.linked_device is None:
             print('error no linked_device defined')
         else:
             status_sequence = StatusRequest(self._device)
-            callback = lambda: self._perform_write() # pylint: disable=W0108
+            callback = lambda: self._perform_write()  # pylint: disable=W0108
             status_sequence.success_callback = callback
             status_sequence.start()
 
     def _perform_write(self):
+        # TODO need to enable update a particular key
         key = self._device.aldb.get_first_empty_addr()
         msg_attributes = {
             'msb': int(key[0:2], 16),
@@ -133,18 +124,31 @@ class WriteALDBRecordi2(BaseSequence):
         if self.controller:
             msg_attributes['link_flags'] = 0xE2
             msg_attributes['group'] = self._device.group
-            msg_attributes['data_1'] = 0x03 # hops I think
-            msg_attributes['data_2'] = 0x00 # unkown always 0x00
-            msg_attributes['data_3'] = self._linked_device.group # group of responding device
+            msg_attributes['data_1'] = self.data1  # hops I think
+            msg_attributes['data_2'] = self.data2  # unkown always 0x00
+            # group of responding device
+            msg_attributes['data_3'] = self._linked_device.group
         else:
             msg_attributes['link_flags'] = 0xA2
             msg_attributes['group'] = self._linked_device.group
-            msg_attributes['data_1'] = 0xFF # on level
-            msg_attributes['data_2'] = 0x00 # ramp rate
+            msg_attributes['data_1'] = self.data1  # on level
+            msg_attributes['data_2'] = self.data2  # ramp rate
             # group of responder, i1 = 00, i2 = 01
-            msg_attributes['data_3'] = self._device.get_responder_data3
-        # actually write the address now
-
+            msg_attributes['data_3'] = self._device.get_responder_data3()
+        trigger_attributes = {
+            'cmd_2': 0x00,
+            'msg_length': 'standard'
+        }
+        trigger = InsteonTrigger(device=self._device,
+                                 command_name='write_aldb',
+                                 attributes=trigger_attributes)
+        aldb_sequence = SetALDBDelta(self._device)
+        trigger.trigger_function = lambda: aldb_sequence.start()
+        trigger_name = self._device.dev_addr_str + 'write_aldb'
+        self._device.plm.trigger_mngr.add_trigger(trigger_name, trigger)
+        msg = self._device.send_handler.create_message('write_aldb')
+        msg.insert_bytes_into_raw(msg_attributes)
+        self._device.queue_device_msg(msg)
 
     def _write_failure(self):
         if self.failure_callback is not None:

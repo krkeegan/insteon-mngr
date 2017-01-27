@@ -233,6 +233,12 @@ class InsteonDevice(Root_Insteon):
     def get_last_rcvd_msg(self):
         return self._rcvd_handler.last_rcvd_msg
 
+    def get_responder_data1(self):
+        return self.functions.get_responder_data1()
+
+    def get_responder_data2(self):
+        return self.functions.get_responder_data2()
+
     def get_responder_data3(self):
         return self.functions.get_responder_data3()
 
