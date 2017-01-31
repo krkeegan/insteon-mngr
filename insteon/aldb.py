@@ -103,3 +103,11 @@ class ALDB(object):
                 ret = key
                 break
         return ret
+
+    def get_linked_device_str(self, position):
+        parsed_record = self.parse_record(position)
+        high = parsed_record['dev_addr_hi']
+        mid = parsed_record['dev_addr_mid']
+        low = parsed_record['dev_addr_low']
+        string = BYTE_TO_ID(high, mid, low)
+        return string
