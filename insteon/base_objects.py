@@ -212,6 +212,10 @@ class Base_Insteon(Base_Device):
         return self.attribute('firmware')
 
     @property
+    def engine_version(self):
+        return self.attribute('engine_version')
+
+    @property
     def group(self):
         return NotImplemented
 
@@ -223,9 +227,11 @@ class Root_Insteon(Base_Insteon):
         self._groups = []
         super().__init__(core, plm, **kwargs)
 
-    def create_group(self, group_num, Group_Class):
+    def create_group(self, group_num, group):
         device_id = self.dev_addr_str
-        self._groups.append(Group_Class(self, group_num, device_id=device_id))
+        if group_num > 0x01 and group_num <= 0xFF:
+            self._groups.append(group(
+                                    self, group_num, device_id=device_id))
 
     def get_object_by_group_num(self, search_num):
         ret = None
@@ -237,6 +243,9 @@ class Root_Insteon(Base_Insteon):
                     ret = group_obj
                     break
         return ret
+
+    def get_all_groups(self):
+        return self._groups.copy()
 
     @property
     def group(self):
@@ -250,4 +259,8 @@ class Root_Insteon(Base_Insteon):
         self.attribute('dev_cat', dev_cat)
         self.attribute('sub_cat', sub_cat)
         self.attribute('firmware', firmware)
+        self.update_device_classes()
         return
+
+    def update_device_classes(self):
+        return NotImplemented

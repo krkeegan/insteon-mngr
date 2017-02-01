@@ -8,7 +8,8 @@ from insteon.trigger import Trigger_Manager, PLMTrigger
 from insteon.plm_message import PLM_Message
 from insteon.plm_schema import PLM_SCHEMA
 from insteon.x10_device import X10_Device, HOUSE_TO_BYTE, UNIT_TO_BYTE
-from insteon.group import PLM_Group
+from insteon.group import Insteon_Group
+from insteon.devices import select_group
 
 
 class Modem_ALDB(ALDB):
@@ -74,7 +75,6 @@ class Modem_ALDB(ALDB):
         self._parent.send_command('all_link_manage_rec', '', link_bytes)
 
 
-
 class Modem(Root_Insteon):
 
     def __init__(self, core, **kwargs):
@@ -90,14 +90,15 @@ class Modem(Root_Insteon):
         self._last_x10_unit = None
         self.port_active = True
         self.ack_time = 75
-        for group_num in range(0x01, 0xFF):
-            self.create_group(group_num, PLM_Group)
+        for group_num in range(0x02, 0xFF):
+            self.create_group(group_num, Insteon_Group)
 
     def _load_devices(self, devices):
         for dev_id, attributes in devices.items():
             self.add_device(dev_id, attributes=attributes)
 
     def _setup(self):
+        self.update_device_classes()
         if self.dev_addr_str == '000000':
             self.send_command('plm_info')
         if self.aldb.have_aldb_cache() is False:
@@ -166,6 +167,15 @@ class Modem(Root_Insteon):
         for device in self._devices.values():
             ret.append(device)
         return ret
+
+    def update_device_classes(self):
+        for group in self.get_all_groups():
+            classes = select_group(device=group, dev_cat=group.dev_cat,
+                                    sub_cat=group.sub_cat,
+                                    firmware=group.firmware,
+                                    engine_version=group.engine_version)
+            group.send_handler = classes['send_handler']
+            group.functions = classes['functions']
 
     ##############################################################
     #

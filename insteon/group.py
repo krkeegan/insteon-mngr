@@ -1,5 +1,7 @@
 from insteon.plm_message import PLM_Message
 from insteon.base_objects import Base_Insteon
+from insteon.devices import (GroupSendHandler, GroupFunctions,
+    PLMGroupSendHandler)
 
 
 class Insteon_Group(Base_Insteon):
@@ -8,6 +10,8 @@ class Insteon_Group(Base_Insteon):
         self._parent = parent
         super().__init__(self._parent.core, self._parent.plm, **kwargs)
         self._group_number = group_number
+        self.send_handler = GroupSendHandler(self)
+        self.functions = GroupFunctions(self)
 
     @property
     def group_number(self):
@@ -16,6 +20,22 @@ class Insteon_Group(Base_Insteon):
     @property
     def parent(self):
         return self._parent
+
+    @property
+    def dev_cat(self):
+        return self._parent.dev_cat
+
+    @property
+    def sub_cat(self):
+        return self._parent.sub_cat
+
+    @property
+    def firmware(self):
+        return self._parent.firmware
+
+    @property
+    def engine_version(self):
+        return self._parent.engine_version
 
     def create_link(self, responder, d1, d2, d3):
         pass
