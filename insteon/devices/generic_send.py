@@ -69,6 +69,15 @@ class GenericSendHandler(object):
         scan_object.failure_callback = failure
         scan_object.start()
 
+    def send_all_link_clean(self, group, cmd):
+        if cmd == 0x11:
+            message = self.create_message('cleanup_on')
+        else:
+            message = self.create_message('cleanup_off')
+        dev_bytes = {'group': group}
+        message.insert_bytes_into_raw(dev_bytes)
+        self._device.queue_device_msg(message)
+
     def add_plm_to_dev_link(self):
         '''Create a plm->device link using the manual method, rather than
         inserting the ALDB record into the device.  Generally this needs
@@ -169,11 +178,25 @@ class GenericSendHandler(object):
                 'msg_length': 'standard',
                 'message_type': 'direct'
             },
+            'cleanup_on': {
+                'cmd_1': {'default': 0x11},
+                'cmd_2': {'default': 0x00,
+                          'name': 'group'},
+                'msg_length': 'standard',
+                'message_type': 'alllink_cleanup'
+            },
             'off': {
                 'cmd_1': {'default': 0x13},
                 'cmd_2': {'default': 0x00},
                 'msg_length': 'standard',
                 'message_type': 'direct'
+            },
+            'cleanup_off': {
+                'cmd_1': {'default': 0x13},
+                'cmd_2': {'default': 0x00,
+                          'name': 'group'},
+                'msg_length': 'standard',
+                'message_type': 'alllink_cleanup'
             },
             'set_address_msb': {
                 'cmd_1': {'default': 0x28},

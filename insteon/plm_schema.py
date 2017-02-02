@@ -137,17 +137,16 @@ PLM_SCHEMA = {
         }
     },
     0x56: {
-        'rcvd_len': (7,),
+        'rcvd_len': (6,),
         'send_len': (0,),
         'name': 'all_link_clean_failed',
         'recv_act': lambda obj, msg: obj._rcvd_all_link_clean_failed(msg),
         'recv_byte_pos': {
             'plm_cmd': 1,
-            'link_fail': 2,
-            'group': 3,
-            'fail_addr_hi': 4,
-            'fail_addr_mid': 5,
-            'fail_addr_low': 6,
+            'group': 2,
+            'fail_addr_hi': 3,
+            'fail_addr_mid': 4,
+            'fail_addr_low': 5,
         }
     },
     0x57: {

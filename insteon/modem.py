@@ -2,13 +2,13 @@ import time
 import datetime
 
 from insteon.insteon_device import InsteonDevice
-from insteon.base_objects import Root_Insteon, BYTE_TO_HEX, BYTE_TO_ID
+from insteon.base_objects import (Root_Insteon, BYTE_TO_HEX, BYTE_TO_ID,
+    InsteonGroup)
 from insteon.aldb import ALDB
 from insteon.trigger import Trigger_Manager, PLMTrigger
 from insteon.plm_message import PLM_Message
 from insteon.plm_schema import PLM_SCHEMA
 from insteon.x10_device import X10_Device, HOUSE_TO_BYTE, UNIT_TO_BYTE
-from insteon.group import Insteon_Group
 from insteon.devices import select_group
 
 
@@ -91,7 +91,7 @@ class Modem(Root_Insteon):
         self.port_active = True
         self.ack_time = 75
         for group_num in range(0x02, 0xFF):
-            self.create_group(group_num, Insteon_Group)
+            self.create_group(group_num, InsteonGroup)
 
     def _load_devices(self, devices):
         for dev_id, attributes in devices.items():
@@ -587,12 +587,17 @@ class Modem(Root_Insteon):
             print('Ignored spurious all link clean status')
 
     def _rcvd_all_link_clean_failed(self, msg):
-        failed_addr = bytearray()
-        failed_addr.extend(msg.get_byte_by_name('fail_addr_hi'))
-        failed_addr.extend(msg.get_byte_by_name('fail_addr_mid'))
-        failed_addr.extend(msg.get_byte_by_name('fail_addr_low'))
-        print('A specific device faileled to ack the cleanup msg from addr',
-              BYTE_TO_HEX(failed_addr))
+        failed_addr = bytearray(3)
+        failed_addr[0] = msg.get_byte_by_name('fail_addr_hi')
+        failed_addr[1] = msg.get_byte_by_name('fail_addr_mid')
+        failed_addr[2] = msg.get_byte_by_name('fail_addr_low')
+        fail_device = self.get_device_by_addr(BYTE_TO_HEX(failed_addr))
+        print('Scene Command Failed, Retrying')
+        # TODO We are ignoring the all_link cleanup nacks sent directly
+        # by the device, do anything with them?
+        cmd = self._last_sent_msg.get_byte_by_name('cmd_1')
+        fail_device.send_handler.send_all_link_clean(
+            msg.get_byte_by_name('group'), cmd)
 
     def _rcvd_all_link_start(self, msg):
         if msg.plm_resp_ack:

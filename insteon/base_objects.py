@@ -22,6 +22,8 @@ def ID_STR_TO_BYTES(dev_id_str):
     ret[2] = (int(dev_id_str[4:6], 16))
     return ret
 
+from insteon.devices import (GroupSendHandler, GroupFunctions)
+
 class Base_Device(object):
 
     def __init__(self, core, plm, **kwargs):
@@ -263,4 +265,49 @@ class Root_Insteon(Base_Insteon):
         return
 
     def update_device_classes(self):
+        return NotImplemented
+
+
+class InsteonGroup(Base_Insteon):
+
+    def __init__(self, parent, group_number, **kwargs):
+        self._parent = parent
+        super().__init__(self._parent.core, self._parent.plm, **kwargs)
+        self._group_number = group_number
+        self.send_handler = GroupSendHandler(self)
+        self.functions = GroupFunctions(self)
+
+    @property
+    def group_number(self):
+        return self._group_number
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @property
+    def dev_cat(self):
+        return self._parent.dev_cat
+
+    @property
+    def sub_cat(self):
+        return self._parent.sub_cat
+
+    @property
+    def firmware(self):
+        return self._parent.firmware
+
+    @property
+    def engine_version(self):
+        return self._parent.engine_version
+
+    def create_link(self, responder, d1, d2, d3):
+        pass
+        self.parent.aldb.create_controller(responder)
+        responder.aldb.create_responder(self, d1, d2, d3)
+
+    def set_dev_addr(*args, **kwargs):
+        return NotImplemented
+
+    def set_dev_version(*args, **kwargs):
         return NotImplemented

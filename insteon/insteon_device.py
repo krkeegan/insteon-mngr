@@ -2,8 +2,7 @@ import math
 import time
 
 from insteon.aldb import ALDB
-from insteon.base_objects import Root_Insteon, BYTE_TO_HEX
-from insteon.group import Insteon_Group
+from insteon.base_objects import Root_Insteon, BYTE_TO_HEX, InsteonGroup
 from insteon.devices import (GenericRcvdHandler, GenericSendHandler,
     GenericFunctions, select_device, select_group)
 
