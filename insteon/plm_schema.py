@@ -42,7 +42,7 @@ PLM_SCHEMA = {
         'rcvd_len': (11,),
         'send_len': (0,),
         'name': 'insteon_received',
-        'recv_act': lambda obj, msg: obj._rcvd_insteon_msg(msg),
+        'recv_act': lambda obj, msg: obj._rcvd_handler._rcvd_insteon_msg(msg),
         'recv_byte_pos': {
             'plm_cmd': 1,
             'from_addr_hi': 2,
@@ -60,7 +60,7 @@ PLM_SCHEMA = {
         'rcvd_len': (25,),
         'send_len': (0,),
         'name': 'insteon_ext_received',
-        'recv_act': lambda obj, msg: obj._rcvd_insteon_msg(msg),
+        'recv_act': lambda obj, msg: obj._rcvd_handler._rcvd_insteon_msg(msg),
         'recv_byte_pos': {
             'plm_cmd': 1,
             'from_addr_hi': 2,
@@ -91,7 +91,7 @@ PLM_SCHEMA = {
     0x52: {
         'rcvd_len': (4,),
         'send_len': (0,),
-        'recv_act': lambda obj, msg: obj._rcvd_x10(msg),
+        'recv_act': lambda obj, msg: obj._rcvd_handler._rcvd_x10(msg),
         'name': 'x10_received',
         'recv_byte_pos': {
             'plm_cmd': 1,
@@ -103,7 +103,7 @@ PLM_SCHEMA = {
         'rcvd_len': (10,),
         'send_len': (0,),
         'name': 'all_link_complete',
-        'recv_act': lambda obj, msg: obj._rcvd_all_link_complete(msg),
+        'recv_act': lambda obj, msg: obj._rcvd_handler._rcvd_all_link_complete(msg),
         'recv_byte_pos': {
             'plm_cmd': 1,
             'link_code': 2,
@@ -119,7 +119,7 @@ PLM_SCHEMA = {
     0x54: {
         'rcvd_len': (3,),
         'send_len': (0,),
-        'recv_act': lambda obj, msg: obj._rcvd_btn_event(msg),
+        'recv_act': lambda obj, msg: obj._rcvd_handler._rcvd_btn_event(msg),
         'name': 'plm_button_event',
         'recv_byte_pos': {
             'plm_cmd': 1,
@@ -129,7 +129,7 @@ PLM_SCHEMA = {
     0x55: {
         'rcvd_len': (2,),
         'send_len': (0,),
-        'recv_act': lambda obj, msg: obj._rcvd_plm_reset(msg),
+        'recv_act': lambda obj, msg: obj._rcvd_handler._rcvd_plm_reset(msg),
         'name': 'user_plm_reset',
         'recv_byte_pos': {
             'plm_cmd': 1,
@@ -140,7 +140,7 @@ PLM_SCHEMA = {
         'rcvd_len': (6,),
         'send_len': (0,),
         'name': 'all_link_clean_failed',
-        'recv_act': lambda obj, msg: obj._rcvd_all_link_clean_failed(msg),
+        'recv_act': lambda obj, msg: obj._rcvd_handler._rcvd_all_link_clean_failed(msg),
         'recv_byte_pos': {
             'plm_cmd': 1,
             'group': 2,
@@ -152,7 +152,7 @@ PLM_SCHEMA = {
     0x57: {
         'rcvd_len': (10,),
         'send_len': (0,),
-        'recv_act': lambda obj, msg: obj._rcvd_aldb_record(msg),
+        'recv_act': lambda obj, msg: obj._rcvd_handler._rcvd_aldb_record(msg),
         'name': 'all_link_record',
         'recv_byte_pos': {
             'plm_cmd': 1,
@@ -169,7 +169,7 @@ PLM_SCHEMA = {
     0x58: {
         'rcvd_len': (3,),
         'send_len': (0,),
-        'ack_act': lambda obj, msg: obj._rcvd_all_link_clean_status(msg),
+        'ack_act': lambda obj, msg: obj._rcvd_handler._rcvd_all_link_clean_status(msg),
         'name': 'all_link_clean_status',
         'recv_byte_pos': {
             'plm_cmd': 1,
@@ -200,7 +200,7 @@ PLM_SCHEMA = {
         'rcvd_len': (9,),
         'send_len': (2,),
         'name': 'plm_info',
-        'ack_act': lambda obj, msg: obj._rcvd_plm_info(msg),
+        'ack_act': lambda obj, msg: obj._rcvd_handler._rcvd_plm_info(msg),
         'recv_byte_pos': {
             'plm_cmd': 1,
             'plm_addr_hi': 2,
@@ -219,7 +219,7 @@ PLM_SCHEMA = {
         'rcvd_len': (6,),
         'send_len': (5,),
         'name': 'all_link_send',
-        'ack_act': lambda obj, msg: obj._rcvd_prelim_plm_ack(msg),
+        'ack_act': lambda obj, msg: obj._rcvd_handler._rcvd_prelim_plm_ack(msg),
         'recv_byte_pos': {
             'plm_cmd': 1,
             'group': 2,
@@ -238,7 +238,7 @@ PLM_SCHEMA = {
         'rcvd_len': (9, 23),
         'send_len': (8, 22),
         'name': 'insteon_send',
-        'ack_act': lambda obj, msg: obj._rcvd_plm_ack(msg),
+        'ack_act': lambda obj, msg: obj._rcvd_handler._rcvd_plm_ack(msg),
         'recv_byte_pos': {
             'plm_cmd': 1,
             'to_addr_hi': 2,
@@ -291,7 +291,7 @@ PLM_SCHEMA = {
     0x63: {
         'rcvd_len': (5,),
         'send_len': (4,),
-        'ack_act': lambda obj, msg: obj._rcvd_plm_x10_ack(msg),
+        'ack_act': lambda obj, msg: obj._rcvd_handler._rcvd_plm_x10_ack(msg),
         'name': 'x10_send',
         'recv_byte_pos': {
             'plm_cmd': 1,
@@ -308,7 +308,7 @@ PLM_SCHEMA = {
     0x64: {
         'rcvd_len': (5,),
         'send_len': (4,),
-        'ack_act': lambda obj, msg: obj._rcvd_all_link_start(msg),
+        'ack_act': lambda obj, msg: obj._rcvd_handler._rcvd_all_link_start(msg),
         'name': 'all_link_start',
         'recv_byte_pos': {
             'plm_cmd': 1,
@@ -364,8 +364,8 @@ PLM_SCHEMA = {
     0x69: {
         'rcvd_len': (3,),
         'send_len': (2,),
-        'ack_act': lambda obj, msg: obj._rcvd_prelim_plm_ack(msg),
-        'nack_act': lambda obj, msg: obj._rcvd_end_of_aldb(msg),
+        'ack_act': lambda obj, msg: obj._rcvd_handler._rcvd_prelim_plm_ack(msg),
+        'nack_act': lambda obj, msg: obj._rcvd_handler._rcvd_end_of_aldb(msg),
         'name': 'all_link_first_rec',
         'recv_byte_pos': {
             'plm_cmd': 1,
@@ -378,8 +378,8 @@ PLM_SCHEMA = {
     0x6A: {
         'rcvd_len': (3,),
         'send_len': (2,),
-        'ack_act': lambda obj, msg: obj._rcvd_prelim_plm_ack(msg),
-        'nack_act': lambda obj, msg: obj.end_of_aldb(msg),
+        'ack_act': lambda obj, msg: obj._rcvd_handler._rcvd_prelim_plm_ack(msg),
+        'nack_act': lambda obj, msg: obj._rcvd_handler._rcvd_end_of_aldb(msg),
         'name': 'all_link_next_rec',
         'recv_byte_pos': {
             'plm_cmd': 1,
@@ -426,8 +426,8 @@ PLM_SCHEMA = {
         'rcvd_len': (12,),
         'send_len': (11,),
         'name': 'all_link_manage_rec',
-        'ack_act': lambda obj, msg: obj._rcvd_all_link_manage_ack(msg),
-        'nack_act': lambda obj, msg: obj._rcvd_all_link_manage_nack(msg),
+        'ack_act': lambda obj, msg: obj._rcvd_handler._rcvd_all_link_manage_ack(msg),
+        'nack_act': lambda obj, msg: obj._rcvd_handler._rcvd_all_link_manage_nack(msg),
         'recv_byte_pos': {
             'plm_cmd': 1,
             'ctrl_code': 2,

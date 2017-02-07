@@ -51,7 +51,7 @@ class ALDB(object):
     def parse_record(self, position):
         bytes = self.aldb[position]
         parsed = {
-            'record_flag': bytes[0],
+            'link_flags': bytes[0],
             'in_use':  bytes[0] & 0b10000000,
             'controller':  bytes[0] & 0b01000000,
             'responder': ~bytes[0] & 0b01000000,

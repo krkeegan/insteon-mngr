@@ -1,7 +1,7 @@
 from insteon.plm_message import PLM_Message
-from insteon.trigger import PLMTrigger
 from insteon.sequences import (ScanDeviceALDBi1, ScanDeviceALDBi2,
-    StatusRequest, AddPLMtoDevice, InitializeDevice)
+    StatusRequest, AddPLMtoDevice, InitializeDevice, WriteALDBRecordi2,
+    WriteALDBRecordi1)
 
 
 class GenericSendHandler(object):
@@ -110,6 +110,39 @@ class GenericSendHandler(object):
         message.insert_bytes_into_raw({'lsb': lsb})
         message.state_machine = state_machine
         self._device.queue_device_msg(message)
+
+    def create_responder_link(self, linked_device, is_on=True):
+        if self._device.engine_version > 0x00:
+            link_sequence = WriteALDBRecordi2(self._device)
+        else:
+            link_sequence = WriteALDBRecordi1(self._device)
+        link_sequence.controller = False
+        link_sequence.linked_device = linked_device
+        on_level = 0x00
+        if is_on:
+            on_level = 0xFF
+        link_sequence.data1 = on_level
+        link_sequence.data2 = 0x00
+        link_sequence.start()
+
+    def create_controller_link(self, linked_device):
+        if self._device.engine_version > 0x00:
+            link_sequence = WriteALDBRecordi2(self._device)
+        else:
+            link_sequence = WriteALDBRecordi1(self._device)
+        link_sequence.controller = True
+        link_sequence.linked_device = linked_device
+        link_sequence.data1 = 0x03
+        link_sequence.data2 = 0x00
+        link_sequence.start()
+
+    def delete_record(self, address=bytearray(2)):
+        if self._device.engine_version > 0x00:
+            link_sequence = WriteALDBRecordi2(self._device)
+        link_sequence.address = address
+        link_sequence.in_use = False
+        link_sequence.start()
+
 
     def _write_link(self, linked_obj, is_controller):
         if self._device.attribute('engine_version') == 2:

@@ -204,15 +204,24 @@ class Base_Insteon(Base_Device):
 
     @property
     def dev_cat(self):
-        return self.attribute('dev_cat')
+        dev_cat = self.attribute('dev_cat')
+        if dev_cat is None:
+            dev_cat= 0x00
+        return dev_cat
 
     @property
     def sub_cat(self):
-        return self.attribute('sub_cat')
+        sub_cat = self.attribute('sub_cat')
+        if sub_cat is None:
+            sub_cat= 0x00
+        return sub_cat
 
     @property
     def firmware(self):
-        return self.attribute('firmware')
+        firmware = self.attribute('firmware')
+        if firmware is None:
+            firmware= 0x00
+        return firmware
 
     @property
     def engine_version(self):
@@ -352,6 +361,7 @@ class InsteonGroup(Base_Insteon):
         return self._parent.engine_version
 
     def create_link(self, responder, d1, d2, d3):
+        # TODO fix this KRK_ALDB
         pass
         self.parent.aldb.create_controller(responder)
         responder.aldb.create_responder(self, d1, d2, d3)

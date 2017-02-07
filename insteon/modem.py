@@ -5,18 +5,18 @@ from insteon.insteon_device import InsteonDevice
 from insteon.base_objects import (Root_Insteon, BYTE_TO_HEX, BYTE_TO_ID,
     InsteonGroup)
 from insteon.aldb import ALDB
-from insteon.trigger import Trigger_Manager, PLMTrigger
+from insteon.trigger import Trigger_Manager
 from insteon.plm_message import PLM_Message
 from insteon.plm_schema import PLM_SCHEMA
 from insteon.x10_device import X10_Device, HOUSE_TO_BYTE, UNIT_TO_BYTE
 from insteon.devices import select_group
+from insteon.modem_rcvd import ModemRcvdHandler
 
 
 class Modem_ALDB(ALDB):
 
     def add_record(self, aldb):
-        position = str(len(self.aldb) + 1)
-        position = position.zfill(4)
+        position = self._get_next_position()
         self.aldb[position] = aldb
         parsed_record = self.parse_record(position)
         # TODO if this is a PLM controller record, we may also know the
@@ -26,6 +26,16 @@ class Modem_ALDB(ALDB):
         self._parent.add_device(BYTE_TO_ID(parsed_record['dev_addr_hi'],
                                 parsed_record['dev_addr_mid'],
                                 parsed_record['dev_addr_low']))
+
+    def _get_next_position(self):
+        position = 0
+        records = self.get_all_records()
+        for key in records.keys():
+            if int(key) > position:
+                position = int(key)
+        position += 1
+        position = str(position).zfill(4)
+        return position
 
     def have_aldb_cache(self):
         # TODO This will return false for an empty aldb as well, do we care?
@@ -38,41 +48,7 @@ class Modem_ALDB(ALDB):
         '''Queries the PLM for a list of the link records saved on
         the PLM and stores them in the cache'''
         self.clear_all_records()
-        self._parent.send_command('all_link_first_rec', 'query_aldb')
-
-    def create_responder(self, controller, *args):
-        self._write_link(controller, is_plm_controller=False)
-
-    def create_controller(self, controller, *args):
-        self._write_link(controller, is_plm_controller=True)
-
-    def _write_link(self, linked_obj, is_plm_controller):
-        group = linked_obj.group_number
-        if is_plm_controller:
-            group = self._parent.group_number
-        link_bytes = {
-            'controller': True if is_plm_controller else False,
-            'responder': False if is_plm_controller else True,
-            'group': group,
-            'dev_addr_hi': linked_obj.dev_addr_hi,
-            'dev_addr_mid': linked_obj.dev_addr_mid,
-            'dev_addr_low': linked_obj.dev_addr_low,
-        }
-        del link_bytes['controller']
-        del link_bytes['responder']
-        records = self.get_matching_records(link_bytes)
-        link_flags = 0xE2 if is_plm_controller else 0xA2
-        ctrl_code = 0x20
-        if (len(records) == 0):
-            ctrl_code = 0x40 if is_plm_controller else 0x41
-        link_bytes.update({
-            'ctrl_code': ctrl_code,
-            'link_flags': link_flags,
-            'data_1': linked_obj.dev_cat,
-            'data_2': linked_obj.sub_cat,
-            'data_3': linked_obj.firmware
-        })
-        self._parent.send_command('all_link_manage_rec', '', link_bytes)
+        self._parent.send_handler.send_command('all_link_first_rec', 'query_aldb')
 
 
 class Modem(Root_Insteon):
@@ -81,6 +57,8 @@ class Modem(Root_Insteon):
         self._devices = {}
         self.aldb = Modem_ALDB(self)
         self.trigger_mngr = Trigger_Manager(self)
+        self._rcvd_handler = ModemRcvdHandler(self)
+        self.send_handler = ModemSendHandler(self)
         super().__init__(core, self, **kwargs)
         self._read_buffer = bytearray()
         self._last_sent_msg = None
@@ -100,7 +78,7 @@ class Modem(Root_Insteon):
     def _setup(self):
         self.update_device_classes()
         if self.dev_addr_str == '000000':
-            self.send_command('plm_info')
+            self.send_handler.send_command('plm_info')
         if self.aldb.have_aldb_cache() is False:
             self.aldb.query_aldb()
 
@@ -296,6 +274,18 @@ class Modem(Root_Insteon):
                 del self._read_buffer[0:1]
                 self._advance_to_msg_start()
 
+    def _is_ack_pending(self):
+        ret = False
+        if self._last_sent_msg and not self._last_sent_msg.failed:
+            if self._last_sent_msg.seq_lock:
+                ret = True
+            elif not self._last_sent_msg.plm_ack:
+                ret = True
+            elif (self._last_sent_msg.insteon_msg and
+                  not self._last_sent_msg.insteon_msg.device_ack):
+                ret = True
+        return ret
+
     def _parse_read_buffer(self):
         '''Parses messages out of the read buffer'''
         ret = None
@@ -344,7 +334,7 @@ class Modem(Root_Insteon):
                 msg.plm_schema['ack_act'](self, msg)
             else:
                 # Attempting default action
-                self._rcvd_plm_ack(msg)
+                self._rcvd_handler._rcvd_plm_ack(msg)
         elif msg.plm_resp_nack:
             self.wait_to_send = .5
             if 'nack_act' in msg.plm_schema:
@@ -401,258 +391,84 @@ class Modem(Root_Insteon):
             )
         return
 
-    ##############################################################
-    #
-    # Incomming Message Processing
-    #
-    ##############################################################
 
-    def _is_ack_pending(self):
-        ret = False
-        if self._last_sent_msg and not self._last_sent_msg.failed:
-            if self._last_sent_msg.seq_lock:
-                ret = True
-            elif not self._last_sent_msg.plm_ack:
-                ret = True
-            elif (self._last_sent_msg.insteon_msg and
-                    not self._last_sent_msg.insteon_msg.device_ack):
-                ret = True
-        return ret
-
-    def _rcvd_plm_ack(self, msg):
-        if (self._last_sent_msg.plm_ack is False and
-                msg.raw_msg[0:-1] == self._last_sent_msg.raw_msg):
-            self._last_sent_msg.plm_ack = True
-            self._last_sent_msg.time_plm_ack = time.time()
-        else:
-            msg.allow_trigger = False
-            print('received spurious plm ack')
-
-    def _rcvd_prelim_plm_ack(self, msg):
-        # TODO consider some way to increase allowable ack time
-        if (self._last_sent_msg.plm_prelim_ack is False and
-                self._last_sent_msg.plm_ack is False and
-                msg.raw_msg[0:-1] == self._last_sent_msg.raw_msg):
-            self._last_sent_msg.plm_prelim_ack = True
-        else:
-            msg.allow_trigger = False
-            print('received spurious prelim plm ack')
-
-    def _rcvd_all_link_manage_ack(self, msg):
-        aldb = msg.raw_msg[3:11]
-        ctrl_code = msg.get_byte_by_name('ctrl_code')
-        link_flags = msg.get_byte_by_name('link_flags')
-        search_attributes = {
-            'controller': True if link_flags & 0b01000000 else False,
-            'responder': True if ~link_flags & 0b01000000 else False,
-            'group': msg.get_byte_by_name('group'),
-            'dev_addr_hi': msg.get_byte_by_name('dev_addr_hi'),
-            'dev_addr_mid': msg.get_byte_by_name('dev_addr_mid'),
-            'dev_addr_low': msg.get_byte_by_name('dev_addr_low'),
-        }
-        if ctrl_code == 0x40 or ctrl_code == 0x41:
-            self.aldb.add_record(aldb)
-        elif ctrl_code == 0x20:
-            records = self.aldb.get_matching_records(search_attributes)
-            try:
-                self.aldb.edit_record(records[0], aldb)
-            except:
-                print('error trying to edit plm aldb cache')
-        elif ctrl_code == 0x80:
-            records = self.aldb.get_matching_records(search_attributes)
-            try:
-                self.aldb.delete_record(records[0], aldb)
-            except:
-                print('error trying to delete plm aldb cache')
-        self.rcvd_plm_ack(msg)
-
-    def _rcvd_all_link_manage_nack(self, msg):
-        print('error writing aldb to PLM, will rescan plm and try again')
-        plm = self
-        self._last_sent_msg.failed = True
-        self.aldb.query_aldb()
-        trigger_attributes = {
-            'plm_cmd': 0x6A,
-            'plm_resp': 0x15
-        }
-        trigger = PLMTrigger(plm=self, attributes=trigger_attributes)
-        dev_addr_hi = msg.get_byte_by_name('dev_addr_hi')
-        dev_addr_mid = msg.get_byte_by_name('dev_addr_mid')
-        dev_addr_low = msg.get_byte_by_name('dev_addr_low')
-        device_id = BYTE_TO_ID(dev_addr_hi, dev_addr_mid, dev_addr_low)
-        device = self.get_device_by_addr(device_id)
-        is_controller = False
-        if msg.get_byte_by_name('link_flags') == 0xE2:
-            plm = self.get_object_by_group_num(msg.get_byte_by_name('group'))
-            is_controller = True
-        else:
-            device = device.get_object_by_group_num(
-                msg.get_byte_by_name('group'))
-        trigger.trigger_function = lambda: plm.aldb._write_link(
-            device, is_controller)
-        trigger.name = 'rcvd_all_link_manage_nack'
-        trigger.queue()
-
-    def _rcvd_insteon_msg(self, msg):
-        insteon_obj = self.get_device_by_addr(msg.insteon_msg.from_addr_str)
-        if insteon_obj is not None:
-            insteon_obj.msg_rcvd(msg)
-
-    def _rcvd_plm_x10_ack(self, msg):
-        # For some reason we have to slow down when sending X10 msgs to the PLM
-        self.rcvd_plm_ack(msg)
-        self.wait_to_send = .5
-
-    def _rcvd_aldb_record(self, msg):
-        if (self._last_sent_msg.plm_ack is False and
-                self._last_sent_msg.plm_prelim_ack is True):
-            self._last_sent_msg.plm_ack = True
-            self._last_sent_msg.time_plm_ack = time.time()
-            self.aldb.add_record(msg.raw_msg[2:])
-            self.send_command('all_link_next_rec', 'query_aldb')
-        else:
-            msg.allow_trigger = False
-            print('received spurious plm aldb record')
-
-    def _rcvd_end_of_aldb(self, msg):
-        # pylint: disable=W0613
-        self._last_sent_msg.plm_ack = True
-        self.remove_state_machine('query_aldb')
-        print('reached the end of the PLMs ALDB')
-        records = self.aldb.get_all_records()
-        for key in sorted(records):
-            print(key, ":", BYTE_TO_HEX(records[key]))
-
-    def _rcvd_all_link_complete(self, msg):
-        if msg.get_byte_by_name('link_code') == 0xFF:
-            # DELETE THINGS
-            pass
-        else:
-            # Fix stupid discrepancy in Insteon spec
-            link_flag = 0xA2
-            if msg.get_byte_by_name('link_code') == 0x01:
-                link_flag = 0xE2
-            record = bytearray(8)
-            record[0] = link_flag
-            record[1:8] = msg.raw_msg[3:]
-            self.aldb.add_record(record)
-            # notify the linked device
-            device_id = BYTE_TO_ID(record[2], record[3], record[4])
-            device = self.get_device_by_addr(device_id)
-            if msg.get_byte_by_name('link_code') == 0x01:
-                dev_cat = msg.get_byte_by_name('dev_cat')
-                sub_cat = msg.get_byte_by_name('sub_cat')
-                firmware = msg.get_byte_by_name('firmware')
-                device.set_dev_version(dev_cat, sub_cat, firmware)
-
-    def _rcvd_btn_event(self, msg):
-        # pylint: disable=W0613
-        print("The PLM Button was pressed")
-        # Currently there is no processing of this event
-
-    def _rcvd_plm_reset(self, msg):
-        # pylint: disable=W0613
-        self.aldb.clear_all_records()
-        print("The PLM was manually reset")
-
-    def _rcvd_plm_info(self, msg_obj):
-        if (self._last_sent_msg.plm_cmd_type == 'plm_info' and
-                msg_obj.plm_resp_ack):
-            self._last_sent_msg.plm_ack = True
-            dev_addr_hi = msg_obj.get_byte_by_name('plm_addr_hi')
-            dev_addr_mid = msg_obj.get_byte_by_name('plm_addr_mid')
-            dev_addr_low = msg_obj.get_byte_by_name('plm_addr_low')
-            self.set_dev_addr(BYTE_TO_ID(dev_addr_hi,
-                                         dev_addr_mid,
-                                         dev_addr_low))
-            dev_cat = msg_obj.get_byte_by_name('dev_cat')
-            sub_cat = msg_obj.get_byte_by_name('sub_cat')
-            firmware = msg_obj.get_byte_by_name('firmware')
-            self.set_dev_version(dev_cat,sub_cat,firmware)
-
-    def _rcvd_all_link_clean_status(self, msg):
-        if self._last_sent_msg.plm_cmd_type == 'all_link_send':
-            self._last_sent_msg.seq_lock = False
-            if msg.plm_resp_ack:
-                self._last_sent_msg.plm_ack = True
-                print('Send All Link - Success')
-                self.remove_state_machine('all_link_send')
-                # TODO do we update the device state here? or rely on arrival
-                # of alllink_cleanup acks?  As it stands, our own alllink
-                # cleanups will be sent if this msg is rcvd, but no official
-                # device alllink cleanup arrives
-            elif msg.plm_resp_nack:
-                print('Send All Link - Error')
-                self._last_sent_msg.plm_ack = True
-                # We don't resend, instead we rely on individual device
-                # alllink cleanups to do the work
-                # TODO is the right?  When does a NACK acutally occur?
-                # It doesn't seem to happen when a destination device sends a
-                # NACK, possibly only when PLM is interrupted, in which case do
-                # we want to try and send again?
-                self.remove_state_machine('all_link_send')
-        else:
-            msg.allow_trigger = False
-            print('Ignored spurious all link clean status')
-
-    def _rcvd_all_link_clean_failed(self, msg):
-        failed_addr = bytearray(3)
-        failed_addr[0] = msg.get_byte_by_name('fail_addr_hi')
-        failed_addr[1] = msg.get_byte_by_name('fail_addr_mid')
-        failed_addr[2] = msg.get_byte_by_name('fail_addr_low')
-        fail_device = self.get_device_by_addr(BYTE_TO_HEX(failed_addr))
-        print('Scene Command Failed, Retrying')
-        # TODO We are ignoring the all_link cleanup nacks sent directly
-        # by the device, do anything with them?
-        cmd = self._last_sent_msg.get_byte_by_name('cmd_1')
-        fail_device.send_handler.send_all_link_clean(
-            msg.get_byte_by_name('group'), cmd)
-
-    def _rcvd_all_link_start(self, msg):
-        if msg.plm_resp_ack:
-            self._last_sent_msg.plm_ack = True
-
-    def _rcvd_x10(self, msg):
-        if msg.get_byte_by_name('x10_flags') == 0x00:
-            self._store_x10_address(msg.get_byte_by_name('raw_x10'))
-        else:
-            self._dispatch_x10_cmd(msg)
-
-    def _store_x10_address(self, byte):
-        self._last_x10_house = byte & 0b11110000
-        self._last_x10_unit = byte & 0b00001111
-
-    def _get_x10_address(self):
-        return self._last_x10_house | self._last_x10_unit
-
-    def _dispatch_x10_cmd(self, msg):
-        if (self._last_x10_house ==
-                msg.get_byte_by_name('raw_x10') & 0b11110000):
-            try:
-                device = self._devices[self._get_x10_address()]
-                device.inc_x10_msg(msg)
-            except KeyError:
-                print('Received and X10 command for an unknown device')
-        else:
-            msg.allow_trigger = False
-            print("X10 Command House Code did not match expected House Code")
-            print("Message ignored")
-
-    ##############################################################
-    #
-    # Outing Commands Processing
-    #
-    ##############################################################
+class ModemSendHandler(object):
+    '''Provides the generic command handling for the Modem.  This is a
+    seperate class for consistence with devices.'''
+    def __init__(self, device):
+        self._device = device
+        self._last_sent_msg = None
 
     def send_command(self, command, state='', plm_bytes=None):
         message = self.create_message(command)
         if plm_bytes is not None:
             message.insert_bytes_into_raw(plm_bytes)
         message.state_machine = state
-        self.queue_device_msg(message)
+        self._device.queue_device_msg(message)
 
     def create_message(self, command):
         message = PLM_Message(
-            self, device=self,
+            self._device, device=self._device,
             plm_cmd=command)
         return message
+
+    # ALDB Functions
+    #######################
+
+    def create_responder_link(self, linked_device):
+        message = self.create_message('all_link_manage_rec')
+        dev_bytes = {
+            'link_flags': 0xA2,
+            'group': linked_device.group,
+            'dev_addr_hi': linked_device.dev_addr_hi,
+            'dev_addr_mid': linked_device.dev_addr_mid,
+            'dev_addr_low': linked_device.dev_addr_low,
+        }
+        records = self._device.aldb.get_matching_records(dev_bytes)
+        ctrl_code = 0x20
+        if (len(records) == 0):
+            ctrl_code = 0x41
+        dev_bytes.update({
+            'ctrl_code': ctrl_code,
+            'data_1': 0x00,  # D1-3 are 0x00 for plm responder
+            'data_2': 0x00,
+            'data_3': 0x00
+        })
+        message.insert_bytes_into_raw(dev_bytes)
+        self._device.queue_device_msg(message)
+
+    def create_controller_link(self, linked_device):
+        message = self.create_message('all_link_manage_rec')
+        dev_bytes = {
+            'link_flags': 0xE2,
+            'group': self._device.group,
+            'dev_addr_hi': linked_device.dev_addr_hi,
+            'dev_addr_mid': linked_device.dev_addr_mid,
+            'dev_addr_low': linked_device.dev_addr_low,
+        }
+        records = self._device.aldb.get_matching_records(dev_bytes)
+        ctrl_code = 0x20
+        if (len(records) == 0):
+            ctrl_code = 0x40
+        dev_bytes.update({
+            'ctrl_code': ctrl_code,
+            'data_1': linked_device.dev_cat,
+            'data_2': linked_device.sub_cat,
+            'data_3': linked_device.firmware
+        })
+        message.insert_bytes_into_raw(dev_bytes)
+        self._device.queue_device_msg(message)
+
+    def delete_record(self, position=None):
+        message = self.create_message('all_link_manage_rec')
+        record = self._device.aldb.parse_record(position)
+        dev_bytes = {
+            'link_flags': record['link_flags'],
+            'group': record['group'],
+            'dev_addr_hi': record['dev_addr_hi'],
+            'dev_addr_mid': record['dev_addr_mid'],
+            'dev_addr_low': record['dev_addr_low'],
+            'ctrl_code': 0x80
+        }
+        message.insert_bytes_into_raw(dev_bytes)
+        self._device.queue_device_msg(message)
