@@ -188,9 +188,6 @@ class InsteonDevice(Root_Insteon):
     #
     ###################################################################
 
-    def set_cached_state(self, state):
-        self.attribute('status', state)
-
     def set_aldb_delta(self, delta):
         self.attribute('aldb_delta', delta)
 

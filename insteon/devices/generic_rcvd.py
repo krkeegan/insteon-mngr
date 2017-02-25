@@ -106,8 +106,14 @@ class GenericRcvdHandler(object):
             version = msg.get_byte_by_name('cmd_2')
             self._device.set_engine_version(version)
             ret = True
-        elif cmd_byte == 0x10:
+        elif cmd_byte == 0x10:  # ID Request
             ret = self._common_prelim_ack(msg)
+        elif cmd_byte == 0x11:  # ON
+            self._rcvd_state(msg)
+            ret = True
+        elif cmd_byte == 0x13:  # OFF
+            self._rcvd_state(msg)
+            ret = True
         elif cmd_byte == 0x28:  # set_address_msb
             ret = self._ack_set_msb(msg)
         elif cmd_byte == 0x29:  # poke_one_byte
@@ -115,7 +121,7 @@ class GenericRcvdHandler(object):
         elif cmd_byte == 0x2B:  # peek_one_byte
             ret = True
             self._ack_peek_aldb(msg)
-        elif cmd_byte == 0x2F:
+        elif cmd_byte == 0x2F:  # Ext ALDB
             ret = self._ext_aldb_ack(msg)
         return ret
 
@@ -289,3 +295,11 @@ class GenericRcvdHandler(object):
             print('rcvd, broadcast updated devcat, subcat, and firmware')
         else:
             print('rcvd spurious set button pressed from device')
+
+    def _rcvd_state(self, msg):
+        cmd_byte = msg.get_byte_by_name('cmd_1')
+        state = msg.get_byte_by_name('cmd_2') # pylint: disable=W0612
+        if cmd_byte == 0X11:
+            self._device.state = 0xFF
+        elif cmd_byte == 0x13:
+            self._device.state = 0x00

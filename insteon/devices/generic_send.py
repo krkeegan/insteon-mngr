@@ -78,6 +78,22 @@ class GenericSendHandler(object):
         message.insert_bytes_into_raw(dev_bytes)
         self._device.queue_device_msg(message)
 
+    def _state_commands(self):
+        ret = {
+            'ON': self.create_message('on'),
+            'OFF': self.create_message('off')
+        }
+        return ret
+
+    def state(self, state):
+        commands = self._state_commands()
+        try:
+            msg = commands[state.upper()]
+        except KeyError:
+            print('This device doesn\'t know the state', state)
+        else:
+            self._device.queue_device_msg(msg)
+
     def add_plm_to_dev_link(self):
         '''Create a plm->device link using the manual method, rather than
         inserting the ALDB record into the device.  Generally this needs
