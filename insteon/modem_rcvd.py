@@ -156,8 +156,8 @@ class ModemRcvdHandler(object):
             dev_addr_mid = msg_obj.get_byte_by_name('plm_addr_mid')
             dev_addr_low = msg_obj.get_byte_by_name('plm_addr_low')
             self._device.set_dev_addr(BYTE_TO_ID(dev_addr_hi,
-                                         dev_addr_mid,
-                                         dev_addr_low))
+                                                 dev_addr_mid,
+                                                 dev_addr_low))
             dev_cat = msg_obj.get_byte_by_name('dev_cat')
             sub_cat = msg_obj.get_byte_by_name('sub_cat')
             firmware = msg_obj.get_byte_by_name('firmware')

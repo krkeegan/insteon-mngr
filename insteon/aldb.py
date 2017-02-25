@@ -1,8 +1,10 @@
+'''The base ALDB Objects'''
 from insteon.base_objects import BYTE_TO_HEX, BYTE_TO_ID
 
 
 class ALDB(object):
-
+    '''The base ALDB class which is inherited by both the Device and PLM
+    ALDB classes'''
     def __init__(self, parent):
         self._parent = parent
         self.aldb = {}
@@ -11,7 +13,7 @@ class ALDB(object):
         self.aldb[position] = record
 
     def delete_record(self, position):
-        del(self.aldb[position])
+        del self.aldb[position]
 
     def get_record(self, position):
         return self.aldb[position]
@@ -39,7 +41,7 @@ class ALDB(object):
         '''Returns an array of positions of each records that matches ALL
         attributes'''
         ret = []
-        for position, record in self.aldb.items():
+        for position in self.aldb:
             parsed_record = self.parse_record(position)
             ret.append(position)
             for attribute, value in attributes.items():
@@ -49,26 +51,23 @@ class ALDB(object):
         return ret
 
     def parse_record(self, position):
-        bytes = self.aldb[position]
+        record_bytes = self.aldb[position]
         parsed = {
-            'link_flags': bytes[0],
-            'in_use':  bytes[0] & 0b10000000,
-            'controller':  bytes[0] & 0b01000000,
-            'responder': ~bytes[0] & 0b01000000,
-            'highwater': ~bytes[0] & 0b00000010,
-            'group': bytes[1],
-            'dev_addr_hi': bytes[2],
-            'dev_addr_mid': bytes[3],
-            'dev_addr_low': bytes[4],
-            'data_1': bytes[5],
-            'data_2': bytes[6],
-            'data_3': bytes[7],
+            'link_flags': record_bytes[0],
+            'in_use':  record_bytes[0] & 0b10000000,
+            'controller':  record_bytes[0] & 0b01000000,
+            'responder': ~record_bytes[0] & 0b01000000,
+            'highwater': ~record_bytes[0] & 0b00000010,
+            'group': record_bytes[1],
+            'dev_addr_hi': record_bytes[2],
+            'dev_addr_mid': record_bytes[3],
+            'dev_addr_low': record_bytes[4],
+            'data_1': record_bytes[5],
+            'data_2': record_bytes[6],
+            'data_3': record_bytes[7],
         }
         for attr in ('in_use', 'controller', 'responder', 'highwater'):
-            if parsed[attr]:
-                parsed[attr] = True
-            else:
-                parsed[attr] = False
+            parsed[attr] = bool(parsed[attr])
         return parsed
 
     def get_linked_obj(self, position):

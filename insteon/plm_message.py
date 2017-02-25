@@ -285,8 +285,8 @@ class PLM_Message(object):
         return self._seq_time
 
     @seq_time.setter
-    def seq_time(self, int):
-        self._seq_time = int
+    def seq_time(self, int_parm):
+        self._seq_time = int_parm
 
     @property
     def plm_success_callback(self):

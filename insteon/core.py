@@ -64,7 +64,7 @@ class Insteon_Core(object):
                                          indent=4,
                                          ensure_ascii=False)
             except Exception:
-                print ('error writing config to file')
+                print('error writing config to file')
             else:
                 outfile = open('config.json', 'w')
                 outfile.write(json_string)
@@ -106,7 +106,7 @@ class Insteon_Core(object):
         if cat + ':' + sub_cat in self.device_models:
             return self.device_models[cat + ':' + sub_cat]
         else:
-            for i_key, i_val in self.device_models.items():
+            for i_val in self.device_models.values():
                 if 'key' in i_val:
                     if i_val['key'] == key:
                         return i_val
@@ -195,10 +195,10 @@ class Insteon_Core(object):
             self._modems.append(ret)
         return ret
 
-    def get_modem_by_id(self, id):
+    def get_modem_by_id(self, dev_id):
         ret = None
         for modem in self._modems:
-            if modem.dev_addr_str == id:
+            if modem.dev_addr_str == dev_id:
                 ret = modem
         return ret
 

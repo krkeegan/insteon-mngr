@@ -2,9 +2,9 @@ import math
 import time
 
 from insteon.aldb import ALDB
-from insteon.base_objects import Root_Insteon, BYTE_TO_HEX, InsteonGroup
+from insteon.base_objects import Root_Insteon, BYTE_TO_HEX
 from insteon.devices import (GenericRcvdHandler, GenericSendHandler,
-    GenericFunctions, select_device, select_group)
+                             GenericFunctions, select_device, select_group)
 
 
 class Device_ALDB(ALDB):
@@ -20,7 +20,7 @@ class Device_ALDB(ALDB):
 
     def get_next_aldb_address(self, msb, lsb):
         ret = {}
-        if (self._parent.attribute('engine_version') == 0x00):
+        if self._parent.attribute('engine_version') == 0x00:
             ret['msb'] = msb
             if self.is_empty_aldb(self.get_aldb_key(msb, lsb)):
                 ret['lsb'] = lsb - (8 + (lsb % 8))
@@ -66,6 +66,13 @@ class InsteonDevice(Root_Insteon):
         self.functions = GenericFunctions(self)
         self.send_handler.initialize_device()
 
+    def _load_attributes(self, attributes):
+        for name, value in attributes.items():
+            if name == 'ALDB':
+                self.aldb.load_aldb_records(value)
+            else:
+                self.attribute(name, value)
+
     @property
     def smart_hops(self):
         if self.attribute('hop_array') is not None:
@@ -91,15 +98,13 @@ class InsteonDevice(Root_Insteon):
         '''Checks to see if the incomming message is valid, extracts
         hop and plm wait time data, passes valid messages onto the
         dispatcher'''
-        ret = None
         self._set_plm_wait(msg)
         if self._is_duplicate(msg):
             msg.allow_trigger = False
             print('Skipped duplicate msg')
-            ret = None
         else:
             self._process_hops(msg)
-            ret = self._rcvd_handler.dispatch_msg_rcvd(msg)
+            self._rcvd_handler.dispatch_msg_rcvd(msg)
 
     def _process_hops(self, msg):
         if (msg.insteon_msg.message_type == 'direct' or
@@ -225,8 +230,8 @@ class InsteonDevice(Root_Insteon):
         self.functions = classes['functions']
         for group in self.get_all_groups():
             classes = select_group(device=group, dev_cat=group.dev_cat,
-                                    sub_cat=group.sub_cat,
-                                    firmware=group.firmware,
-                                    engine_version=group.engine_version)
+                                   sub_cat=group.sub_cat,
+                                   firmware=group.firmware,
+                                   engine_version=group.engine_version)
             group.send_handler = classes['send_handler']
             group.functions = classes['functions']

@@ -136,7 +136,7 @@ class Insteon_Message(object):
     @property
     def msg_length(self):
         msg_flags = self._parent.get_byte_by_name('msg_flags')
-        ret = False
+        ret = None
         if msg_flags:
             ret = 'standard'
             if msg_flags & 16:
@@ -196,7 +196,7 @@ class Insteon_Message(object):
             return BYTE_TO_HEX(bytes((self._parent.raw_msg[byte_pos_hi],
                                       self._parent.raw_msg[byte_pos_mid],
                                       self._parent.raw_msg[byte_pos_low],
-                                      )))
+                                     )))
         else:
             return False
 
@@ -209,7 +209,7 @@ class Insteon_Message(object):
             return BYTE_TO_HEX(bytes((self._parent.raw_msg[byte_pos_hi],
                                       self._parent.raw_msg[byte_pos_mid],
                                       self._parent.raw_msg[byte_pos_low],
-                                      )))
+                                     )))
         else:
             return False
 
