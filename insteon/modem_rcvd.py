@@ -170,10 +170,6 @@ class ModemRcvdHandler(object):
                 self._device._last_sent_msg.plm_ack = True
                 print('Send All Link - Success')
                 self._device.remove_state_machine('all_link_send')
-                # TODO do we update the device state here? or rely on arrival
-                # of alllink_cleanup acks?  As it stands, our own alllink
-                # cleanups will be sent if this msg is rcvd, but no official
-                # device alllink cleanup arrives
             elif msg.plm_resp_nack:
                 print('Send All Link - Error')
                 self._device._last_sent_msg.plm_ack = True

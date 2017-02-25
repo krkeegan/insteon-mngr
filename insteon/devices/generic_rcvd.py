@@ -178,18 +178,40 @@ class GenericRcvdHandler(object):
             print('rcvd broadcast message of unknown type')
 
     def _process_alllink_cleanup(self, msg):
-        # TODO is this actually received??  isn't the modem the only one who
-        # get this message and doesn't it convert these to a special PLM Msg?
-        # TODO set state of the device based on cmd acked
-        # Clear queued cleanup messages if they exist
         self._device.remove_cleanup_msgs(msg)
-        if (self._device.last_sent_msg and
-                self._device.last_sent_msg.get_byte_by_name('cmd_1') ==
-                msg.get_byte_by_name('cmd_1') and
-                self._device.last_sent_msg.get_byte_by_name('cmd_2') ==
-                msg.get_byte_by_name('cmd_2')):
-            # Only set ack if this was sent by this device
+        self._alllink_state_update(msg)
+        if self._was_alllink_cleanup_requested(msg):
             self._device.last_sent_msg.insteon_msg.device_ack = True
+
+    def _alllink_state_update(self,msg):
+        records = self._device.aldb.get_matching_records({
+            'controller': False,
+            'group': msg.get_byte_by_name('cmd_2'),
+            'dev_addr_hi': msg.get_byte_by_name('to_addr_hi'),
+            'dev_addr_mid': msg.get_byte_by_name('to_addr_mid'),
+            'dev_addr_low': msg.get_byte_by_name('to_addr_low'),
+            'in_use': True
+        })
+        if len(records) > 0:
+            record = self._device.aldb.parse_record(records[0])
+            state = 0x00  # Off always results in an off state???
+            if msg.get_byte_by_name('cmd_1') == 0x11:
+                state = record['data_1']
+            obj = self._device.get_object_by_group_num(record['data_3'])
+            if obj is not None:
+                obj.state = state
+
+
+    def _was_alllink_cleanup_requested(self, msg):
+        ret = False
+        last_msg = self._device.last_sent_msg
+        if (last_msg and
+                last_msg.get_byte_by_name('cmd_1') ==
+                msg.get_byte_by_name('cmd_1') and
+                last_msg.get_byte_by_name('cmd_2') ==
+                msg.get_byte_by_name('cmd_2')):
+            ret = True
+        return ret
 
     ###################################################
     #
