@@ -126,7 +126,7 @@ class GenericRcvdHandler(object):
 
     def _dispatch_direct_nack(self, msg):
         engine_version = self._device.attribute('engine_version')
-        if (engine_version == 0x02 or engine_version is None):
+        if engine_version == 0x02 or engine_version is None:
             cmd_2 = msg.get_byte_by_name('cmd_2')
             if cmd_2 == 0xFF:
                 print('nack received, senders ID not in database')
@@ -171,7 +171,7 @@ class GenericRcvdHandler(object):
         else:
             print('rcvd broadcast message of unknown type')
 
-    def _process_alllink_cleanup(self,msg):
+    def _process_alllink_cleanup(self, msg):
         # TODO is this actually received??  isn't the modem the only one who
         # get this message and doesn't it convert these to a special PLM Msg?
         # TODO set state of the device based on cmd acked
@@ -230,10 +230,12 @@ class GenericRcvdHandler(object):
                     msg.get_byte_by_name('usr_12'),
                     msg.get_byte_by_name('usr_13')
                 ])
-                self._device.aldb.edit_record(self._device.aldb.get_aldb_key(
-                                                                msg_msb,
-                                                                msg_lsb),
-                                              aldb_entry)
+                self._device.aldb.edit_record(
+                    self._device.aldb.get_aldb_key(
+                        msg_msb,
+                        msg_lsb
+                        ),
+                    aldb_entry)
                 self._device.last_sent_msg.insteon_msg.device_ack = True
         else:
             msg.allow_trigger = False

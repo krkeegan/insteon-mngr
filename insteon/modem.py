@@ -71,6 +71,15 @@ class Modem(Root_Insteon):
         for group_num in range(0x02, 0xFF):
             self.create_group(group_num, InsteonGroup)
 
+    def _load_attributes(self, attributes):
+        for name, value in attributes.items():
+            if name == 'ALDB':
+                self.aldb.load_aldb_records(value)
+            elif name == 'Devices':
+                self._load_devices(value)
+            else:
+                self.attribute(name, value)
+
     def _load_devices(self, devices):
         for dev_id, attributes in devices.items():
             self.add_device(dev_id, attributes=attributes)

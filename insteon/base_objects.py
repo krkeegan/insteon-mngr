@@ -10,6 +10,7 @@ def BYTE_TO_HEX(data):
     return binascii.hexlify(data).decode().upper()
 
 def BYTE_TO_ID(high, mid, low):
+    # pylint: disable=E1305
     ret = ('{:02x}'.format(high, 'x').upper() +
            '{:02x}'.format(mid, 'x').upper() +
            '{:02x}'.format(low, 'x').upper())
@@ -22,6 +23,8 @@ def ID_STR_TO_BYTES(dev_id_str):
     ret[2] = (int(dev_id_str[4:6], 16))
     return ret
 
+# This is here because the above functions are imported in these
+# consider some other structure to avoid what is clearly a bad import
 from insteon.devices import (GroupSendHandler, GroupFunctions)
 
 class Base_Device(object):
@@ -168,13 +171,7 @@ class Base_Device(object):
 
     def _load_attributes(self, attributes):
         for name, value in attributes.items():
-            if name == 'ALDB':
-                self.aldb.load_aldb_records(value)
-            elif name == 'Devices':  # should only be plm?
-                self._load_devices(value)
-            else:
-                self.attribute(name, value)
-
+            self.attribute(name, value)
 
 class Base_Insteon(Base_Device):
 
@@ -206,21 +203,21 @@ class Base_Insteon(Base_Device):
     def dev_cat(self):
         dev_cat = self.attribute('dev_cat')
         if dev_cat is None:
-            dev_cat= 0x00
+            dev_cat = 0x00
         return dev_cat
 
     @property
     def sub_cat(self):
         sub_cat = self.attribute('sub_cat')
         if sub_cat is None:
-            sub_cat= 0x00
+            sub_cat = 0x00
         return sub_cat
 
     @property
     def firmware(self):
         firmware = self.attribute('firmware')
         if firmware is None:
-            firmware= 0x00
+            firmware = 0x00
         return firmware
 
     @property
@@ -243,7 +240,7 @@ class Root_Insteon(Base_Insteon):
         device_id = self.dev_addr_str
         if group_num > 0x01 and group_num <= 0xFF:
             self._groups.append(group(
-                                    self, group_num, device_id=device_id))
+                self, group_num, device_id=device_id))
 
     def get_object_by_group_num(self, search_num):
         ret = None
@@ -291,9 +288,11 @@ class Root_Insteon(Base_Insteon):
         return
 
     def update_device_classes(self):
+        # pylint: disable=R0201
         return NotImplemented
 
     def export_links(self):
+        # pylint: disable=E1101
         records = {}
         for key in self.aldb.get_all_records().keys():
             parsed = self.aldb.parse_record(key)
@@ -316,10 +315,10 @@ class Root_Insteon(Base_Insteon):
                             entry['data_3'] == parsed['data_3']):
                         continue
                 records[name][group].append({
-                        'data_1': parsed['data_1'],
-                        'data_2': parsed['data_2'],
-                        'data_3': parsed['data_3']
-                        })
+                    'data_1': parsed['data_1'],
+                    'data_2': parsed['data_2'],
+                    'data_3': parsed['data_3']
+                })
         if self.user_links is not None:
             new_records = records
             records = self.user_links
@@ -360,14 +359,10 @@ class InsteonGroup(Base_Insteon):
     def engine_version(self):
         return self._parent.engine_version
 
-    def create_link(self, responder, d1, d2, d3):
-        # TODO fix this KRK_ALDB
-        pass
-        self.parent.aldb.create_controller(responder)
-        responder.aldb.create_responder(self, d1, d2, d3)
-
-    def set_dev_addr(*args, **kwargs):
+    def set_dev_addr(self, *args, **kwargs):
+        # pylint: disable=W0613
         return NotImplemented
 
-    def set_dev_version(*args, **kwargs):
+    def set_dev_version(self, *args, **kwargs):
+        # pylint: disable=W0613
         return NotImplemented

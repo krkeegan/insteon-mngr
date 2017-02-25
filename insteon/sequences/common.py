@@ -31,6 +31,9 @@ class StatusRequest(BaseSequence):
     '''Used to request the status of a device.  The neither cmd_1 nor cmd_2 of the
     return message can be predicted so we just hope it is the next direct_ack that
     we receive'''
+    # TODO what would happen if this message was never acked?  Would this
+    # trigger remain in waiting and fire the next time we received an ack?
+
     def start(self):
         trigger_attributes = {
             'msg_type': 'direct_ack',
@@ -46,7 +49,7 @@ class StatusRequest(BaseSequence):
 
     def _process_status_response(self):
         msg = self._device._rcvd_handler.last_rcvd_msg
-        self._device.set_cached_state(msg.get_byte_by_name('cmd_2'))
+        self._device.state = msg.get_byte_by_name('cmd_2')
         aldb_delta = msg.get_byte_by_name('cmd_1')
         if self._device.attribute('aldb_delta') != aldb_delta:
             print('aldb has changed, rescanning')
@@ -60,7 +63,7 @@ class SetALDBDelta(StatusRequest):
 
     def _process_status_response(self):
         msg = self._device._rcvd_handler.last_rcvd_msg
-        self._device.set_cached_state(msg.get_byte_by_name('cmd_2'))
+        self._device.state = msg.get_byte_by_name('cmd_2')
         self._device.set_aldb_delta(msg.get_byte_by_name('cmd_1'))
         print ('cached aldb_delta')
         if self.success_callback is not None:

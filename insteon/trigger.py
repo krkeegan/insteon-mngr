@@ -27,7 +27,7 @@ class Trigger_Manager(object):
                 del self._triggers[trigger_key]
                 trigger_function()
 
-    def delete_matching_attr(self, msg_name, attributes={}):
+    def delete_matching_attr(self, msg_name, attributes=None):
         pass
 
 

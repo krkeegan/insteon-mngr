@@ -4,7 +4,8 @@ import json
 import re
 import os
 
-from bottle import route, run, Bottle, response, get, post, request, error, static_file, view, TEMPLATE_PATH, WSGIRefServer
+from bottle import (route, run, Bottle, response, get, post, request, error,
+                    static_file, view, TEMPLATE_PATH, WSGIRefServer)
 
 core = ''
 app = Bottle()
@@ -14,7 +15,7 @@ TEMPLATE_PATH.append(os.path.dirname(os.path.realpath(__file__))+ '/views')
 print(TEMPLATE_PATH)
 
 def start(passed_core):
-    global core
+    global core      # pylint: disable=W0603
     core = passed_core
     server = MyServer(host='0.0.0.0', port=8080, debug=True)
     threading.Thread(target=run, kwargs=dict(server=server)).start()
@@ -96,7 +97,7 @@ def error_missing_attribute(attribute):
     return generate_error(400, 'Missing required attribute ' + attribute)
 
 @error(405)
-def error_405(error):
+def error_405(error_parm):
     return jsonify(generate_error(405, 'Method not allowed.'))
 
 ###################################################################
@@ -109,20 +110,20 @@ def list_modems():
     modems = core.get_all_modems()
     ret = []
     for modem in modems:
-        ret.append( { modem.dev_addr_str : {
+        ret.append({modem.dev_addr_str : {
             'dev_cat': modem.dev_cat,
             'sub_cat': modem.sub_cat,
             'firmware': modem.firmware,
             'port': modem.port,
             'port_active': modem.port_active,
             'type': modem.type
-            }}
-        )
+        }}
+                  )
     return ret
 
 def get_modem(DevID):
     modem = core.get_modem_by_id(DevID)
-    ret =  {
+    ret = {
         'dev_cat': modem.dev_cat,
         'sub_cat': modem.sub_cat,
         'firmware': modem.firmware,
@@ -146,7 +147,8 @@ def get_modem(DevID):
 ###################################################################
 
 def generate_error(code, text):
-    ret = {"error": {
+    ret = {
+        "error": {
             "code": code,
             "message": text
         }
@@ -180,7 +182,7 @@ def jsonify(data):
     return json.dumps(data, indent=4, sort_keys=True)
 
 class MyServer(WSGIRefServer):
-    def run(self, app): # pragma: no cover
+    def run(self, app_parm): # pragma: no cover
         from wsgiref.simple_server import WSGIRequestHandler, WSGIServer
         from wsgiref.simple_server import make_server
         import socket
@@ -188,19 +190,19 @@ class MyServer(WSGIRefServer):
         class FixedHandler(WSGIRequestHandler):
             def address_string(self): # Prevent reverse DNS lookups please.
                 return self.client_address[0]
-            def log_request(*args, **kw):
+            def log_request(self, *args, **kw):
                 if not self.quiet:
                     return WSGIRequestHandler.log_request(*args, **kw)
 
         handler_cls = self.options.get('handler_class', FixedHandler)
-        server_cls  = self.options.get('server_class', WSGIServer)
+        server_cls = self.options.get('server_class', WSGIServer)
 
         if ':' in self.host: # Fix wsgiref for IPv6 addresses.
             if getattr(server_cls, 'address_family') == socket.AF_INET:
                 class server_cls(server_cls):
                     address_family = socket.AF_INET6
 
-        srv = make_server(self.host, self.port, app, server_cls, handler_cls)
+        srv = make_server(self.host, self.port, app_parm, server_cls, handler_cls)
         self.srv = srv ### THIS IS THE ONLY CHANGE TO THE ORIGINAL CLASS METHOD!
         srv.serve_forever()
 
