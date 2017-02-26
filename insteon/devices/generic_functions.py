@@ -7,3 +7,10 @@ class GenericFunctions(object):
         if ret == 0x01:
             ret = 0x00
         return ret
+
+    def state_str(self):
+        # TODO do we want to return an unknown value? trigger status if not?
+        ret = 'OFF'
+        if self._device.state == 0xFF:
+            ret = 'ON'
+        return ret

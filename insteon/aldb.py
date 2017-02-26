@@ -70,12 +70,37 @@ class ALDB(object):
             parsed[attr] = bool(parsed[attr])
         return parsed
 
-    def get_linked_obj(self, position):
+    def get_linked_root_obj(self, position):
         parsed_record = self.parse_record(position)
         high = parsed_record['dev_addr_hi']
         mid = parsed_record['dev_addr_mid']
         low = parsed_record['dev_addr_low']
         return self._parent.plm.get_device_by_addr(BYTE_TO_ID(high, mid, low))
+
+    def get_responder_and_level(self, position):
+        # This function seems rather hacky and specific, there must be a
+        # more elegant way to do this
+        # should each ALDB record be an object?  Would make a lot of these
+        # things a lot better, can just pass the record object and make Calls
+        # on the object
+        ret = []
+        linked_root = self.get_linked_root_obj(position)
+        parsed_root = self.parse_record(position)
+        if linked_root is not None and parsed_root['controller']:
+            records = linked_root.aldb.get_matching_records({
+                'controller': False,
+                'group': parsed_root['group'],
+                'dev_addr_hi': self._parent.dev_addr_hi,
+                'dev_addr_mid': self._parent.dev_addr_mid,
+                'dev_addr_low': self._parent.dev_addr_low,
+                'in_use': True
+            })
+            for record in records:
+                parsed_record = linked_root.aldb.parse_record(record)
+                obj = linked_root.get_object_by_group_num(parsed_record['data_3'])
+                if obj is not None:
+                    ret.append([obj, parsed_record['data_1']])
+        return ret
 
     def is_last_aldb(self, key):
         ret = True

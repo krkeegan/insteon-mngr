@@ -228,6 +228,21 @@ class Base_Insteon(Base_Device):
     def group(self):
         return NotImplemented
 
+    @property
+    def state(self):
+        '''Returns the cached state of the device.'''
+        return self.attribute('state')
+
+    @state.setter
+    def state(self, value):
+        self.attribute(attr='state', value=value)
+        self.attribute(attr='state_time', value=time.time())
+
+    @property
+    def state_age(self):
+        '''Returns the age in seconds of the state value.'''
+        return time.time() - self.attribute('state_time')
+
 
 class Root_Insteon(Base_Insteon):
     '''The base of the primary group'''
@@ -297,7 +312,7 @@ class Root_Insteon(Base_Insteon):
         for key in self.aldb.get_all_records().keys():
             parsed = self.aldb.parse_record(key)
             if parsed['in_use'] and not parsed['controller']:
-                linked_device = self.aldb.get_linked_obj(key)
+                linked_device = self.aldb.get_linked_root_obj(key)
                 name = self.aldb.get_linked_device_str(key)
                 group = parsed['group']
                 group = 0x01 if group == 0x00 else group

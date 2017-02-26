@@ -44,8 +44,12 @@ class GenericRcvdHandler(object):
             self._process_direct_nack(msg)
         elif msg.insteon_msg.message_type == 'broadcast':
             self._dispatch_broadcast(msg)
+        elif msg.insteon_msg.message_type == 'alllink_broadcast':
+            self._dispatch_alllink_broadcast(msg)
+        elif msg.insteon_msg.message_type == 'alllink_cleanup':
+            self._dispatch_alllink_cleanup(msg)
         elif msg.insteon_msg.message_type == 'alllink_cleanup_ack':
-            self._process_alllink_cleanup(msg)
+            self._process_alllink_cleanup_ack(msg)
 
     def _dispatch_direct(self, msg):
         '''Dispatchs an incomming direct message to the correct function.
@@ -106,8 +110,14 @@ class GenericRcvdHandler(object):
             version = msg.get_byte_by_name('cmd_2')
             self._device.set_engine_version(version)
             ret = True
-        elif cmd_byte == 0x10:
+        elif cmd_byte == 0x10:  # ID Request
             ret = self._common_prelim_ack(msg)
+        elif cmd_byte == 0x11:  # ON
+            self._rcvd_state(msg)
+            ret = True
+        elif cmd_byte == 0x13:  # OFF
+            self._rcvd_state(msg)
+            ret = True
         elif cmd_byte == 0x28:  # set_address_msb
             ret = self._ack_set_msb(msg)
         elif cmd_byte == 0x29:  # poke_one_byte
@@ -115,7 +125,7 @@ class GenericRcvdHandler(object):
         elif cmd_byte == 0x2B:  # peek_one_byte
             ret = True
             self._ack_peek_aldb(msg)
-        elif cmd_byte == 0x2F:
+        elif cmd_byte == 0x2F:  # Ext ALDB
             ret = self._ext_aldb_ack(msg)
         return ret
 
@@ -171,19 +181,63 @@ class GenericRcvdHandler(object):
         else:
             print('rcvd broadcast message of unknown type')
 
-    def _process_alllink_cleanup(self, msg):
-        # TODO is this actually received??  isn't the modem the only one who
-        # get this message and doesn't it convert these to a special PLM Msg?
-        # TODO set state of the device based on cmd acked
-        # Clear queued cleanup messages if they exist
+    def _dispatch_alllink_broadcast(self, msg):
+        cmd_byte = msg.get_byte_by_name('cmd_1')
+        if cmd_byte == 0x06:
+            pass
+            # CMd_1 0x06 is to_addr_hi = cmd being cleaned up
+            # to_addr_low = num of devices to clean up
+            # to_addr_low = group, Cmd_2 number of failed cleanups
+        elif cmd_byte == 0x11:  # only handling full on/off atm
+            group = msg.get_byte_by_name('to_addr_low')
+            self._shared_updated_state(group, True, msg)
+        elif cmd_byte == 0x13:  # only handling full on/off atm
+            group = msg.get_byte_by_name('to_addr_low')
+            self._shared_updated_state(group, False, msg)
+
+    def _dispatch_alllink_cleanup(self, msg):
+        cmd_byte = msg.get_byte_by_name('cmd_1')
+        if cmd_byte == 0x11:
+            group = msg.get_byte_by_name('cmd_2')
+            self._shared_updated_state(group, True, msg)
+        elif cmd_byte == 0x13:
+            group = msg.get_byte_by_name('cmd_2')
+            self._shared_updated_state(group, False, msg)
+
+    def _process_alllink_cleanup_ack(self, msg):
         self._device.remove_cleanup_msgs(msg)
-        if (self._device.last_sent_msg and
-                self._device.last_sent_msg.get_byte_by_name('cmd_1') ==
-                msg.get_byte_by_name('cmd_1') and
-                self._device.last_sent_msg.get_byte_by_name('cmd_2') ==
-                msg.get_byte_by_name('cmd_2')):
-            # Only set ack if this was sent by this device
+        self._alllink_state_update(msg)
+        if self._was_alllink_cleanup_requested(msg):
             self._device.last_sent_msg.insteon_msg.device_ack = True
+
+    def _alllink_state_update(self, msg):
+        records = self._device.aldb.get_matching_records({
+            'controller': False,
+            'group': msg.get_byte_by_name('cmd_2'),
+            'dev_addr_hi': msg.get_byte_by_name('to_addr_hi'),
+            'dev_addr_mid': msg.get_byte_by_name('to_addr_mid'),
+            'dev_addr_low': msg.get_byte_by_name('to_addr_low'),
+            'in_use': True
+        })
+        for record in records:
+            parsed_record = self._device.aldb.parse_record(record)
+            state = 0x00  # Off always results in an off state???
+            if msg.get_byte_by_name('cmd_1') == 0x11:
+                state = parsed_record['data_1']
+            obj = self._device.get_object_by_group_num(parsed_record['data_3'])
+            if obj is not None:
+                obj.state = state
+
+    def _was_alllink_cleanup_requested(self, msg):
+        ret = False
+        last_msg = self._device.last_sent_msg
+        if (last_msg and
+                last_msg.get_byte_by_name('cmd_1') ==
+                msg.get_byte_by_name('cmd_1') and
+                last_msg.get_byte_by_name('cmd_2') ==
+                msg.get_byte_by_name('cmd_2')):
+            ret = True
+        return ret
 
     ###################################################
     #
@@ -289,3 +343,35 @@ class GenericRcvdHandler(object):
             print('rcvd, broadcast updated devcat, subcat, and firmware')
         else:
             print('rcvd spurious set button pressed from device')
+
+    def _rcvd_state(self, msg):
+        cmd_byte = msg.get_byte_by_name('cmd_1')
+        state = msg.get_byte_by_name('cmd_2')  # pylint: disable=W0612
+        if cmd_byte == 0X11:
+            self._device.state = 0xFF
+        elif cmd_byte == 0x13:
+            self._device.state = 0x00
+
+    def _shared_updated_state(self, group, is_on, msg):
+        obj = self._device.get_object_by_group_num(group)
+        # TODO set on level to local on_level not just ON
+        if obj is not None:
+            if is_on:
+                obj.state = 0xFF
+            else:
+                obj.state = 0x00
+        self._update_linked(group, is_on)
+
+    def _update_linked(self, group, is_on):
+        records = self._device.aldb.get_matching_records({
+            'controller': True,
+            'group': group,
+            'in_use': True
+        })
+        for record in records:
+            data = self._device.aldb.get_responder_and_level(record)
+            for entry in data:
+                state = 0x00  # Off always results in an off state???
+                if is_on:
+                    state = entry[1]
+                entry[0].state = state
