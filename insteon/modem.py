@@ -17,8 +17,9 @@ class Modem_ALDB(ALDB):
 
     def add_record(self, aldb):
         position = self._get_next_position()
-        self.aldb[position] = aldb
-        parsed_record = self.parse_record(position)
+        record = self.get_record(position)
+        record.raw = aldb
+        parsed_record = record.parse_record()
         # TODO if this is a PLM controller record, we may also know the
         # dev_cat sub_cat and firmware of this device, although they may
         # not be accurate.  Should we do something with this just in case
