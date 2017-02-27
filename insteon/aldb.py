@@ -142,9 +142,10 @@ class ALDBRecord(object):
     def get_reciprocal_records(self):
         linked_root = self.get_linked_root_obj()
         parsed = self.parse_record()
-        controller = False
+        controller = True
+        records = []
         if parsed['controller']:
-            controller = True
+            controller = False
         if linked_root is not None:
             search = {
                 'controller': controller,

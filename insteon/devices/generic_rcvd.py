@@ -370,9 +370,9 @@ class GenericRcvdHandler(object):
             'in_use': True
         })
         for controller in controller_records:
-            responder_records = controller.get_reciprocal_records
+            responder_records = controller.get_reciprocal_records()
             for responder in responder_records:
                 state = 0x00  # Off always results in an off state???
                 if is_on:
-                    state = responder_records.parse_record()['data_1']
+                    state = responder.parse_record()['data_1']
                 responder.get_group_object().state = state
