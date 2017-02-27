@@ -220,7 +220,7 @@ class GenericRcvdHandler(object):
             'in_use': True
         })
         for record in records:
-            parsed_record = self._device.aldb.parse_record(record)
+            parsed_record = record.parse_record()
             state = 0x00  # Off always results in an off state???
             if msg.get_byte_by_name('cmd_1') == 0x11:
                 state = parsed_record['data_1']
@@ -284,12 +284,13 @@ class GenericRcvdHandler(object):
                     msg.get_byte_by_name('usr_12'),
                     msg.get_byte_by_name('usr_13')
                 ])
-                self._device.aldb.edit_record(
+                record = self._device.aldb.get_record(
                     self._device.aldb.get_aldb_key(
                         msg_msb,
                         msg_lsb
-                        ),
-                    aldb_entry)
+                    )
+                )
+                record.edit_record(aldb_entry)
                 self._device.last_sent_msg.insteon_msg.device_ack = True
         else:
             msg.allow_trigger = False
@@ -363,15 +364,15 @@ class GenericRcvdHandler(object):
         self._update_linked(group, is_on)
 
     def _update_linked(self, group, is_on):
-        records = self._device.aldb.get_matching_records({
+        controller_records = self._device.aldb.get_matching_records({
             'controller': True,
             'group': group,
             'in_use': True
         })
-        for record in records:
-            data = self._device.aldb.get_responder_and_level(record)
-            for entry in data:
+        for controller in controller_records:
+            responder_records = controller.get_reciprocal_records
+            for responder in responder_records:
                 state = 0x00  # Off always results in an off state???
                 if is_on:
-                    state = entry[1]
-                entry[0].state = state
+                    state = responder_records.parse_record()['data_1']
+                responder.get_group_object().state = state

@@ -28,7 +28,7 @@ class ScanDeviceALDBi2(BaseSequence):
         msb = rcvd_handler.last_rcvd_msg.get_byte_by_name('usr_3')
         lsb = rcvd_handler.last_rcvd_msg.get_byte_by_name('usr_4')
         aldb_key = self._device.aldb.get_aldb_key(msb, lsb)
-        if self._device.aldb.is_last_aldb(aldb_key):
+        if self._device.aldb.get_record(aldb_key).is_last_aldb():
             self._device.remove_state_machine('query_aldb')
             self._device.aldb.print_records()
             aldb_sequence = SetALDBDelta(self._device)

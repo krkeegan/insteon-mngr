@@ -22,7 +22,8 @@ class Device_ALDB(ALDB):
         ret = {}
         if self._parent.attribute('engine_version') == 0x00:
             ret['msb'] = msb
-            if self.is_empty_aldb(self.get_aldb_key(msb, lsb)):
+            aldb_key = self.get_aldb_key(msb, lsb)
+            if self.aldb[aldb_key].is_empty_aldb():
                 ret['lsb'] = lsb - (8 + (lsb % 8))
             elif (lsb % 8) == 7: # End of Entry
                 ret['lsb'] = lsb - 15
@@ -44,11 +45,11 @@ class Device_ALDB(ALDB):
         return ret
 
     def store_peeked_byte(self, msb, lsb, byte):
+        record = self.get_record(self.get_aldb_key(msb, lsb))
         if (lsb % 8) == 0:
             # First byte, clear out the record
-            self.edit_record(self.get_aldb_key(msb, lsb), bytearray(8))
-        self.edit_record_byte(
-            self.get_aldb_key(msb, lsb),
+            record.edit_record(bytearray(8))
+        record.edit_record_byte(
             lsb % 8,
             byte
         )

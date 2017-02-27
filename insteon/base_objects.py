@@ -309,11 +309,13 @@ class Root_Insteon(Base_Insteon):
     def export_links(self):
         # pylint: disable=E1101
         records = {}
+        # TODO improve to use ALDB Record classes
         for key in self.aldb.get_all_records().keys():
             parsed = self.aldb.parse_record(key)
             if parsed['in_use'] and not parsed['controller']:
-                linked_device = self.aldb.get_linked_root_obj(key)
-                name = self.aldb.get_linked_device_str(key)
+                linked_record = self.aldb.get_record(key)
+                linked_device = linked_record.get_linked_root_obj()
+                name = linked_record.get_linked_device_str()
                 group = parsed['group']
                 group = 0x01 if group == 0x00 else group
                 if group == 0x01 and linked_device is self.plm:

@@ -26,7 +26,7 @@ class ScanDeviceALDBi1(BaseSequence):
             insteon_cmd='set_address_msb')
         msb = msb_msg.get_byte_by_name('cmd_2')
         aldb_key = self._device.aldb.get_aldb_key(msb, lsb)
-        if self._device.aldb.is_last_aldb(aldb_key):
+        if self._device.aldb.get_record(aldb_key).is_last_aldb():
             self._device.aldb.print_records()
             self._device.remove_state_machine('query_aldb')
             aldb_sequence = SetALDBDelta(self._device)

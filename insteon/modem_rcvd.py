@@ -50,13 +50,13 @@ class ModemRcvdHandler(object):
         elif ctrl_code == 0x20:
             records = self._device.aldb.get_matching_records(search_attributes)
             try:
-                self._device.aldb.edit_record(records[0], aldb)
+                records[0].edit_record(aldb)
             except:
                 print('error trying to edit plm aldb cache')
         elif ctrl_code == 0x80:
             records = self._device.aldb.get_matching_records(search_attributes)
             if len(records) > 0:
-                self._device.aldb.delete_record(records[0])
+                records[0].delete_record()
             else:
                 print('error trying to delete plm aldb cache')
         self._rcvd_plm_ack(msg)
