@@ -2,6 +2,7 @@ import time
 import datetime
 import pprint
 import binascii
+from insteon.user_link import UserLink
 
 
 def BYTE_TO_HEX(data):
@@ -261,7 +262,19 @@ class Root_Insteon(Base_Insteon):
 
     def __init__(self, core, plm, **kwargs):
         self._groups = []
+        self._user_links = []
         super().__init__(core, plm, **kwargs)
+
+    def _load_user_links(self, links):
+        for controller_id, groups in links.items():
+            for group_number, all_data in groups.items():
+                for data in all_data:
+                    self._user_links.append(UserLink(
+                        self,
+                        controller_id,
+                        group_number,
+                        data
+                    ))
 
     def create_group(self, group_num, group, attributes=None):
         device_id = self.dev_addr_str

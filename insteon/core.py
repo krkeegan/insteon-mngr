@@ -15,6 +15,7 @@ class Insteon_Core(object):
         self._modems = []
         self._last_saved_time = 0
         self._load_state()
+        self._load_user_links()
         threading.Thread(target=self._core_loop).start()
         # Be sure to save before exiting
         atexit.register(self._save_state, True)
@@ -27,6 +28,28 @@ class Insteon_Core(object):
         with open('insteon/data/device_models.json', 'r') as myfile:
             json_models = myfile.read()
         self.device_models = json.loads(json_models)
+
+    def _load_user_links(self):
+        for modem in self.get_all_modems():
+            modem._load_user_links(modem.attribute("user_links"))
+            for device in modem.get_all_devices():
+                device._load_user_links(device.attribute("user_links"))
+
+    def _get_all_user_links(self):
+        ret = []
+        for modem in self.get_all_modems():
+            ret += modem._user_links
+            for device in modem.get_all_devices():
+                ret += device._user_links
+        return ret
+
+    def get_matching_user_links(self, device):
+        all_links = self._get_all_user_links()
+        ret = []
+        for link in all_links:
+            if link.matches(device):
+                ret.append(link)
+        return ret
 
     def _core_loop(self):
         server = start(self)
