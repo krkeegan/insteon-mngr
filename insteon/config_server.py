@@ -81,6 +81,21 @@ def device_page(modem_id, DevID):
                 attributes = get_device(modem_id, DevID)
                )
 
+@route('/modem/<modem_id>/device/<DevID>/group/<group_number>')
+@view('device_group')
+def device_group_page(modem_id, DevID, group_number):
+    from pprint import pprint
+    pprint(dict(modem_id = modem_id,
+                device_id = DevID,
+                group_number = group_number,
+                attributes = get_device_group(modem_id, DevID, group_number)
+               ))
+    return dict(modem_id = modem_id,
+                device_id = DevID,
+                group_number = group_number,
+                attributes = get_device_group(modem_id, DevID, group_number)
+               )
+
 ###################################################################
 ##
 # Static Responses
@@ -185,25 +200,36 @@ def get_modem_group(DevID, group_number):
     ret = {
         'name': group.name,
         'modem_name': modem.name,
-        'responder_links' : []
+        'user_links' : get_user_link_controllers(DevID, group_number)
     }
-    records = modem.aldb.get_matching_records({
-        'controller': True,
-        'group': int(group_number)
-    })
-    for record in records:
-        # name should be better
-        # in order to figure out group we need to get reciprocal record
-        # what to do if such a record does_not_exist
-        # should this be user_defined only here
-        # and not defined links can be listed later?
-        # user defined currently doesn't require a matching link on the other
-        # end we just import from raw
+    return ret
 
-        ret['responder_links'].append({
-            'responder': record.get_linked_device_str(),
-            'on_level': 'From linked',
-            'status': 'Good'
+def get_device_group(modem_id, DevID, group_number):
+    modem = core.get_modem_by_id(modem_id)
+    device = modem.get_device_by_addr(DevID)
+    group = device.get_object_by_group_num(int(group_number))
+    ret = {
+        'name': group.name,
+        'modem_name': modem.name,
+        'dev_addr_str': device.dev_addr_str,
+        'device_name': device.name,
+        'group_name': group.name,
+        'user_links' : get_user_link_controllers(DevID, group_number)
+    }
+    return ret
+
+def get_user_link_controllers(DevID, group_number):
+    root = core.get_device_by_addr(DevID)
+    # The problem is here, if 0x00 or 0x01 are requested it returns an
+    # InsteonDevice instead of an InsteonGroup
+    device = root.get_object_by_group_num(int(group_number))
+    links = core.get_matching_user_links(device)
+    ret = []
+    for link in links:
+        ret.append({
+            'responder': link._device.dev_addr_str,
+            'on_level': link._data_1,
+            'status': link._data_2
         })
     return ret
 

@@ -20,7 +20,8 @@
   </head>
   <body>
     % include('header', paths=[{'path':'/modem/' + modem_id, 'name': attributes['modem_name'] + ' - ' + modem_id},
-    %                           {'path':'group', 'name': attributes['name'] + ' - Group ' + group_number}
+    %                          {'path':'/device/' + attributes['dev_addr_str'], 'name': attributes['device_name'] + ' - ' + attributes['dev_addr_str']},
+    %                          {'path': 'group', 'name': attributes['group_name'] + ' - Group ' + group_number}
     %                          ])
 
     <div class="row">
