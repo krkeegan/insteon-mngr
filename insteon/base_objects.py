@@ -73,6 +73,17 @@ class Base_Device(object):
                 self._state_machine_time = time.time()
         return self._state_machine
 
+    @property
+    def name(self):
+        name = self.attribute('name')
+        if name is None:
+            name = ''
+        return name
+
+    @name.setter
+    def name(self, value):
+        return self.attribute('name', value)
+
     def _get_next_state_machine(self):
         next_state = 'default'
         msg_time = 0
