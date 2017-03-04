@@ -8,11 +8,8 @@ from bottle import (route, run, Bottle, response, get, post, request, error,
                     static_file, view, TEMPLATE_PATH, WSGIRefServer)
 
 core = ''
-app = Bottle()
 
 TEMPLATE_PATH.append(os.path.dirname(os.path.realpath(__file__))+ '/views')
-
-print(TEMPLATE_PATH)
 
 def start(passed_core):
     global core      # pylint: disable=W0603
@@ -69,7 +66,7 @@ def index_page():
 @view('modem')
 def modem_page(DevID):
     modem_attrs = get_modem(DevID)
-    return dict(device_id=DevID, attributes=modem_attrs)
+    return dict(device_id=DevID, attributes=modem_attrs, groups=list_groups(DevID), devices=list_devices(DevID))
 
 ###################################################################
 ##
@@ -121,6 +118,30 @@ def list_modems():
                   )
     return ret
 
+def list_groups(DevID):
+    device = core.get_device_by_addr(DevID)
+    groups = device.get_all_groups()
+    ret = []
+    for group in groups:
+        ret.append(
+            {group.group_number : {
+                'group_attrs': None
+            }}
+        )
+    return ret
+
+def list_devices(Modem):
+    modem = core.get_device_by_addr(Modem)
+    devices = modem.get_all_devices()
+    ret = []
+    for device in devices:
+        ret.append(
+            {device.dev_addr_str : {
+                'group_attrs': None
+            }}
+        )
+    return ret
+
 def get_modem(DevID):
     modem = core.get_modem_by_id(DevID)
     ret = {
@@ -128,13 +149,14 @@ def get_modem(DevID):
         'sub_cat': modem.sub_cat,
         'firmware': modem.firmware,
         'port_active': modem.port_active,
-        'type': modem.type
+        'type': modem.type,
+        'dev_addr_str': modem.dev_addr_str
     }
     if modem.type == 'hub':
         ret['user'] = modem.user
         ret['password'] = modem.password
         ret['ip'] = modem.ip
-        ret['tcp_port'] = modem.tcp_port
+        ret['port'] = modem.tcp_port
     else:
         ret['port'] = modem.port
     return ret
@@ -186,13 +208,15 @@ class MyServer(WSGIRefServer):
         from wsgiref.simple_server import WSGIRequestHandler, WSGIServer
         from wsgiref.simple_server import make_server
         import socket
+        if self.quiet:
+            class QuietHandler(WSGIRequestHandler):
+                def log_request(*args, **kw):
+                    pass
+            self.options['handler_class'] = QuietHandler
 
         class FixedHandler(WSGIRequestHandler):
             def address_string(self): # Prevent reverse DNS lookups please.
                 return self.client_address[0]
-            def log_request(self, *args, **kw):
-                if not self.quiet:
-                    return WSGIRequestHandler.log_request(*args, **kw)
 
         handler_cls = self.options.get('handler_class', FixedHandler)
         server_cls = self.options.get('server_class', WSGIServer)

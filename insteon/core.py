@@ -202,6 +202,19 @@ class Insteon_Core(object):
                 ret = modem
         return ret
 
+    def get_device_by_addr(self, addr):
+        ret = None
+        for modem in self._modems:
+            if addr.lower() == modem.dev_addr_str.lower():
+                ret = modem
+            else:
+                ret = modem.get_device_by_addr(addr)
+                if ret is not None:
+                    break
+        if ret is None:
+            print('error, unknown device address=', addr)
+        return ret
+
     def get_all_modems(self):
         ret = []
         for plm in self._modems:
