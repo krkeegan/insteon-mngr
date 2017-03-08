@@ -69,8 +69,9 @@ class Modem(Root_Insteon):
         self._last_x10_unit = None
         self.port_active = True
         self.ack_time = 75
-        for group_num in range(0x02, 0xFF):
-            self.create_group(group_num, InsteonGroup)
+        for group_number in range(0x02, 0xFF):
+            if self.get_object_by_group_num(group_number) is None:
+                self.create_group(group_number, InsteonGroup)
 
     def _load_attributes(self, attributes):
         for name, value in attributes.items():
@@ -78,12 +79,18 @@ class Modem(Root_Insteon):
                 self.aldb.load_aldb_records(value)
             elif name == 'Devices':
                 self._load_devices(value)
+            elif name == "groups":
+                self._load_groups(value)
             else:
                 self.attribute(name, value)
 
     def _load_devices(self, devices):
         for dev_id, attributes in devices.items():
             self.add_device(dev_id, attributes=attributes)
+
+    def _load_groups(self, value):
+        for group_number, attributes in value.items():
+            self.create_group(int(group_number), InsteonGroup, attributes=attributes)
 
     def _setup(self):
         self.update_device_classes()

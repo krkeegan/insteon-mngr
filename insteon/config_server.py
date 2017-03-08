@@ -65,8 +65,34 @@ def index_page():
 @route('/modem/<DevID>')
 @view('modem')
 def modem_page(DevID):
-    modem_attrs = get_modem(DevID)
-    return dict(device_id=DevID, attributes=modem_attrs, groups=list_groups(DevID), devices=list_devices(DevID))
+    return dict(device_id=DevID,
+                attributes=get_modem(DevID),
+                groups=list_groups(DevID),
+                devices=list_devices(DevID)
+               )
+
+@post('/modem/<DevID>')
+@view('modem')
+def modem_settings(DevID):
+    modem = core.get_device_by_addr(DevID)
+    modem.name = request.forms.get('name')
+    return modem_page(DevID)
+
+@route('/modem/<DevID>/group/<group_number>')
+@view('modem_group')
+def modem_group_page(DevID, group_number):
+    return dict(modem_id = DevID,
+                group_number = group_number,
+                attributes = get_modem_group(DevID, group_number)
+               )
+
+@post('/modem/<DevID>/group/<group_number>')
+@view('modem_group')
+def modem_group_settings(DevID, group_number):
+    modem = core.get_device_by_addr(DevID)
+    group = modem.get_object_by_group_num(int(group_number))
+    group.name = request.forms.get('name')
+    return modem_group_page(DevID, group_number)
 
 ###################################################################
 ##
@@ -113,7 +139,8 @@ def list_modems():
             'firmware': modem.firmware,
             'port': modem.port,
             'port_active': modem.port_active,
-            'type': modem.type
+            'type': modem.type,
+            'name': modem.name
         }}
                   )
     return ret
@@ -121,11 +148,14 @@ def list_modems():
 def list_groups(DevID):
     device = core.get_device_by_addr(DevID)
     groups = device.get_all_groups()
-    ret = []
+    groups_sort = {}
     for group in groups:
+        groups_sort[group.group_number] = group
+    ret = []
+    for group_number in sorted(groups_sort):
         ret.append(
-            {group.group_number : {
-                'group_attrs': None
+            {group_number : {
+                'group_name': groups_sort[group_number].name
             }}
         )
     return ret
@@ -150,7 +180,8 @@ def get_modem(DevID):
         'firmware': modem.firmware,
         'port_active': modem.port_active,
         'type': modem.type,
-        'dev_addr_str': modem.dev_addr_str
+        'dev_addr_str': modem.dev_addr_str,
+        'name': modem.name
     }
     if modem.type == 'hub':
         ret['user'] = modem.user
@@ -159,6 +190,15 @@ def get_modem(DevID):
         ret['port'] = modem.tcp_port
     else:
         ret['port'] = modem.port
+    return ret
+
+def get_modem_group(DevID, group_number):
+    modem = core.get_modem_by_id(DevID)
+    group = modem.get_object_by_group_num(int(group_number))
+    ret = {
+        'name': group.name,
+        'modem_name': modem.name
+    }
     return ret
 
 

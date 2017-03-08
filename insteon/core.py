@@ -53,10 +53,19 @@ class Insteon_Core(object):
                 modem_point = modem._attributes.copy()
                 modem_point['ALDB'] = modem.aldb.get_all_records_str()
                 modem_point['Devices'] = {}
+                modem_point['groups'] = {}
+                for group in modem.get_all_groups():
+                    modem_point['groups'][group.group_number] = group._attributes.copy()
                 out_data['Modems'][modem.dev_addr_str] = modem_point
                 for address, device in modem._devices.items():
                     dev_point = device._attributes.copy()
-                    dev_point['ALDB'] = device.aldb.get_all_records_str()
+                    try:
+                        dev_point['ALDB'] = device.aldb.get_all_records_str()
+                        dev_point['groups'] = {}
+                        for group in device.get_all_groups():
+                            dev_point['groups'][group.group_number] = group._attributes.copy()
+                    except AttributeError:
+                        pass  #Not an insteon device
                     modem_point['Devices'][address] = dev_point
             try:
                 json_string = json.dumps(out_data,
