@@ -62,7 +62,7 @@
               <h4>Devices</h4>
               % for device in devices:
                 % for key, value in device.items():
-                  <a href='/modem/{{attributes['dev_addr_str']}}/device/{{key}}'><!--Add Group Name--> - {{key}}</a></br>
+                  <a href='/modem/{{attributes['dev_addr_str']}}/device/{{key}}'>{{value['device_name']}} - {{key}}</a></br>
                 % end
               % end
             </div>

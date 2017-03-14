@@ -4,8 +4,9 @@ import json
 import re
 import os
 
-from bottle import (route, run, Bottle, response, get, post, request, error,
-                    static_file, view, TEMPLATE_PATH, WSGIRefServer)
+from bottle import (route, run, Bottle, response, get, post, put, delete,
+                    request, error, static_file, view, TEMPLATE_PATH,
+                    WSGIRefServer)
 
 core = ''
 
@@ -20,36 +21,6 @@ def start(passed_core):
 
 def stop(server):
     server.shutdown()
-
-###################################################################
-##
-# API Endpoints
-##
-###################################################################
-
-@post('/plms/<DevID>')
-def add_plm(DevID):
-    '''
-    Add a plm.
-
-    :param DevID: the device id
-    :type post_id: hex
-    :form port: the usb/serial port of the plm
-
-    :reqheader Accept: application/json
-    :resheader Content-Type: application/json
-
-    :statuscode 200: no error
-    '''
-    DevID = DevID.upper()
-    if not is_valid_DevID(DevID):
-        return error_invalid_DevID()
-    elif not is_unique_DevID(DevID):
-        return error_DevID_not_unique()
-    elif 'port' not in request.json:
-        return error_missing_attribute('port')
-    else:
-        return 'good enough'
 
 ###################################################################
 ##
@@ -93,6 +64,22 @@ def modem_group_settings(DevID, group_number):
     group = modem.get_object_by_group_num(int(group_number))
     group.name = request.forms.get('name')
     return modem_group_page(DevID, group_number)
+
+@post('/modem/<modem_id>/device/<DevID>')
+@view('device')
+def device_settings(modem_id, DevID):
+    modem = core.get_device_by_addr(modem_id)
+    device = modem.get_device_by_addr(DevID)
+    device.name = request.forms.get('name')
+    return device_page(modem_id, DevID)
+
+@route('/modem/<modem_id>/device/<DevID>')
+@view('device')
+def device_page(modem_id, DevID):
+    return dict(modem_id = modem_id,
+                device_id = DevID,
+                attributes = get_device(modem_id, DevID)
+               )
 
 ###################################################################
 ##
@@ -167,7 +154,7 @@ def list_devices(Modem):
     for device in devices:
         ret.append(
             {device.dev_addr_str : {
-                'group_attrs': None
+                'device_name': device.name
             }}
         )
     return ret
@@ -201,6 +188,18 @@ def get_modem_group(DevID, group_number):
     }
     return ret
 
+def get_device(modem_id, DevID):
+    modem = core.get_modem_by_id(modem_id)
+    device = modem.get_device_by_addr(DevID)
+    ret = {
+        'dev_cat': device.dev_cat,
+        'sub_cat': device.sub_cat,
+        'firmware': device.firmware,
+        'dev_addr_str': device.dev_addr_str,
+        'name': device.name,
+        'modem_name': modem.name
+    }
+    return ret
 
 ###################################################################
 ##
