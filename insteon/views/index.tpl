@@ -32,7 +32,7 @@
         <h4>Modems</h4>
         % for modem in modems:
           % for key, value in modem.items():
-            <a href='/modem/{{key}}'><!--Add Modem Name--> - {{key}}</a>
+            <a href='/modem/{{key}}'>{{value['name']}} - {{key}}</a>
           % end
         % end
         <h4>Add Modem </h4>

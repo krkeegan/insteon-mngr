@@ -184,6 +184,7 @@ class Base_Device(object):
         for name, value in attributes.items():
             self.attribute(name, value)
 
+
 class Base_Insteon(Base_Device):
 
     def __init__(self, core, plm, **kwargs):
@@ -262,11 +263,11 @@ class Root_Insteon(Base_Insteon):
         self._groups = []
         super().__init__(core, plm, **kwargs)
 
-    def create_group(self, group_num, group):
+    def create_group(self, group_num, group, attributes=None):
         device_id = self.dev_addr_str
         if group_num > 0x01 and group_num <= 0xFF:
             self._groups.append(group(
-                self, group_num, device_id=device_id))
+                self, group_num, device_id=device_id, attributes=attributes))
 
     def get_object_by_group_num(self, search_num):
         ret = None

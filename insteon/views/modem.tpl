@@ -19,14 +19,16 @@
     <![endif]-->
   </head>
   <body>
-    % include('header', paths=[{'path':'modem', 'name': 'name - ' + device_id},])
+    % include('header', paths=[{'path':'modem', 'name': attributes['name'] + ' - ' + device_id},])
 
     <div class="row">
       <div class="col-md-10 col-md-offset-1">
         <div class="row">
           <div class="col-sm-4">
             <h4>Settings</h4>
-            <form>
+            <form method="post">
+              <label for="name">Hub Name</label>
+              <input type='text' class="form-control" id="name" name="name" value="{{attributes['name']}}">
               <label for="user">Hub Username</label>
               <input type='text' class="form-control" id="user" value="{{attributes['user']}}">
               <label for="password">Hub Password</label>
@@ -40,9 +42,9 @@
               </br>
               <button type="submit" class="btn btn-default btn-block">Save Settings</button>
               <h4>Functions</h4>
-              <button type="submit" class="btn btn-default btn-block">Scan Devices</button>
-              <button type="submit" class="btn btn-default btn-block">Sync Links</button>
-              <button type="submit" class="btn btn-default btn-block">Delete Links</button>
+              <button type="button" class="btn btn-default btn-block">Scan Devices</button>
+              <button type="button" class="btn btn-default btn-block">Sync Links</button>
+              <button type="button" class="btn btn-default btn-block">Delete Links</button>
             </form>
           </div>
           <div class="col-sm-4">
@@ -50,7 +52,7 @@
               <h4>Scenes</h4>
               % for group in groups:
                 % for key, value in group.items():
-                  <a href='/modem/{{attributes['dev_addr_str']}}/group/{{key}}'><!--Add Group Name--> - {{key}}</a></br>
+                  <a href='/modem/{{attributes['dev_addr_str']}}/group/{{key}}'> {{value['group_name']}} - Group {{key}}</a></br>
                 % end
               % end
             </div>
@@ -60,7 +62,7 @@
               <h4>Devices</h4>
               % for device in devices:
                 % for key, value in device.items():
-                  <a href='/modem/{{attributes['dev_addr_str']}}/device/{{key}}'><!--Add Group Name--> - {{key}}</a></br>
+                  <a href='/modem/{{attributes['dev_addr_str']}}/device/{{key}}'>{{value['device_name']}} - {{key}}</a></br>
                 % end
               % end
             </div>
