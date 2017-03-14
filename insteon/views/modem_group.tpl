@@ -20,7 +20,7 @@
   </head>
   <body>
     % include('header', paths=[{'path':'/modem/' + modem_id, 'name': attributes['modem_name'] + ' - ' + modem_id},
-    %                           {'path':'group', 'name': attributes['name'] + ' - ' + group_number}
+    %                           {'path':'group', 'name': attributes['name'] + ' - Group ' + group_number}
     %                          ])
 
     <div class="row">
@@ -38,16 +38,29 @@
               <button type="button" class="btn btn-default btn-block">Delete Links</button>
             </form>
           </div>
-          <div class="col-sm-4">
+          <div class="col-sm-8">
             <div class="height-limited">
               <h4>Links & Data</h4>
-              Stuff</br>
-            </div>
-          </div>
-          <div class="col-sm-4">
-            <div class="height-limited">
-              <h4>Unknown (Functions?)</h4>
-              Stuff?</br>
+              <table class="table table-sm table-hover">
+                <thead>
+                  <tr>
+                    <th>Responder</th>
+                    <th>On-Level</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  % for link in attributes['responder_links']:
+                    <tr>
+                      <th scope="row">{{link['responder']}}</th>
+                      <td>{{link['on_level']}}</td>
+                      <td>{{link['status']}}</td>
+                      <td>button</td>
+                    </tr>
+                  % end
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

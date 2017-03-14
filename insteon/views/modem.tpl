@@ -52,7 +52,7 @@
               <h4>Scenes</h4>
               % for group in groups:
                 % for key, value in group.items():
-                  <a href='/modem/{{attributes['dev_addr_str']}}/group/{{key}}'> {{value['group_name']}}- {{key}}</a></br>
+                  <a href='/modem/{{attributes['dev_addr_str']}}/group/{{key}}'> {{value['group_name']}} - Group {{key}}</a></br>
                 % end
               % end
             </div>

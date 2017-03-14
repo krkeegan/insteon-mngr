@@ -1,5 +1,5 @@
 import threading
-import pprint
+from pprint import pprint
 import json
 import re
 import os
@@ -184,8 +184,27 @@ def get_modem_group(DevID, group_number):
     group = modem.get_object_by_group_num(int(group_number))
     ret = {
         'name': group.name,
-        'modem_name': modem.name
+        'modem_name': modem.name,
+        'responder_links' : []
     }
+    records = modem.aldb.get_matching_records({
+        'controller': True,
+        'group': int(group_number)
+    })
+    for record in records:
+        # name should be better
+        # in order to figure out group we need to get reciprocal record
+        # what to do if such a record does_not_exist
+        # should this be user_defined only here
+        # and not defined links can be listed later?
+        # user defined currently doesn't require a matching link on the other
+        # end we just import from raw
+
+        ret['responder_links'].append({
+            'responder': record.get_linked_device_str(),
+            'on_level': 'From linked',
+            'status': 'Good'
+        })
     return ret
 
 def get_device(modem_id, DevID):
