@@ -8,7 +8,6 @@ from insteon.aldb import ALDB
 from insteon.trigger import Trigger_Manager
 from insteon.plm_message import PLM_Message
 from insteon.plm_schema import PLM_SCHEMA
-from insteon.x10_device import X10_Device, HOUSE_TO_BYTE, UNIT_TO_BYTE
 from insteon.devices import select_group
 from insteon.modem_rcvd import ModemRcvdHandler
 
@@ -65,8 +64,6 @@ class Modem(Root_Insteon):
         self._last_sent_msg = None
         self._msg_queue = []
         self._wait_to_send = 0
-        self._last_x10_house = None
-        self._last_x10_unit = None
         self.port_active = True
         self.ack_time = 75
         for group_number in range(0x02, 0xFF):
@@ -121,16 +118,6 @@ class Modem(Root_Insteon):
                                                       device_id=device_id,
                                                       **kwargs)
         return self._devices[device_id]
-
-    def add_x10_device(self, address):
-        # We convert the address to its 'byte' value immediately
-        # TODO, this is bad, the insteon devices are stored by a hex str
-        byte_address = (
-            HOUSE_TO_BYTE[address[0:1].lower()] | UNIT_TO_BYTE[address[1:2]])
-        self._devices[byte_address] = X10_Device(self.core,
-                                                 self,
-                                                 byte_address=byte_address)
-        return self._devices[byte_address]
 
     def port(self):
         return NotImplemented
