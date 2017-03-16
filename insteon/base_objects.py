@@ -28,51 +28,41 @@ def ID_STR_TO_BYTES(dev_id_str):
 # consider some other structure to avoid what is clearly a bad import
 from insteon.devices import (GroupSendHandler, GroupFunctions)
 
-class Base_Device(object):
-
-    def __init__(self, core, plm, **kwargs):
-        self._core = core
-        self._plm = plm
-        self._state_machine = 'default'
-        self._state_machine_time = 0
-        self._device_msg_queue = {}
+class Group(object):
+    '''The base class.  All groups inherit this, the root group gets a lot more
+    functions.  Specialized groups can modify or add functions in classes that
+    inherit this.'''
+    def __init__(self, root, group_number, **kwargs):
+        self._root = root
+        self._group_number = group_number
         self._attributes = {}
-        self._out_history = []
         if 'attributes' in kwargs:
             self._load_attributes(kwargs['attributes'])
+        self.send_handler = GroupSendHandler(self)
+        self.functions = GroupFunctions(self)
 
     @property
-    def core(self):
-        return self._core
+    def group_number(self):
+        return self._group_number
 
     @property
-    def plm(self):
-        return self._plm
+    def root(self):
+        return self._root
 
     @property
-    def state_machine(self):
-        '''The state machine tracks the 'state' that the device is in.
-        This is necessary because Insteon is not a stateless protocol,
-        interpreting some incoming messages requires knowing what
-        commands were previously issued to the device.
+    def state(self):
+        '''Returns the cached state of the device.'''
+        return self.attribute('state')
 
-        Whenever a state is set, only messages of that state will be
-        sent to the device, all other messages will wait in a queue.
-        To avoid locking up a device, a state will automatically be
-        eliminated if it has not been updated within 8 seconds. You
-        can update a state by calling update_state_machine or sending
-        a command with the appropriate state value'''
-        if self._state_machine_time <= (time.time() - 8) or \
-                self._state_machine == 'default':
-            # Always check for states other than default
-            if self._state_machine != 'default':
-                now = datetime.datetime.now().strftime("%M:%S.%f")
-                print(now, self._state_machine, "state expired")
-                pprint.pprint(self._device_msg_queue)
-            self._state_machine = self._get_next_state_machine()
-            if self._state_machine != 'default':
-                self._state_machine_time = time.time()
-        return self._state_machine
+    @state.setter
+    def state(self, value):
+        self.attribute(attr='state', value=value)
+        self.attribute(attr='state_time', value=time.time())
+
+    @property
+    def state_age(self):
+        '''Returns the age in seconds of the state value.'''
+        return time.time() - self.attribute('state_time')
 
     @property
     def name(self):
@@ -84,93 +74,6 @@ class Base_Device(object):
     @name.setter
     def name(self, value):
         return self.attribute('name', value)
-
-    def _get_next_state_machine(self):
-        next_state = 'default'
-        msg_time = 0
-        for state in self._device_msg_queue:
-            if state != 'default' and self._device_msg_queue[state]:
-                test_time = self._device_msg_queue[state][0].creation_time
-                if test_time and (msg_time == 0 or test_time < msg_time):
-                    next_state = state
-                    msg_time = test_time
-        return next_state
-
-    def remove_state_machine(self, value):
-        if value == self.state_machine:
-            print('finished', self.state_machine)
-            self._state_machine = 'default'
-            self._state_machine_time = time.time()
-        else:
-            print(value, 'was not the active state_machine')
-
-    def update_state_machine(self, value):
-        if value == self.state_machine:
-            self._state_machine_time = time.time()
-        else:
-            print(value, 'was not the active state_machine')
-
-    def queue_device_msg(self, message):
-        if message.state_machine not in self._device_msg_queue:
-            self._device_msg_queue[message.state_machine] = []
-        self._device_msg_queue[message.state_machine].append(message)
-
-    def _resend_msg(self, message):
-        state = message.state_machine
-        if state not in self._device_msg_queue:
-            self._device_msg_queue[state] = []
-        self._device_msg_queue[state].insert(0, message)
-        self._state_machine_time = time.time()
-
-    def pop_device_queue(self):
-        '''Returns and removes the next message in the queue'''
-        ret = None
-        if self.state_machine in self._device_msg_queue and \
-                self._device_msg_queue[self.state_machine]:
-            ret = self._device_msg_queue[self.state_machine].pop(0)
-            self._update_message_history(ret)
-            self._state_machine_time = time.time()
-        return ret
-
-    def next_msg_create_time(self):
-        '''Returns the creation time of the message to be sent in the queue'''
-        ret = None
-        try:
-            ret = self._device_msg_queue[self.state_machine][0].creation_time
-        except (KeyError, IndexError):
-            pass
-        return ret
-
-    def _update_message_history(self, msg):
-        # Remove old messages first
-        archive_time = time.time() - 120
-        last_msg_to_del = 0
-        for search_msg in self._out_history:
-            if search_msg.time_sent < archive_time:
-                last_msg_to_del += 1
-            else:
-                break
-        if last_msg_to_del:
-            del self._out_history[0:last_msg_to_del]
-        # Add this message onto the end
-        self._out_history.append(msg)
-
-    def search_last_sent_msg(self, **kwargs):
-        '''Return the most recently sent message of this type
-        plm_cmd or insteon_cmd'''
-        ret = None
-        if 'plm_cmd' in kwargs:
-            for msg in reversed(self._out_history):
-                if msg.plm_cmd_type == kwargs['plm_cmd']:
-                    ret = msg
-                    break
-        elif 'insteon_cmd' in kwargs:
-            for msg in reversed(self._out_history):
-                if msg.insteon_msg and \
-                      msg.insteon_msg.device_cmd_name == kwargs['insteon_cmd']:
-                    ret = msg
-                    break
-        return ret
 
     def attribute(self, attr, value=None):
         if value is not None:
@@ -186,13 +89,21 @@ class Base_Device(object):
             self.attribute(name, value)
 
 
-class Base_Insteon(Base_Device):
-
+class Root(Group):
+    '''The root object of an insteon device, inherited by Devices and Modems'''
     def __init__(self, core, plm, **kwargs):
+        self._core = core
+        self._plm = plm
+        self._state_machine = 'default'
+        self._state_machine_time = 0
+        self._device_msg_queue = {}
+        self._out_history = []
         self._id_bytes = bytearray(3)
+        self._groups = []
+        self._user_links = []
         if 'device_id' in kwargs:
             self._id_bytes = ID_STR_TO_BYTES(kwargs['device_id'])
-        super().__init__(core, plm, **kwargs)
+        super().__init__(self, 0x01, **kwargs)
 
     @property
     def dev_addr_hi(self):
@@ -238,67 +149,37 @@ class Base_Insteon(Base_Device):
         return self.attribute('engine_version')
 
     @property
-    def group(self):
-        return NotImplemented
+    def core(self):
+        return self._core
 
     @property
-    def state(self):
-        '''Returns the cached state of the device.'''
-        return self.attribute('state')
-
-    @state.setter
-    def state(self, value):
-        self.attribute(attr='state', value=value)
-        self.attribute(attr='state_time', value=time.time())
+    def plm(self):
+        return self._plm
 
     @property
-    def state_age(self):
-        '''Returns the age in seconds of the state value.'''
-        return time.time() - self.attribute('state_time')
+    def state_machine(self):
+        '''The state machine tracks the 'state' that the device is in.
+        This is necessary because Insteon is not a stateless protocol,
+        interpreting some incoming messages requires knowing what
+        commands were previously issued to the device.
 
-
-class Root_Insteon(Base_Insteon):
-    '''The base of the primary group'''
-
-    def __init__(self, core, plm, **kwargs):
-        self._groups = []
-        self._user_links = []
-        super().__init__(core, plm, **kwargs)
-
-    def _load_user_links(self, links):
-        for controller_id, groups in links.items():
-            for group_number, all_data in groups.items():
-                for data in all_data:
-                    self._user_links.append(UserLink(
-                        self,
-                        controller_id,
-                        group_number,
-                        data
-                    ))
-
-    def create_group(self, group_num, group, attributes=None):
-        device_id = self.dev_addr_str
-        if group_num > 0x01 and group_num <= 0xFF:
-            self._groups.append(group(
-                self, group_num, device_id=device_id, attributes=attributes))
-
-    def get_object_by_group_num(self, search_num):
-        ret = None
-        if search_num == 0x00 or search_num == 0x01:
-            ret = self
-        else:
-            for group_obj in self._groups:
-                if group_obj.group_number == search_num:
-                    ret = group_obj
-                    break
-        return ret
-
-    def get_all_groups(self):
-        return self._groups.copy()
-
-    @property
-    def group(self):
-        return 0x01
+        Whenever a state is set, only messages of that state will be
+        sent to the device, all other messages will wait in a queue.
+        To avoid locking up a device, a state will automatically be
+        eliminated if it has not been updated within 8 seconds. You
+        can update a state by calling update_state_machine or sending
+        a command with the appropriate state value'''
+        if self._state_machine_time <= (time.time() - 8) or \
+                self._state_machine == 'default':
+            # Always check for states other than default
+            if self._state_machine != 'default':
+                now = datetime.datetime.now().strftime("%M:%S.%f")
+                print(now, self._state_machine, "state expired")
+                pprint.pprint(self._device_msg_queue)
+            self._state_machine = self._get_next_state_machine()
+            if self._state_machine != 'default':
+                self._state_machine_time = time.time()
+        return self._state_machine
 
     @property
     def user_links(self):
@@ -315,6 +196,130 @@ class Root_Insteon(Base_Insteon):
     @user_links.setter
     def user_links(self, records):
         self.attribute('user_links', records)
+
+    ##################################
+    # Private functions
+    ##################################
+
+    def _get_next_state_machine(self):
+        next_state = 'default'
+        msg_time = 0
+        for state in self._device_msg_queue:
+            if state != 'default' and self._device_msg_queue[state]:
+                test_time = self._device_msg_queue[state][0].creation_time
+                if test_time and (msg_time == 0 or test_time < msg_time):
+                    next_state = state
+                    msg_time = test_time
+        return next_state
+
+    def _resend_msg(self, message):
+        state = message.state_machine
+        if state not in self._device_msg_queue:
+            self._device_msg_queue[state] = []
+        self._device_msg_queue[state].insert(0, message)
+        self._state_machine_time = time.time()
+
+    def _update_message_history(self, msg):
+        # Remove old messages first
+        archive_time = time.time() - 120
+        last_msg_to_del = 0
+        for search_msg in self._out_history:
+            if search_msg.time_sent < archive_time:
+                last_msg_to_del += 1
+            else:
+                break
+        if last_msg_to_del:
+            del self._out_history[0:last_msg_to_del]
+        # Add this message onto the end
+        self._out_history.append(msg)
+
+    def _load_user_links(self, links):
+        for controller_id, groups in links.items():
+            for group_number, all_data in groups.items():
+                for data in all_data:
+                    self._user_links.append(UserLink(
+                        self,
+                        controller_id,
+                        group_number,
+                        data
+                    ))
+
+    ##################################
+    # Public functions
+    ##################################
+
+    def remove_state_machine(self, value):
+        if value == self.state_machine:
+            print('finished', self.state_machine)
+            self._state_machine = 'default'
+            self._state_machine_time = time.time()
+        else:
+            print(value, 'was not the active state_machine')
+
+    def update_state_machine(self, value):
+        if value == self.state_machine:
+            self._state_machine_time = time.time()
+        else:
+            print(value, 'was not the active state_machine')
+
+    def queue_device_msg(self, message):
+        if message.state_machine not in self._device_msg_queue:
+            self._device_msg_queue[message.state_machine] = []
+        self._device_msg_queue[message.state_machine].append(message)
+
+    def pop_device_queue(self):
+        '''Returns and removes the next message in the queue'''
+        ret = None
+        if self.state_machine in self._device_msg_queue and \
+                self._device_msg_queue[self.state_machine]:
+            ret = self._device_msg_queue[self.state_machine].pop(0)
+            self._update_message_history(ret)
+            self._state_machine_time = time.time()
+        return ret
+
+    def next_msg_create_time(self):
+        '''Returns the creation time of the message to be sent in the queue'''
+        ret = None
+        try:
+            ret = self._device_msg_queue[self.state_machine][0].creation_time
+        except (KeyError, IndexError):
+            pass
+        return ret
+
+    def search_last_sent_msg(self, **kwargs):
+        '''Return the most recently sent message of this type
+        plm_cmd or insteon_cmd'''
+        ret = None
+        if 'plm_cmd' in kwargs:
+            for msg in reversed(self._out_history):
+                if msg.plm_cmd_type == kwargs['plm_cmd']:
+                    ret = msg
+                    break
+        elif 'insteon_cmd' in kwargs:
+            for msg in reversed(self._out_history):
+                if msg.insteon_msg and \
+                      msg.insteon_msg.device_cmd_name == kwargs['insteon_cmd']:
+                    ret = msg
+                    break
+        return ret
+
+    def create_group(self, group_num, group, attributes=None):
+        if group_num > 0x01 and group_num <= 0xFF:
+            self._groups.append(group(self, group_num, attributes=attributes))
+
+    def get_object_by_group_num(self, search_num):
+        ret = None
+        if search_num == 0x00 or search_num == 0x01:
+            ret = self
+        else:
+            for group_obj in self._groups:
+                if group_obj.group_number == search_num:
+                    ret = group_obj
+                    break
+        return ret
+
+    def get_all_groups(self):
+        return self._groups.copy()
 
     def set_dev_addr(self, addr):
         self._id_bytes = ID_STR_TO_BYTES(addr)
@@ -366,45 +371,3 @@ class Root_Insteon(Base_Insteon):
             records = self.user_links
             records.update(new_records)
         self.user_links = records
-
-
-class InsteonGroup(Base_Insteon):
-
-    def __init__(self, parent, group_number, **kwargs):
-        self._parent = parent
-        super().__init__(self._parent.core, self._parent.plm, **kwargs)
-        self._group_number = group_number
-        self.send_handler = GroupSendHandler(self)
-        self.functions = GroupFunctions(self)
-
-    @property
-    def group_number(self):
-        return self._group_number
-
-    @property
-    def parent(self):
-        return self._parent
-
-    @property
-    def dev_cat(self):
-        return self._parent.dev_cat
-
-    @property
-    def sub_cat(self):
-        return self._parent.sub_cat
-
-    @property
-    def firmware(self):
-        return self._parent.firmware
-
-    @property
-    def engine_version(self):
-        return self._parent.engine_version
-
-    def set_dev_addr(self, *args, **kwargs):
-        # pylint: disable=W0613
-        return NotImplemented
-
-    def set_dev_version(self, *args, **kwargs):
-        # pylint: disable=W0613
-        return NotImplemented

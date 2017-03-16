@@ -92,9 +92,7 @@ class ModemRcvdHandler(object):
             insteon_obj.msg_rcvd(msg)
 
     def _rcvd_plm_x10_ack(self, msg):
-        # For some reason we have to slow down when sending X10 msgs to the PLM
-        self._rcvd_plm_ack(msg)
-        self._device.wait_to_send = .5
+        pass
 
     def _rcvd_aldb_record(self, msg):
         if (self._device._last_sent_msg.plm_ack is False and
@@ -202,27 +200,4 @@ class ModemRcvdHandler(object):
             self._device._last_sent_msg.plm_ack = True
 
     def _rcvd_x10(self, msg):
-        if msg.get_byte_by_name('x10_flags') == 0x00:
-            self._store_x10_address(msg.get_byte_by_name('raw_x10'))
-        else:
-            self._dispatch_x10_cmd(msg)
-
-    def _store_x10_address(self, byte):
-        self._device._last_x10_house = byte & 0b11110000
-        self._device._last_x10_unit = byte & 0b00001111
-
-    def _get_x10_address(self):
-        return self._device._last_x10_house | self._device._last_x10_unit
-
-    def _dispatch_x10_cmd(self, msg):
-        if (self._device._last_x10_house ==
-                msg.get_byte_by_name('raw_x10') & 0b11110000):
-            try:
-                device = self._device._devices[self._get_x10_address()]
-                device.inc_x10_msg(msg)
-            except KeyError:
-                print('Received and X10 command for an unknown device')
-        else:
-            msg.allow_trigger = False
-            print("X10 Command House Code did not match expected House Code")
-            print("Message ignored")
+        pass

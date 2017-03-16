@@ -2,7 +2,7 @@ import math
 import time
 
 from insteon.aldb import ALDB
-from insteon.base_objects import Root_Insteon, BYTE_TO_HEX, InsteonGroup
+from insteon.base_objects import Root, BYTE_TO_HEX, Group
 from insteon.devices import (GenericRcvdHandler, GenericSendHandler,
                              GenericFunctions, select_device, select_group)
 
@@ -54,7 +54,7 @@ class Device_ALDB(ALDB):
             byte
         )
 
-class InsteonDevice(Root_Insteon):
+class InsteonDevice(Root):
 
     def __init__(self, core, plm, **kwargs):
         self.aldb = Device_ALDB(self)
@@ -65,7 +65,7 @@ class InsteonDevice(Root_Insteon):
         self._rcvd_handler = GenericRcvdHandler(self)
         self.send_handler = GenericSendHandler(self)
         self.functions = GenericFunctions(self)
-        self.functions.initialize_device(group_class=InsteonGroup)
+        self.functions.initialize_device(group_class=Group)
         self.send_handler.initialize_device()
 
     def _load_attributes(self, attributes):
@@ -79,7 +79,7 @@ class InsteonDevice(Root_Insteon):
 
     def _load_groups(self, value):
         for group_number, attributes in value.items():
-            self.create_group(int(group_number), InsteonGroup, attributes=attributes)
+            self.create_group(int(group_number), Group, attributes=attributes)
 
     @property
     def smart_hops(self):

@@ -31,7 +31,7 @@ class PLMGroupSendHandler(object):
             'cmd_1': 0x11,
             'cmd_2': 0x00,
         }
-        on_message = PLM_Message(self._group.plm,
+        on_message = PLM_Message(self._group.root.plm,
                                  plm_cmd='all_link_send',
                                  plm_bytes=on_plm_bytes)
         off_plm_bytes = {
@@ -39,7 +39,7 @@ class PLMGroupSendHandler(object):
             'cmd_1': 0x13,
             'cmd_2': 0x00,
         }
-        off_message = PLM_Message(self._group.plm,
+        off_message = PLM_Message(self._group.root.plm,
                                   plm_cmd='all_link_send',
                                   plm_bytes=off_plm_bytes)
         ret = {
@@ -56,7 +56,7 @@ class PLMGroupSendHandler(object):
             print('This device doesn\'t know the state', state)
         else:
             message.state_machine = 'all_link_send'
-            records = self._group.plm.aldb.get_matching_records({
+            records = self._group.root.plm.aldb.get_matching_records({
                 'controller': True,
                 'group': self._group.group_number,
                 'in_use': True
@@ -69,4 +69,4 @@ class PLMGroupSendHandler(object):
             wait_time = (len(records) + 1) * (87 / 1000 * 18)
             message.seq_time = wait_time
             message.extra_ack_time = wait_time
-            self._group.plm.queue_device_msg(message)
+            self._group.root.plm.queue_device_msg(message)
