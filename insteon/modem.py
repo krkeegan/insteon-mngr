@@ -2,8 +2,7 @@ import time
 import datetime
 
 from insteon.insteon_device import InsteonDevice
-from insteon.base_objects import (Root_Insteon, BYTE_TO_HEX, BYTE_TO_ID,
-    InsteonGroup)
+from insteon.base_objects import Root, BYTE_TO_HEX, BYTE_TO_ID, Group
 from insteon.aldb import ALDB
 from insteon.trigger import Trigger_Manager
 from insteon.plm_message import PLM_Message
@@ -51,15 +50,15 @@ class Modem_ALDB(ALDB):
         self._parent.send_handler.send_command('all_link_first_rec', 'query_aldb')
 
 
-class Modem(Root_Insteon):
+class Modem(Root):
 
     def __init__(self, core, **kwargs):
         self._devices = {}
         self.aldb = Modem_ALDB(self)
         self.trigger_mngr = Trigger_Manager(self)
+        super().__init__(core, self, **kwargs)
         self._rcvd_handler = ModemRcvdHandler(self)
         self.send_handler = ModemSendHandler(self)
-        super().__init__(core, self, **kwargs)
         self._read_buffer = bytearray()
         self._last_sent_msg = None
         self._msg_queue = []
@@ -68,7 +67,7 @@ class Modem(Root_Insteon):
         self.ack_time = 75
         for group_number in range(0x02, 0xFF):
             if self.get_object_by_group_num(group_number) is None:
-                self.create_group(group_number, InsteonGroup)
+                self.create_group(group_number, Group)
 
     def _load_attributes(self, attributes):
         for name, value in attributes.items():
@@ -87,7 +86,7 @@ class Modem(Root_Insteon):
 
     def _load_groups(self, value):
         for group_number, attributes in value.items():
-            self.create_group(int(group_number), InsteonGroup, attributes=attributes)
+            self.create_group(int(group_number), Group, attributes=attributes)
 
     def _setup(self):
         self.update_device_classes()
@@ -155,10 +154,10 @@ class Modem(Root_Insteon):
 
     def update_device_classes(self):
         for group in self.get_all_groups():
-            classes = select_group(device=group, dev_cat=group.dev_cat,
-                                    sub_cat=group.sub_cat,
-                                    firmware=group.firmware,
-                                    engine_version=group.engine_version)
+            classes = select_group(device=group, dev_cat=group.root.dev_cat,
+                                    sub_cat=group.root.sub_cat,
+                                    firmware=group.root.firmware,
+                                    engine_version=group.root.engine_version)
             group.send_handler = classes['send_handler']
             group.functions = classes['functions']
 
