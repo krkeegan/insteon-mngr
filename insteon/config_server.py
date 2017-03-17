@@ -1,5 +1,4 @@
 import threading
-from pprint import pprint
 import json
 import re
 import os
@@ -7,6 +6,8 @@ import os
 from bottle import (route, run, Bottle, response, get, post, put, delete,
                     request, error, static_file, view, TEMPLATE_PATH,
                     WSGIRefServer)
+
+from insteon.base_objects import BYTE_TO_ID
 
 core = ''
 
@@ -84,12 +85,6 @@ def device_page(modem_id, DevID):
 @route('/modem/<modem_id>/device/<DevID>/group/<group_number>')
 @view('device_group')
 def device_group_page(modem_id, DevID, group_number):
-    from pprint import pprint
-    pprint(dict(modem_id = modem_id,
-                device_id = DevID,
-                group_number = group_number,
-                attributes = get_device_group(modem_id, DevID, group_number)
-               ))
     return dict(modem_id = modem_id,
                 device_id = DevID,
                 group_number = group_number,
@@ -197,35 +192,111 @@ def get_modem(DevID):
 def get_modem_group(DevID, group_number):
     modem = core.get_modem_by_id(DevID)
     group = modem.get_object_by_group_num(int(group_number))
-    ret = {
+    ret = get_links(DevID, group_number)
+    ret.update({
         'name': group.name,
         'modem_name': modem.name,
-        'user_links' : get_user_link_controllers(DevID, group_number)
-    }
+    })
     return ret
 
 def get_device_group(modem_id, DevID, group_number):
     modem = core.get_modem_by_id(modem_id)
     device = modem.get_device_by_addr(DevID)
     group = device.get_object_by_group_num(int(group_number))
-    ret = {
+    ret = get_links(DevID, group_number)
+    ret.update({
         'name': group.name,
         'modem_name': modem.name,
         'dev_addr_str': device.dev_addr_str,
         'device_name': device.name,
-        'group_name': group.name,
-        'user_links' : get_user_link_controllers(DevID, group_number)
-    }
+        'group_name': group.name
+    })
     return ret
 
-def get_user_link_controllers(DevID, group_number):
+def get_links(DevID, group_number):
+    ret = {}
     root = core.get_device_by_addr(DevID)
-    # The problem is here, if 0x00 or 0x01 are requested it returns an
-    # InsteonDevice instead of an InsteonGroup
     device = root.get_object_by_group_num(int(group_number))
-    links = core.get_matching_user_links(device)
+    user_links = core.get_matching_user_links(device)
+    ret['defined_links'] = user_link_output(user_links)
+    undefined_controller = get_undefined_controller(root, group_number, user_links)
+    undefined_responder = get_undefined_responder(root, group_number, user_links)
+    ret['undefined_links'] = undefined_link_output(undefined_controller)
+    ret['undefined_links'].extend(undefined_link_output(undefined_responder))
+    # TODO add Responder links on other devices
+    # TODO Finally need a section to deal with responder links where the
+    # is not a device we know controller
+    return ret
+
+def undefined_link_output(links):
     ret = []
     for link in links:
+        link_parsed = link.parse_record()
+        link_addr = BYTE_TO_ID(link_parsed['dev_addr_hi'],
+                               link_parsed['dev_addr_mid'],
+                               link_parsed['dev_addr_low'])
+        # TODO what do we do here if no responder link exists?
+        # Set to some default data_1 and data_2
+        if link_parsed['controller'] is True:
+            for responder in link.get_reciprocal_records():
+                responder_parsed = responder.parse_record()
+                ret.append({
+                    'responder': link_addr,
+                    'on_level': responder_parsed['data_1'],
+                    'status': responder_parsed['data_2']
+                })
+        else:
+            ret.append({
+                'responder': link.device.dev_addr_str,
+                'on_level': link_parsed['data_1'],
+                'status': link_parsed['data_2']
+            })
+    return ret
+
+def get_undefined_responder(root, group_number, user_links):
+    ret = []
+    attributes = {
+        'responder': True,
+        'group': int(group_number),
+        'dev_addr_hi': root.dev_addr_hi,
+        'dev_addr_mid': root.dev_addr_mid,
+        'dev_addr_low': root.dev_addr_low
+    }
+    aldb_responder_links = core.get_matching_aldb_records(attributes)
+    for aldb_link in aldb_responder_links:
+        found = False
+        if len(aldb_link.get_reciprocal_records()) > 0:
+            # A responder link exists on the device, this will be listed
+            # in the undefined controller function
+            continue
+        for user_link in user_links:
+            if user_link.matches_aldb(aldb_link):
+                found = True
+                break
+        if found is False:
+            ret.append(aldb_link)
+    return ret
+
+def get_undefined_controller(root, group_number, user_links):
+    ret = []
+    attributes = {
+        'controller': True,
+        'group': int(group_number)
+    }
+    aldb_controller_links = root.aldb.get_matching_records(attributes)
+    for aldb_link in aldb_controller_links:
+        found = False
+        for user_link in user_links:
+            if user_link.matches_aldb(aldb_link):
+                found = True
+                break
+        if found is False:
+            ret.append(aldb_link)
+    return ret
+
+def user_link_output(user_links):
+    ret = []
+    for link in user_links:
         ret.append({
             'responder': link._device.dev_addr_str,
             'on_level': link._data_1,

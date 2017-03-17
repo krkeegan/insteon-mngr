@@ -37,8 +37,7 @@ class ALDB(object):
         self.aldb = {}
 
     def get_matching_records(self, attributes):
-        '''Returns an array of positions of each records that matches ALL
-        attributes'''
+        '''Returns an array of records that matches ALL attributes'''
         ret = []
         for position in self.aldb:
             record = self.aldb[position]
@@ -71,6 +70,10 @@ class ALDBRecord(object):
     def __init__(self, database, raw=bytearray(8)):
         self._raw = raw
         self._database = database
+
+    @property
+    def device(self):
+        return self._database._parent
 
     @property
     def key(self):

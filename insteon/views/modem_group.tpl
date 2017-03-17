@@ -41,17 +41,39 @@
           <div class="col-sm-8">
             <div class="height-limited">
               <h4>Links & Data</h4>
+              <h5>Defined Links</h5>
               <table class="table table-sm table-hover">
                 <thead>
                   <tr>
                     <th>Responder</th>
                     <th>On-Level</th>
-                    <th>Status</th>
+                    <th>Ramp Rate</th>
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  % for link in attributes['user_links']:
+                  % for link in attributes['defined_links']:
+                    <tr>
+                      <th scope="row">{{link['responder']}}</th>
+                      <td>{{link['on_level']}}</td>
+                      <td>{{link['status']}}</td>
+                      <td>button</td>
+                    </tr>
+                  % end
+                </tbody>
+              </table>
+              <h5>Undefined Links</h5>
+              <table class="table table-sm table-hover">
+                <thead>
+                  <tr>
+                    <th>Responder</th>
+                    <th>On-Level</th>
+                    <th>Ramp Rate</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  % for link in attributes['undefined_links']:
                     <tr>
                       <th scope="row">{{link['responder']}}</th>
                       <td>{{link['on_level']}}</td>
