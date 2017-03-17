@@ -75,6 +75,40 @@ class Group(object):
     def name(self, value):
         return self.attribute('name', value)
 
+    def _load_attributes(self, attributes):
+        for name, value in attributes.items():
+            self.attribute(name, value)
+
+    def _get_undefined_responder(self):
+        ret = []
+        attributes = {
+            'responder': True,
+            'group': self.group_number,
+            'dev_addr_hi': self.root.dev_addr_hi,
+            'dev_addr_mid': self.root.dev_addr_mid,
+            'dev_addr_low': self.root.dev_addr_low
+        }
+        aldb_responder_links = self.root.core.get_matching_aldb_records(attributes)
+        for aldb_link in aldb_responder_links:
+            if (len(aldb_link.get_reciprocal_records()) == 0 and
+                aldb_link.is_a_defined_link() is False):
+                # A responder link exists on the device, this will be listed
+                # in the undefined controller function
+                ret.append(aldb_link)
+        return ret
+
+    def _get_undefined_controller(self):
+        ret = []
+        attributes = {
+            'controller': True,
+            'group': self.group_number
+        }
+        aldb_controller_links = self.root.aldb.get_matching_records(attributes)
+        for aldb_link in aldb_controller_links:
+            if aldb_link.is_a_defined_link() is False:
+                ret.append(aldb_link)
+        return ret
+
     def attribute(self, attr, value=None):
         if value is not None:
             self._attributes[attr] = value
@@ -84,9 +118,13 @@ class Group(object):
             ret = None
         return ret
 
-    def _load_attributes(self, attributes):
-        for name, value in attributes.items():
-            self.attribute(name, value)
+    def get_undefined_links(self):
+        ret = []
+        # 1 Undefined Controllers on This Device
+        ret.extend(self._get_undefined_controller())
+        # 2 Orphaned Undefined Responders on Other Devices
+        ret.extend(self._get_undefined_responder())
+        return ret
 
 
 class Root(Group):
@@ -183,6 +221,7 @@ class Root(Group):
 
     @property
     def user_links(self):
+        '''This returns a dictionary like what we see in config.json'''
         ret = None
         if self.attribute('user_links') is not None:
             ret = {}
@@ -344,11 +383,11 @@ class Root(Group):
             parsed = self.aldb.parse_record(key)
             if parsed['in_use'] and not parsed['controller']:
                 linked_record = self.aldb.get_record(key)
-                linked_device = linked_record.get_linked_root_obj()
+                linked_root = linked_record.linked_device.root
                 name = linked_record.get_linked_device_str()
                 group = parsed['group']
                 group = 0x01 if group == 0x00 else group
-                if group == 0x01 and linked_device is self.plm:
+                if group == 0x01 and linked_root is self.plm:
                     # ignore i2cs required links
                     continue
                 if name not in records.keys():

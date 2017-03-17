@@ -78,7 +78,7 @@
                       <th scope="row">{{link['responder']}}</th>
                       <td>{{link['on_level']}}</td>
                       <td>{{link['status']}}</td>
-                      <td>button</td>
+                      <td>Import/Delete</td>
                     </tr>
                   % end
                 </tbody>

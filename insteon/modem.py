@@ -143,7 +143,8 @@ class Modem(Root):
             try:
                 ret = self._devices[addr]
             except KeyError:
-                print('error, unknown device address=', addr)
+                # print('error, unknown device address=', addr)
+                pass
         return ret
 
     def get_all_devices(self):

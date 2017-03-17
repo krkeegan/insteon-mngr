@@ -217,20 +217,16 @@ def get_links(DevID, group_number):
     ret = {}
     root = core.get_device_by_addr(DevID)
     device = root.get_object_by_group_num(int(group_number))
-    user_links = core.get_matching_user_links(device)
+    user_links = core.get_user_links_for_this_controller(device)
     ret['defined_links'] = user_link_output(user_links)
-    undefined_controller = get_undefined_controller(root, group_number, user_links)
-    undefined_responder = get_undefined_responder(root, group_number, user_links)
-    ret['undefined_links'] = undefined_link_output(undefined_controller)
-    ret['undefined_links'].extend(undefined_link_output(undefined_responder))
-    # TODO add Responder links on other devices
+    ret['undefined_links'] = undefined_link_output(device)
     # TODO Finally need a section to deal with responder links where the
-    # is not a device we know controller
+    # controller is not a device we know
     return ret
 
-def undefined_link_output(links):
+def undefined_link_output(device):
     ret = []
-    for link in links:
+    for link in device.get_undefined_links():
         link_parsed = link.parse_record()
         link_addr = BYTE_TO_ID(link_parsed['dev_addr_hi'],
                                link_parsed['dev_addr_mid'],
@@ -253,54 +249,14 @@ def undefined_link_output(links):
             })
     return ret
 
-def get_undefined_responder(root, group_number, user_links):
-    ret = []
-    attributes = {
-        'responder': True,
-        'group': int(group_number),
-        'dev_addr_hi': root.dev_addr_hi,
-        'dev_addr_mid': root.dev_addr_mid,
-        'dev_addr_low': root.dev_addr_low
-    }
-    aldb_responder_links = core.get_matching_aldb_records(attributes)
-    for aldb_link in aldb_responder_links:
-        found = False
-        if len(aldb_link.get_reciprocal_records()) > 0:
-            # A responder link exists on the device, this will be listed
-            # in the undefined controller function
-            continue
-        for user_link in user_links:
-            if user_link.matches_aldb(aldb_link):
-                found = True
-                break
-        if found is False:
-            ret.append(aldb_link)
-    return ret
-
-def get_undefined_controller(root, group_number, user_links):
-    ret = []
-    attributes = {
-        'controller': True,
-        'group': int(group_number)
-    }
-    aldb_controller_links = root.aldb.get_matching_records(attributes)
-    for aldb_link in aldb_controller_links:
-        found = False
-        for user_link in user_links:
-            if user_link.matches_aldb(aldb_link):
-                found = True
-                break
-        if found is False:
-            ret.append(aldb_link)
-    return ret
-
 def user_link_output(user_links):
     ret = []
     for link in user_links:
         ret.append({
             'responder': link._device.dev_addr_str,
             'on_level': link._data_1,
-            'status': link._data_2
+            'ramp_rate': link._data_2,
+            'status': 'something'
         })
     return ret
 

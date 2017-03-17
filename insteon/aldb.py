@@ -70,10 +70,15 @@ class ALDBRecord(object):
     def __init__(self, database, raw=bytearray(8)):
         self._raw = raw
         self._database = database
+        self._core = self._database._parent.core
 
     @property
     def device(self):
-        return self._database._parent
+        '''Returns the device to which this record belongs'''
+        group = self.parse_record()['group']
+        if self.is_controller() is False:
+            group = self.parse_record()['data_3']
+        return self._database._parent.get_object_by_group_num(group)
 
     @property
     def key(self):
@@ -114,13 +119,24 @@ class ALDBRecord(object):
             parsed[attr] = bool(parsed[attr])
         return parsed
 
-    def get_linked_root_obj(self):
+    @property
+    def linked_device(self):
+        '''If this is a responder link it returns the controller object.
+        If this is a controller link, it returns the root of the responder
+        object, as multiple group responders could exist.'''
         parsed_record = self.parse_record()
         high = parsed_record['dev_addr_hi']
         mid = parsed_record['dev_addr_mid']
         low = parsed_record['dev_addr_low']
-        plm = self._database._parent.plm
-        return plm.get_device_by_addr(BYTE_TO_ID(high, mid, low))
+        root = self._core.get_device_by_addr(BYTE_TO_ID(high, mid, low))
+        group = 0x01
+        # TODO we should really consider if multiple responders on a single
+        # device is realistic. And secondly, how we should handle such in this
+        # case.  Returning the root seems like it will work, until it doesn't
+        # and then finding this bug will be tedious
+        if self.is_controller is False:
+            group = parsed_record['group']
+        return root.get_object_by_group_num(group)
 
     def is_last_aldb(self):
         ret = True
@@ -134,6 +150,24 @@ class ALDBRecord(object):
             ret = False
         return ret
 
+    def is_controller(self):
+        ret = False
+        if self.parse_record()['controller'] is True:
+            ret = True
+        return ret
+
+    def is_a_defined_link(self):
+        ret = False
+        if self.is_controller():
+            user_links = self._core.get_user_links_for_this_controller(self.device)
+        else:
+            user_links = self.device.root._user_links
+        for user_link in user_links:
+            if user_link.matches_aldb(self):
+                ret = True
+                break
+        return ret
+
     def get_linked_device_str(self):
         parsed_record = self.parse_record()
         high = parsed_record['dev_addr_hi']
@@ -143,7 +177,7 @@ class ALDBRecord(object):
         return string
 
     def get_reciprocal_records(self):
-        linked_root = self.get_linked_root_obj()
+        linked_root = self.linked_device.root
         parsed = self.parse_record()
         controller = True
         records = []
@@ -160,15 +194,6 @@ class ALDBRecord(object):
             }
             records = linked_root.aldb.get_matching_records(search)
         return records
-
-    def get_group_object(self):
-        ret = self._database._parent
-        if self.parse_record()['responder']:
-            ret = self._database._parent.get_object_by_group_num(
-                self.parse_record()['data_3']
-            )
-        return ret
-
 
     def edit_record(self, record):
         self.raw = record

@@ -375,4 +375,4 @@ class GenericRcvdHandler(object):
                 state = 0x00  # Off always results in an off state???
                 if is_on:
                     state = responder.parse_record()['data_1']
-                responder.get_group_object().state = state
+                responder.device.state = state
