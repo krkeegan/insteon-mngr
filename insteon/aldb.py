@@ -124,6 +124,7 @@ class ALDBRecord(object):
         '''If this is a responder link it returns the controller object.
         If this is a controller link, it returns the root of the responder
         object, as multiple group responders could exist.'''
+        device = None
         parsed_record = self.parse_record()
         high = parsed_record['dev_addr_hi']
         mid = parsed_record['dev_addr_mid']
@@ -136,7 +137,9 @@ class ALDBRecord(object):
         # and then finding this bug will be tedious
         if self.is_controller is False:
             group = parsed_record['group']
-        return root.get_object_by_group_num(group)
+        if root is not None:
+            device = root.get_object_by_group_num(group)
+        return device
 
     def is_last_aldb(self):
         ret = True

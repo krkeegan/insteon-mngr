@@ -29,14 +29,15 @@ class UserLink(object):
         # We are not checking data_1-3 here should we be?
         ret = False
         aldb_parsed = aldb_record.parse_record()
-        linked_addr = aldb_record.linked_device.root.dev_addr_str
-        record_addr = aldb_record.device.root.dev_addr_str
-        if (aldb_parsed['group'] == self._group and
-            aldb_parsed['in_use'] == True):
-            if (aldb_parsed['controller'] is True and
-                linked_addr == self._device.dev_addr_str):
-                ret = True
-            elif(aldb_parsed['controller'] is False and
-                 record_addr == self._device.dev_addr_str):
-                ret = True
+        if aldb_record.linked_device is not None:
+            linked_addr = aldb_record.linked_device.root.dev_addr_str
+            record_addr = aldb_record.device.root.dev_addr_str
+            if (aldb_parsed['group'] == self._group and
+                aldb_parsed['in_use'] == True):
+                if (aldb_parsed['controller'] is True and
+                    linked_addr == self._device.dev_addr_str):
+                    ret = True
+                elif(aldb_parsed['controller'] is False and
+                     record_addr == self._device.dev_addr_str):
+                    ret = True
         return ret

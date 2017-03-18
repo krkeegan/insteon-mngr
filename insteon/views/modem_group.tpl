@@ -83,6 +83,23 @@
                   % end
                 </tbody>
               </table>
+              <h5>Unknown Device Links</h5>
+              <table class="table table-sm table-hover">
+                <thead>
+                  <tr>
+                    <th>Device</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  % for link in attributes['unknown_device_links']:
+                    <tr>
+                      <th scope="row">{{link['device']}}</th>
+                      <td>Import/Delete</td>
+                    </tr>
+                  % end
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

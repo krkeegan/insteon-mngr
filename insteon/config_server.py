@@ -220,8 +220,17 @@ def get_links(DevID, group_number):
     user_links = core.get_user_links_for_this_controller(device)
     ret['defined_links'] = user_link_output(user_links)
     ret['undefined_links'] = undefined_link_output(device)
-    # TODO Finally need a section to deal with responder links where the
-    # controller is not a device we know
+    ret['unknown_device_links'] = unknown_link_output(device)
+    return ret
+
+def unknown_link_output(device):
+    ret = []
+    for link in device.get_unknown_device_links():
+        link_parsed = link.parse_record()
+        link_addr = BYTE_TO_ID(link_parsed['dev_addr_hi'],
+                               link_parsed['dev_addr_mid'],
+                               link_parsed['dev_addr_low'])
+        ret.append({'device': link_addr})
     return ret
 
 def undefined_link_output(device):

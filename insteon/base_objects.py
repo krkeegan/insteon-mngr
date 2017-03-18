@@ -105,7 +105,8 @@ class Group(object):
         }
         aldb_controller_links = self.root.aldb.get_matching_records(attributes)
         for aldb_link in aldb_controller_links:
-            if aldb_link.is_a_defined_link() is False:
+            if (aldb_link.is_a_defined_link() is False and
+                aldb_link.linked_device is not None):
                 ret.append(aldb_link)
         return ret
 
@@ -126,6 +127,27 @@ class Group(object):
         ret.extend(self._get_undefined_responder())
         return ret
 
+    def get_unknown_device_links(self):
+        '''Returns all links on the device which do not associated with a
+        known device'''
+        ret = []
+        attributes = {
+            'controller': True,
+            'group': self.group_number
+        }
+        aldb_controller_links = self.root.aldb.get_matching_records(attributes)
+        for aldb_link in aldb_controller_links:
+            if aldb_link.linked_device is None:
+                ret.append(aldb_link)
+        attributes = {
+            'responder': True,
+            'data_3': self.group_number
+        }
+        aldb_responder_links = self.root.aldb.get_matching_records(attributes)
+        for aldb_link in aldb_responder_links:
+            if aldb_link.linked_device is None:
+                ret.append(aldb_link)
+        return ret
 
 class Root(Group):
     '''The root object of an insteon device, inherited by Devices and Modems'''
