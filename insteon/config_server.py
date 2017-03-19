@@ -148,7 +148,7 @@ def list_groups(DevID):
     groups_sort = {}
     for group in groups:
         groups_sort[group.group_number] = group
-    ret = []
+    ret = [{1: {'group_name': device.root.name + ' root'}}]
     for group_number in sorted(groups_sort):
         ret.append(
             {group_number : {
