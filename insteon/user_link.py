@@ -1,7 +1,5 @@
 '''The user_link classes'''
 
-from insteon import BYTE_TO_ID
-
 class UserLink(object):
     '''The base class for user_links'''
 
@@ -13,6 +11,31 @@ class UserLink(object):
         self._data_1 = data['data_1']
         self._data_2 = data['data_2']
         self._data_3 = data['data_3']
+
+    @property
+    def controller_id(self):
+        return self._address
+
+    @property
+    def group(self):
+        return self._group
+
+    @property
+    def data(self):
+        return {'data_1': self._data_1,
+                'data_2': self._data_2,
+                'data_3': self._data_3}
+    @property
+    def data_1(self):
+        return self._data_1
+
+    @property
+    def data_2(self):
+        return self._data_2
+
+    @property
+    def data_3(self):
+        return self._data_3
 
     def controller_device(self):
         '''Returns the controller device of this link or None if it does not
