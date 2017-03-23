@@ -36,7 +36,7 @@ class Group(object):
         self._root = root
         self._group_number = group_number
         self._attributes = {}
-        if 'attributes' in kwargs:
+        if 'attributes' in kwargs and kwargs['attributes'] is not None:
             self._load_attributes(kwargs['attributes'])
         self.send_handler = GroupSendHandler(self)
         self.functions = GroupFunctions(self)
@@ -148,6 +148,9 @@ class Group(object):
             if aldb_link.linked_device is None:
                 ret.append(aldb_link)
         return ret
+
+    def get_attributes(self):
+        return self._attributes.copy()
 
 class Root(Group):
     '''The root object of an insteon device, inherited by Devices and Modems'''

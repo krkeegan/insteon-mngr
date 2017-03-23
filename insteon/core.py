@@ -75,30 +75,30 @@ class Insteon_Core(object):
             modem.process_queue()
         self._save_state()
 
+    def _save_groups(self, device):
+        ret = {}
+        for group in device.get_all_groups():
+            ret[group.group_number] = group._attributes.copy()
+        return ret
+
+    def _save_device(self, device):
+        ret = device._attributes.copy()
+        ret['aldb'] = device.aldb.get_all_records_str()
+        ret['groups'] = self._save_groups(device)
+        ret['user_links'] = device.save_user_links()
+        return ret
+
     def _save_state(self, is_exit=False):
         # Saves the config of the entire core to a file
         if self._last_saved_time < time.time() - 60 or is_exit:
             # Save once a minute, on on exit
-            out_data = {'Modems': {}}
+            out_data = {'modems': {}}
             for modem in self._modems:
-                modem_point = {}
-                modem_point = modem._attributes.copy()
-                modem_point['ALDB'] = modem.aldb.get_all_records_str()
-                modem_point['Devices'] = {}
-                modem_point['groups'] = {}
-                for group in modem.get_all_groups():
-                    modem_point['groups'][group.group_number] = group._attributes.copy()
-                out_data['Modems'][modem.dev_addr_str] = modem_point
+                out_data['modems'][modem.dev_addr_str] = self._save_device(modem)
+                out_data['modems'][modem.dev_addr_str]['devices'] = {}
                 for address, device in modem._devices.items():
-                    dev_point = device._attributes.copy()
-                    try:
-                        dev_point['ALDB'] = device.aldb.get_all_records_str()
-                        dev_point['groups'] = {}
-                        for group in device.get_all_groups():
-                            dev_point['groups'][group.group_number] = group._attributes.copy()
-                    except AttributeError:
-                        pass  #Not an insteon device
-                    modem_point['Devices'][address] = dev_point
+                    out_data['modems'][modem.dev_addr_str]['devices'][address] = \
+                        self._save_device(device)
             try:
                 json_string = json.dumps(out_data,
                                          sort_keys=True,
@@ -123,8 +123,8 @@ class Insteon_Core(object):
         except ValueError:
             read_data = {}
             print('unable to read config file, skipping')
-        if 'Modems' in read_data:
-            for modem_id, modem_data in read_data['Modems'].items():
+        if 'modems' in read_data:
+            for modem_id, modem_data in read_data['modems'].items():
                 if modem_data['type'] == 'plm':
                     self.add_plm(attributes=modem_data, device_id=modem_id)
                 elif modem_data['type'] == 'hub':

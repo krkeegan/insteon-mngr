@@ -71,9 +71,9 @@ class Modem(Root):
 
     def _load_attributes(self, attributes):
         for name, value in attributes.items():
-            if name == 'ALDB':
+            if name == 'aldb':
                 self.aldb.load_aldb_records(value)
-            elif name == 'Devices':
+            elif name == 'devices':
                 self._load_devices(value)
             elif name == "groups":
                 self._load_groups(value)
