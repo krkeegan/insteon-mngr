@@ -77,6 +77,8 @@ class Modem(Root):
                 self._load_devices(value)
             elif name == "groups":
                 self._load_groups(value)
+            elif name =='user_links':
+                self._load_user_links(value)
             else:
                 self.attribute(name, value)
 

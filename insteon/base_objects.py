@@ -244,23 +244,6 @@ class Root(Group):
                 self._state_machine_time = time.time()
         return self._state_machine
 
-    @property
-    def user_links(self):
-        '''This returns a dictionary like what we see in config.json'''
-        ret = None
-        if self.attribute('user_links') is not None:
-            ret = {}
-            records = self.attribute('user_links')
-            for device in records.keys():
-                ret[device] = {}
-                for group in records[device].keys():
-                    ret[device][int(group)] = records[device][group]
-        return ret
-
-    @user_links.setter
-    def user_links(self, records):
-        self.attribute('user_links', records)
-
     ##################################
     # Private functions
     ##################################
@@ -307,6 +290,20 @@ class Root(Group):
                         group_number,
                         data
                     ))
+
+    def save_user_links(self):
+        '''Constructs a dictionary for saving the user links to the config
+        file'''
+        ret = {}
+        for user_link in self._user_links:
+            if user_link.controller_id not in ret:
+                ret[user_link.controller_id] = {}
+            if user_link.group not in ret[user_link.controller_id]:
+                ret[user_link.controller_id][user_link.group] = []
+            ret[user_link.controller_id][user_link.group].append(user_link.data)
+        return ret
+
+
 
     ##################################
     # Public functions
@@ -401,37 +398,39 @@ class Root(Group):
         return NotImplemented
 
     def export_links(self):
-        # pylint: disable=E1101
-        records = {}
-        # TODO improve to use ALDB Record classes
-        for key in self.aldb.get_all_records().keys():
-            parsed = self.aldb.parse_record(key)
-            if parsed['in_use'] and not parsed['controller']:
-                linked_record = self.aldb.get_record(key)
-                linked_root = linked_record.linked_device.root
-                name = linked_record.get_linked_device_str()
-                group = parsed['group']
-                group = 0x01 if group == 0x00 else group
-                if group == 0x01 and linked_root is self.plm:
-                    # ignore i2cs required links
-                    continue
-                if name not in records.keys():
-                    records[name] = {}
-                if group not in records[name].keys():
-                    records[name][group] = []
-                for entry in records[name][group]:
-                    # ignore duplicates
-                    if (entry['data_1'] == parsed['data_1'] and
-                            entry['data_2'] == parsed['data_2'] and
-                            entry['data_3'] == parsed['data_3']):
-                        continue
-                records[name][group].append({
-                    'data_1': parsed['data_1'],
-                    'data_2': parsed['data_2'],
-                    'data_3': parsed['data_3']
-                })
-        if self.user_links is not None:
-            new_records = records
-            records = self.user_links
-            records.update(new_records)
-        self.user_links = records
+        attributes = {
+            'in_use': True,
+            'responder': True
+        }
+        for aldb_record in self.aldb.get_matching_records(attributes):
+            parsed = aldb_record.parse_record()
+            linked_device = aldb_record.linked_device
+            linked_root = None
+            if linked_device is not None:
+                linked_root = linked_device.root
+            controller_id = aldb_record.get_linked_device_str()
+            group_number = parsed['group']
+            group_number = 0x01 if group_number == 0x00 else group_number
+            if group_number == 0x01 and linked_root is self.plm:
+                # ignore i2cs required links
+                continue
+            found = False
+            for user_link in self._user_links:
+                if (controller_id == user_link.controller_id and
+                    group_number == user_link.group and
+                    parsed['data_1'] == user_link.data_1 and
+                    parsed['data_2'] == user_link.data_2 and
+                    parsed['data_3'] == user_link.data_3):
+                    found = True
+                    break
+            if not found:
+                self._user_links.append(UserLink(
+                    self,
+                    controller_id,
+                    group_number,
+                    {
+                        'data_1': parsed['data_1'],
+                        'data_2': parsed['data_2'],
+                        'data_3': parsed['data_3']
+                    }
+                ))
