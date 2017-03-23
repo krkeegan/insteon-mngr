@@ -30,11 +30,21 @@
       </div>
       <div class="col-sm-4">
         <h4>Modems</h4>
-        % for modem in modems:
-          % for key, value in modem.items():
-            <a href='/modem/{{key}}'>{{value['name']}} - {{key}}</a>
-          % end
-        % end
+
+        <table class="table table-sm table-hover">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Address</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="list_modems">
+
+          </tbody>
+        </table>
+
         <h4>Add Modem </h4>
         <a class="btn btn-default btn-block" href="#" role="button">Add a Hub</a>
         <a class="btn btn-default btn-block" href="#" role="button">Add a PLM</a>
@@ -58,5 +68,6 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <script src="/static/javascript.js"></script>
   </body>
 </html>

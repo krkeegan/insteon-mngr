@@ -38,23 +38,32 @@ class Insteon_Core(object):
     def _get_all_user_links(self):
         ret = []
         for modem in self.get_all_modems():
-            ret += modem._user_links
+            ret.extend(modem._user_links)
             for device in modem.get_all_devices():
-                ret += device._user_links
+                ret.extend(device._user_links)
         return ret
 
-    def get_matching_user_links(self, device):
+    def get_user_links_for_this_controller(self, device):
         all_links = self._get_all_user_links()
         ret = []
         for link in all_links:
-            if link.matches(device):
+            if device == link.controller_device():
                 ret.append(link)
+        return ret
+
+    def get_matching_aldb_records(self, attributes):
+        ret = []
+        for modem in self.get_all_modems():
+            ret.extend(modem.aldb.get_matching_records(attributes))
+            for device in modem.get_all_devices():
+                ret.extend(device.aldb.get_matching_records(attributes))
         return ret
 
     def _core_loop(self):
         server = start(self)
         while threading.main_thread().is_alive():
             self._loop_once()
+            time.sleep(.05)
         stop(server)
 
     def _loop_once(self):
@@ -244,7 +253,8 @@ class Insteon_Core(object):
                 if ret is not None:
                     break
         if ret is None:
-            print('error, unknown device address=', addr)
+            #print('error, unknown device address=', addr)
+            pass
         return ret
 
     def get_all_modems(self):

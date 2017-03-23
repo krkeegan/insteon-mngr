@@ -67,7 +67,7 @@ class Modem(Root):
         self.ack_time = 75
         for group_number in range(0x02, 0xFF):
             if self.get_object_by_group_num(group_number) is None:
-                self.create_group(group_number, Group)
+                self.create_group(group_number, ModemGroup)
 
     def _load_attributes(self, attributes):
         for name, value in attributes.items():
@@ -86,7 +86,7 @@ class Modem(Root):
 
     def _load_groups(self, value):
         for group_number, attributes in value.items():
-            self.create_group(int(group_number), Group, attributes=attributes)
+            self.create_group(int(group_number), ModemGroup, attributes=attributes)
 
     def _setup(self):
         self.update_device_classes()
@@ -143,7 +143,8 @@ class Modem(Root):
             try:
                 ret = self._devices[addr]
             except KeyError:
-                print('error, unknown device address=', addr)
+                # print('error, unknown device address=', addr)
+                pass
         return ret
 
     def get_all_devices(self):
@@ -166,6 +167,28 @@ class Modem(Root):
     # Internal Functions
     #
     ##############################################################
+
+    def get_unknown_device_links(self):
+        '''Returns all links on the device which do not associated with a
+        known device.  For Modems, responder links only appear under
+        Group 1 since no group is actually controllable'''
+        ret = []
+        attributes = {
+            'controller': True,
+            'group': self.group_number
+        }
+        aldb_controller_links = self.root.aldb.get_matching_records(attributes)
+        for aldb_link in aldb_controller_links:
+            if aldb_link.linked_device is None:
+                ret.append(aldb_link)
+        attributes = {
+            'responder': True
+        }
+        aldb_responder_links = self.root.aldb.get_matching_records(attributes)
+        for aldb_link in aldb_responder_links:
+            if aldb_link.linked_device is None:
+                ret.append(aldb_link)
+        return ret
 
     def process_input(self):
         '''Called by the core loop. Reads available bytes from PLM, then parses
@@ -475,3 +498,28 @@ class ModemSendHandler(object):
         }
         message.insert_bytes_into_raw(dev_bytes)
         self._device.queue_device_msg(message)
+
+
+class ModemGroup(Group):
+    def get_unknown_device_links(self):
+        '''Returns all links on the device which do not associated with a
+        known device.  For Modems, responder links only appear under
+        Group 1 since no group is actually controllable'''
+        ret = []
+        attributes = {
+            'controller': True,
+            'group': self.group_number
+        }
+        aldb_controller_links = self.root.aldb.get_matching_records(attributes)
+        for aldb_link in aldb_controller_links:
+            if aldb_link.linked_device is None:
+                ret.append(aldb_link)
+        if self.group_number == 0x01:
+            attributes = {
+                'responder': True
+            }
+            aldb_responder_links = self.root.aldb.get_matching_records(attributes)
+            for aldb_link in aldb_responder_links:
+                if aldb_link.linked_device is None:
+                    ret.append(aldb_link)
+        return ret

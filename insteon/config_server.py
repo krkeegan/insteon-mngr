@@ -1,16 +1,14 @@
 import threading
-from pprint import pprint
 import json
 import re
-import os
 
 from bottle import (route, run, Bottle, response, get, post, put, delete,
                     request, error, static_file, view, TEMPLATE_PATH,
                     WSGIRefServer)
 
-core = ''
+from insteon.base_objects import BYTE_TO_ID
 
-TEMPLATE_PATH.append(os.path.dirname(os.path.realpath(__file__))+ '/views')
+core = ''
 
 def start(passed_core):
     global core      # pylint: disable=W0603
@@ -24,77 +22,24 @@ def stop(server):
 
 ###################################################################
 ##
-# Template Responses
+# API Responses
 ##
 ###################################################################
 
-@route('/')
-@view('index')
-def index_page():
-    return dict(modems=list_modems())
+@route('/api<:re:/?>')
+def api():
+    response.headers['Content-Type'] = 'application/json'
+    return jsonify(json_core())
 
-@route('/modem/<DevID>')
-@view('modem')
-def modem_page(DevID):
-    return dict(device_id=DevID,
-                attributes=get_modem(DevID),
-                groups=list_groups(DevID),
-                devices=list_devices(DevID)
-               )
+@route('/api/modem/<modem_id:re:[A-Fa-f0-9]{6}>/group/<group_number:re:[0-9]{1,3}>/links<:re:/?>')
+def modem_links(modem_id, group_number):
+    response.headers['Content-Type'] = 'application/json'
+    return jsonify(json_links(modem_id, group_number))
 
-@post('/modem/<DevID>')
-@view('modem')
-def modem_settings(DevID):
-    modem = core.get_device_by_addr(DevID)
-    modem.name = request.forms.get('name')
-    return modem_page(DevID)
-
-@route('/modem/<DevID>/group/<group_number>')
-@view('modem_group')
-def modem_group_page(DevID, group_number):
-    return dict(modem_id = DevID,
-                group_number = group_number,
-                attributes = get_modem_group(DevID, group_number)
-               )
-
-@post('/modem/<DevID>/group/<group_number>')
-@view('modem_group')
-def modem_group_settings(DevID, group_number):
-    modem = core.get_device_by_addr(DevID)
-    group = modem.get_object_by_group_num(int(group_number))
-    group.name = request.forms.get('name')
-    return modem_group_page(DevID, group_number)
-
-@post('/modem/<modem_id>/device/<DevID>')
-@view('device')
-def device_settings(modem_id, DevID):
-    modem = core.get_device_by_addr(modem_id)
-    device = modem.get_device_by_addr(DevID)
-    device.name = request.forms.get('name')
-    return device_page(modem_id, DevID)
-
-@route('/modem/<modem_id>/device/<DevID>')
-@view('device')
-def device_page(modem_id, DevID):
-    return dict(modem_id = modem_id,
-                device_id = DevID,
-                attributes = get_device(modem_id, DevID)
-               )
-
-@route('/modem/<modem_id>/device/<DevID>/group/<group_number>')
-@view('device_group')
-def device_group_page(modem_id, DevID, group_number):
-    from pprint import pprint
-    pprint(dict(modem_id = modem_id,
-                device_id = DevID,
-                group_number = group_number,
-                attributes = get_device_group(modem_id, DevID, group_number)
-               ))
-    return dict(modem_id = modem_id,
-                device_id = DevID,
-                group_number = group_number,
-                attributes = get_device_group(modem_id, DevID, group_number)
-               )
+@route('/api/modem/<:re:[A-Fa-f0-9]{6}>/device/<device_id:re:[A-Fa-f0-9]{6}>/group/<group_number:re:[0-9]{1,3}>/links<:re:/?>')
+def device_links(device_id, group_number):
+    response.headers['Content-Type'] = 'application/json'
+    return jsonify(json_links(device_id, group_number))
 
 ###################################################################
 ##
@@ -104,7 +49,31 @@ def device_group_page(modem_id, DevID, group_number):
 
 @route('/static/<path:path>')
 def callback(path):
-    return static_file(path, root='insteon/static')
+    return static_file(path, root='insteon/web/static')
+
+@route('/modem/<:re:[A-Fa-f0-9]{6}/?>')
+def modem_page():
+    return static_file('modem.html', root='insteon/web')
+
+@route('/modem/<:re:[A-Fa-f0-9]{6}/group/[0-9]{1,3}/?>')
+def modem_group_page():
+    return static_file('modem_group.html', root='insteon/web')
+
+@route('/modem/<:re:[A-Fa-f0-9]{6}/device/[A-Fa-f0-9]{6}/?>')
+def device_page():
+    return static_file('device.html', root='insteon/web')
+
+@route('/modem/<:re:[A-Fa-f0-9]{6}/device/[A-Fa-f0-9]{6}/group/[0-9]{1,3}/?>')
+def device_group_page():
+    return static_file('device_group.html', root='insteon/web')
+
+# @route('/<path:path>')
+# def html_pages(path):
+#     return static_file(path, root='insteon/web')
+
+@route('/')
+def index_page():
+    return static_file('index.html', root='insteon/web')
 
 ###################################################################
 ##
@@ -131,119 +100,80 @@ def error_405(error_parm):
 ##
 ###################################################################
 
-def list_modems():
+def json_core():
+    ret = {}
     modems = core.get_all_modems()
-    ret = []
     for modem in modems:
-        ret.append({modem.dev_addr_str : {
-            'dev_cat': modem.dev_cat,
-            'sub_cat': modem.sub_cat,
-            'firmware': modem.firmware,
-            'port': modem.port,
-            'port_active': modem.port_active,
-            'type': modem.type,
-            'name': modem.name
-        }}
-                  )
+        ret[modem.dev_addr_str] = modem.get_attributes()
+        ret[modem.dev_addr_str]['devices'] = {}
+        for device in modem.get_all_devices():
+            ret[modem.dev_addr_str]['devices'][device.dev_addr_str] = \
+                device.get_attributes()
+            ret[modem.dev_addr_str]['devices'][device.dev_addr_str]['groups'] = {}
+            ret[modem.dev_addr_str]['devices'][device.dev_addr_str]['groups'][1] = device.get_attributes()
+            for group in device.get_all_groups():
+                ret[modem.dev_addr_str]['devices'][device.dev_addr_str]['groups'][group.group_number] = \
+                    group.get_attributes()
+        ret[modem.dev_addr_str]['groups'] = {}
+        for group in modem.get_all_groups():
+            ret[modem.dev_addr_str]['groups'][group.group_number] = \
+                group.get_attributes()
     return ret
 
-def list_groups(DevID):
-    device = core.get_device_by_addr(DevID)
-    groups = device.get_all_groups()
-    groups_sort = {}
-    for group in groups:
-        groups_sort[group.group_number] = group
-    ret = []
-    for group_number in sorted(groups_sort):
-        ret.append(
-            {group_number : {
-                'group_name': groups_sort[group_number].name
-            }}
-        )
-    return ret
-
-def list_devices(Modem):
-    modem = core.get_device_by_addr(Modem)
-    devices = modem.get_all_devices()
-    ret = []
-    for device in devices:
-        ret.append(
-            {device.dev_addr_str : {
-                'device_name': device.name
-            }}
-        )
-    return ret
-
-def get_modem(DevID):
-    modem = core.get_modem_by_id(DevID)
-    ret = {
-        'dev_cat': modem.dev_cat,
-        'sub_cat': modem.sub_cat,
-        'firmware': modem.firmware,
-        'port_active': modem.port_active,
-        'type': modem.type,
-        'dev_addr_str': modem.dev_addr_str,
-        'name': modem.name
-    }
-    if modem.type == 'hub':
-        ret['user'] = modem.user
-        ret['password'] = modem.password
-        ret['ip'] = modem.ip
-        ret['port'] = modem.tcp_port
-    else:
-        ret['port'] = modem.port
-    return ret
-
-def get_modem_group(DevID, group_number):
-    modem = core.get_modem_by_id(DevID)
-    group = modem.get_object_by_group_num(int(group_number))
-    ret = {
-        'name': group.name,
-        'modem_name': modem.name,
-        'user_links' : get_user_link_controllers(DevID, group_number)
-    }
-    return ret
-
-def get_device_group(modem_id, DevID, group_number):
-    modem = core.get_modem_by_id(modem_id)
-    device = modem.get_device_by_addr(DevID)
-    group = device.get_object_by_group_num(int(group_number))
-    ret = {
-        'name': group.name,
-        'modem_name': modem.name,
-        'dev_addr_str': device.dev_addr_str,
-        'device_name': device.name,
-        'group_name': group.name,
-        'user_links' : get_user_link_controllers(DevID, group_number)
-    }
-    return ret
-
-def get_user_link_controllers(DevID, group_number):
-    root = core.get_device_by_addr(DevID)
-    # The problem is here, if 0x00 or 0x01 are requested it returns an
-    # InsteonDevice instead of an InsteonGroup
+def json_links(device_id, group_number):
+    ret = {}
+    root = core.get_device_by_addr(device_id)
     device = root.get_object_by_group_num(int(group_number))
-    links = core.get_matching_user_links(device)
+    ret['definedLinks'] = user_link_output(device)
+    ret['undefinedLinks'] = undefined_link_output(device)
+    ret['unknownLinks'] = unknown_link_output(device)
+    return ret
+
+def unknown_link_output(device):
     ret = []
-    for link in links:
+    for link in device.get_unknown_device_links():
+        link_parsed = link.parse_record()
+        link_addr = BYTE_TO_ID(link_parsed['dev_addr_hi'],
+                               link_parsed['dev_addr_mid'],
+                               link_parsed['dev_addr_low'])
+        ret.append({'device': link_addr})
+    return ret
+
+def undefined_link_output(device):
+    ret = []
+    for link in device.get_undefined_links():
+        link_parsed = link.parse_record()
+        link_addr = BYTE_TO_ID(link_parsed['dev_addr_hi'],
+                               link_parsed['dev_addr_mid'],
+                               link_parsed['dev_addr_low'])
+        # TODO what do we do here if no responder link exists?
+        # Set to some default data_1 and data_2
+        if link_parsed['controller'] is True:
+            for responder in link.get_reciprocal_records():
+                responder_parsed = responder.parse_record()
+                ret.append({
+                    'responder': link_addr,
+                    'data_1': responder_parsed['data_1'],
+                    'data_2': responder_parsed['data_2']
+                })
+        else:
+            ret.append({
+                'responder': link.device.dev_addr_str,
+                'data_1': link_parsed['data_1'],
+                'data_2': link_parsed['data_2']
+            })
+    return ret
+
+def user_link_output(device):
+    ret = []
+    user_links = core.get_user_links_for_this_controller(device)
+    for link in user_links:
         ret.append({
             'responder': link._device.dev_addr_str,
-            'on_level': link._data_1,
-            'status': link._data_2
+            'data_1': link._data_1,
+            'data_2': link._data_2,
+            'status': 'something'
         })
-    return ret
-
-def get_device(modem_id, DevID):
-    modem = core.get_modem_by_id(modem_id)
-    device = modem.get_device_by_addr(DevID)
-    ret = {
-        'dev_cat': device.dev_cat,
-        'sub_cat': device.sub_cat,
-        'firmware': device.firmware,
-        'dev_addr_str': device.dev_addr_str,
-        'name': device.name,
-        'modem_name': modem.name
-    }
     return ret
 
 ###################################################################
