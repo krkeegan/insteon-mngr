@@ -62,6 +62,7 @@ class InsteonDevice(Root):
         # TODO move this to command handler?
         self.last_sent_msg = None
         self._recent_inc_msgs = {}
+        self._last_rcvd_msg = None
         self._rcvd_handler = GenericRcvdHandler(self)
         self.send_handler = GenericSendHandler(self)
         self.functions = GenericFunctions(self)
@@ -96,6 +97,14 @@ class InsteonDevice(Root):
     def engine_version(self):
         return self.attribute('engine_version')
 
+    @property
+    def last_rcvd_msg(self):
+        return self._last_rcvd_msg
+
+    @last_rcvd_msg.setter
+    def last_rcvd_msg(self, msg):
+        self._last_rcvd_msg = msg
+
     ###################################################################
     ##
     # Incoming Message Handling
@@ -112,6 +121,7 @@ class InsteonDevice(Root):
             print('Skipped duplicate msg')
         else:
             self._process_hops(msg)
+            self.last_rcvd_msg = msg
             self._rcvd_handler.dispatch_msg_rcvd(msg)
 
     def _process_hops(self, msg):
@@ -215,7 +225,7 @@ class InsteonDevice(Root):
             self.send_handler.initialize_device()
 
     def get_last_rcvd_msg(self):
-        return self._rcvd_handler.last_rcvd_msg
+        return self.last_rcvd_msg
 
     def get_responder_data1(self):
         return self.functions.get_responder_data1()

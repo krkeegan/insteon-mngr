@@ -24,9 +24,8 @@ class ScanDeviceALDBi2(BaseSequence):
         trigger.queue()
 
     def _i2_next_aldb(self):
-        rcvd_handler = self._device._rcvd_handler
-        msb = rcvd_handler.last_rcvd_msg.get_byte_by_name('usr_3')
-        lsb = rcvd_handler.last_rcvd_msg.get_byte_by_name('usr_4')
+        msb = self._device.last_rcvd_msg.get_byte_by_name('usr_3')
+        lsb = self._device.last_rcvd_msg.get_byte_by_name('usr_4')
         aldb_key = self._device.aldb.get_aldb_key(msb, lsb)
         if self._device.aldb.get_record(aldb_key).is_last_aldb():
             self._device.remove_state_machine('query_aldb')

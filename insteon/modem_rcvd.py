@@ -12,7 +12,7 @@ class ModemRcvdHandler(object):
         # and replaced with a new object in a different class at runtime
         # if the dev_cat changes
         self._device = device
-        self._last_rcvd_msg = None
+        # self._last_rcvd_msg = None  # Is this ever used?
 
     def _rcvd_plm_ack(self, msg):
         if (self._device._last_sent_msg.plm_ack is False and

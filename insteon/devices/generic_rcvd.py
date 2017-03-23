@@ -10,21 +10,6 @@ class GenericRcvdHandler(object):
         # and replaced with a new object in a different class at runtime
         # if the dev_cat changes
         self._device = device
-        self._last_rcvd_msg = None
-
-    ###################################################
-    #
-    # attributes
-    #
-    ###################################################
-
-    @property
-    def last_rcvd_msg(self):
-        return self._last_rcvd_msg
-
-    @last_rcvd_msg.setter
-    def last_rcvd_msg(self, msg):
-        self._last_rcvd_msg = msg
 
     ###################################################
     #
@@ -34,7 +19,7 @@ class GenericRcvdHandler(object):
 
     def dispatch_msg_rcvd(self, msg):
         '''Selects the proper message path based on the message type.'''
-        self.last_rcvd_msg = msg
+        self._device.last_rcvd_msg = msg
         if msg.insteon_msg.message_type == 'direct':
             if not self._dispatch_direct(msg):
                 print('unhandled direct message, perhaps dev_cat is wrong')
