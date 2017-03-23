@@ -19,47 +19,35 @@
     <![endif]-->
   </head>
   <body>
-    % include('header', paths=[{'path':'/modem/' + modem_id, 'name': attributes['modem_name'] + ' - ' + modem_id},
-    %                           {'path':'/modem/' + modem_id + '/group/', 'name': attributes['name'] + ' - Group ' + group_number}
-    %                          ])
+    <ol class="breadcrumb">
+      <li><a href="/">Manager</a></li>
+      <li><a href="" id="navModem"></a></li>
+      <li class="active" id="navModemGroup"></li>
+    </ol>
 
     <div class="row">
       <div class="col-md-10 col-md-offset-1">
         <div class="row">
           <div class="col-sm-4">
             <h4>Settings</h4>
-            <form method="post">
-              <label for="name">Group Name</label>
-              <input type='text' class="form-control" id="name" name="name" value="{{attributes['name']}}">
-              </br>
-              <button type="submit" class="btn btn-default btn-block">Save Settings</button>
-              <h4>Functions</h4>
-              <button type="button" class="btn btn-default btn-block">Sync Links</button>
-              <button type="button" class="btn btn-default btn-block">Delete Links</button>
+            <form id="modemGroupSettings" method="post">
             </form>
           </div>
           <div class="col-sm-8">
-            <div class="height-limited">
-              <h4>Links & Data</h4>
+            <div>
+              <h4>Links</h4>
               <h5>Defined Links</h5>
               <table class="table table-sm table-hover">
                 <thead>
                   <tr>
                     <th>Responder</th>
-                    <th>On-Level</th>
-                    <th>Ramp Rate</th>
+                    <th>Data 1</th>
+                    <th>Data 2</th>
+                    <th>Status</th>
                     <th>Action</th>
                   </tr>
                 </thead>
-                <tbody>
-                  % for link in attributes['defined_links']:
-                    <tr>
-                      <th scope="row">{{link['responder']}}</th>
-                      <td>{{link['on_level']}}</td>
-                      <td>{{link['status']}}</td>
-                      <td>button</td>
-                    </tr>
-                  % end
+                <tbody id="definedLinks">
                 </tbody>
               </table>
               <h5>Undefined Links</h5>
@@ -67,20 +55,12 @@
                 <thead>
                   <tr>
                     <th>Responder</th>
-                    <th>On-Level</th>
-                    <th>Ramp Rate</th>
+                    <th>Data 1</th>
+                    <th>Data 2</th>
                     <th>Action</th>
                   </tr>
                 </thead>
-                <tbody>
-                  % for link in attributes['undefined_links']:
-                    <tr>
-                      <th scope="row">{{link['responder']}}</th>
-                      <td>{{link['on_level']}}</td>
-                      <td>{{link['status']}}</td>
-                      <td>Import/Delete</td>
-                    </tr>
-                  % end
+                <tbody id="undefinedLinks">
                 </tbody>
               </table>
               <h5>Unknown Device Links</h5>
@@ -91,13 +71,7 @@
                     <th>Action</th>
                   </tr>
                 </thead>
-                <tbody>
-                  % for link in attributes['unknown_device_links']:
-                    <tr>
-                      <th scope="row">{{link['device']}}</th>
-                      <td>Import/Delete</td>
-                    </tr>
-                  % end
+                <tbody id="unknownLinks">
                 </tbody>
               </table>
             </div>
@@ -112,5 +86,6 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <script src="/static/javascript.js"></script>
   </body>
 </html>
