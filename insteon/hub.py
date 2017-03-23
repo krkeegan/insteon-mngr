@@ -22,7 +22,7 @@ def hub_thread(hub):
         # Get Buffer Contents
         try:
             response = requests.get('http://' + hub.ip + ':' +
-                                    hub.tcp_port + '/buffstatus.xml',
+                                    hub.port + '/buffstatus.xml',
                                     auth=requests.auth.HTTPBasicAuth(
                                         hub.user,
                                         hub.password),
@@ -62,7 +62,7 @@ def hub_thread(hub):
             command = hub._write_queue.get()
             cmd_str = BYTE_TO_HEX(command)
             url = ('http://' + hub.ip + ':' +
-                   hub.tcp_port + '/3?' + cmd_str + '=I=3')
+                   hub.port + '/3?' + cmd_str + '=I=3')
             try:
                 response = requests.get(url,
                                         auth=requests.auth.HTTPBasicAuth(
@@ -101,7 +101,7 @@ class Hub(Modem):
         self.user = kwargs.get('user')
         self.password = kwargs.get('password')
         self.ip = kwargs.get('ip')
-        self.tcp_port = kwargs.get('tcp_port')
+        self.port = kwargs.get('port')
         self._read_queue = queue.Queue()
         self._write_queue = queue.Queue()
         threading.Thread(target=hub_thread, args=[self]).start()
@@ -117,13 +117,13 @@ class Hub(Modem):
         return self.attribute('ip')
 
     @property
-    def tcp_port(self):
-        return self.attribute('tcp_port')
+    def port(self):
+        return self.attribute('port')
 
-    @tcp_port.setter
-    def tcp_port(self, value):
-        self.attribute('tcp_port', value)
-        return self.attribute('tcp_port')
+    @port.setter
+    def port(self, value):
+        self.attribute('port', value)
+        return self.attribute('port')
 
     @property
     def user(self):

@@ -121,10 +121,6 @@ class Modem(Root):
     def port(self):
         return NotImplemented
 
-    def tcp_port(self):
-        # TODO should port and tcp_port be merged?
-        return NotImplemented
-
     @property
     def wait_to_send(self):
         return self._wait_to_send
@@ -404,15 +400,10 @@ class Modem(Root):
             self._write_to_port(msg.raw_msg)
         else:
             msg.failed = True
-            port = None
-            if self.type == 'plm':
-                port = self.port
-            elif self.type =='hub':
-                port = self.tcp_port
             print(
                 now,
                 'Error: the modem on port',
-                port,
+                self.port,
                 'is not active, unable to send message'
             )
         return

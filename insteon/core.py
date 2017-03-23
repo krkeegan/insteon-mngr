@@ -202,7 +202,7 @@ class Insteon_Core(object):
         for modem in self._modems:
             if (modem.type == 'hub' and
                     modem.ip == kwargs['ip'] and
-                    modem.tcp_port == kwargs['tcp_port']):
+                    modem.port == kwargs['port']):
                 ret = modem
                 break
         if ret is None:
