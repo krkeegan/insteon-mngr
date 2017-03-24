@@ -26,52 +26,79 @@ def stop(server):
 ##
 ###################################################################
 
-@route('/api<:re:/?>')
+# Bottle 0.12 doesn't have a patch decorator
+@route('/modems.json', method='PATCH')
+def api_modem_put():
+    for modem_id in request.json.keys():
+        modem = core.get_device_by_addr(modem_id)
+        update_device_attributes(modem, request.json[modem_id])
+    return jsonify(json_core())
+
+@get('/modems.json')
 def api():
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_core())
 
-@route('/api/modem/<modem_id:re:[A-Fa-f0-9]{6}>/group/<group_number:re:[0-9]{1,3}>/links<:re:/?>')
+@get('/modems/<modem_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links.json')
 def modem_links(modem_id, group_number):
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_links(modem_id, group_number))
 
-@route('/api/modem/<:re:[A-Fa-f0-9]{6}>/device/<device_id:re:[A-Fa-f0-9]{6}>/group/<group_number:re:[0-9]{1,3}>/links<:re:/?>')
+@route('/modems/<modem_id:re:[A-Fa-f0-9]{6}>/groups.json', method='PATCH')
+def api_modem_group_put(modem_id):
+    modem = core.get_device_by_addr(modem_id)
+    for group_number in request.json.keys():
+        group = modem.get_object_by_group_num(int(group_number))
+        update_device_attributes(group, request.json[group_number])
+    return jsonify(json_core())
+
+@get('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links.json')
 def device_links(device_id, group_number):
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_links(device_id, group_number))
 
+@route('/modems/<:re:[A-Fa-f0-9]{6}>/devices.json', method='PATCH')
+def api_device_put():
+    for device_id in request.json.keys():
+        device = core.get_device_by_addr(device_id)
+        update_device_attributes(device, request.json[device_id])
+    return jsonify(json_core())
+
+@route('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups.json', method='PATCH')
+def api_device_group_put(device_id):
+    for group_number in request.json.keys():
+        device = core.get_device_by_addr(device_id)
+        group = device.get_object_by_group_num(int(group_number))
+        update_device_attributes(group, request.json[group_number])
+    return jsonify(json_core())
+
 ###################################################################
 ##
-# Static Responses
+# HTML Responses
 ##
 ###################################################################
 
-@route('/static/<path:path>')
+@get('/static/<path:path>')
 def callback(path):
     return static_file(path, root='insteon/web/static')
 
-@route('/modem/<:re:[A-Fa-f0-9]{6}/?>')
+@get('/modems/<:re:[A-Fa-f0-9]{6}/?>')
 def modem_page():
     return static_file('modem.html', root='insteon/web')
 
-@route('/modem/<:re:[A-Fa-f0-9]{6}/group/[0-9]{1,3}/?>')
+@get('/modems/<:re:[A-Fa-f0-9]{6}/groups/[0-9]{1,3}/?>')
 def modem_group_page():
     return static_file('modem_group.html', root='insteon/web')
 
-@route('/modem/<:re:[A-Fa-f0-9]{6}/device/[A-Fa-f0-9]{6}/?>')
+@get('/modems/<:re:[A-Fa-f0-9]{6}/devices/[A-Fa-f0-9]{6}/?>')
 def device_page():
     return static_file('device.html', root='insteon/web')
 
-@route('/modem/<:re:[A-Fa-f0-9]{6}/device/[A-Fa-f0-9]{6}/group/[0-9]{1,3}/?>')
+@get('/modems/<:re:[A-Fa-f0-9]{6}/devices/[A-Fa-f0-9]{6}/groups/[0-9]{1,3}/?>')
 def device_group_page():
     return static_file('device_group.html', root='insteon/web')
 
-# @route('/<path:path>')
-# def html_pages(path):
-#     return static_file(path, root='insteon/web')
-
-@route('/')
+@get('/')
 def index_page():
     return static_file('index.html', root='insteon/web')
 
@@ -175,6 +202,16 @@ def user_link_output(device):
             'status': 'something'
         })
     return ret
+
+###################################################################
+##
+# Data Storing Functions
+##
+###################################################################
+
+def update_device_attributes(device, attributes):
+    for key, value in attributes.items():
+        device.attribute(key, value)
 
 ###################################################################
 ##
