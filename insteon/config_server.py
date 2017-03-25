@@ -151,12 +151,12 @@ def json_links(device_id, group_number):
     ret = {}
     root = core.get_device_by_addr(device_id)
     device = root.get_object_by_group_num(int(group_number))
-    ret['definedLinks'] = user_link_output(device)
-    ret['undefinedLinks'] = undefined_link_output(device)
-    ret['unknownLinks'] = unknown_link_output(device)
+    ret['definedLinks'] = _user_link_output(device)
+    ret['undefinedLinks'] = _undefined_link_output(device)
+    ret['unknownLinks'] = _unknown_link_output(device)
     return ret
 
-def unknown_link_output(device):
+def _unknown_link_output(device):
     ret = []
     for link in device.get_unknown_device_links():
         link_parsed = link.parse_record()
@@ -166,7 +166,7 @@ def unknown_link_output(device):
         ret.append({'device': link_addr})
     return ret
 
-def undefined_link_output(device):
+def _undefined_link_output(device):
     ret = []
     for link in device.get_undefined_links():
         link_parsed = link.parse_record()
@@ -191,15 +191,18 @@ def undefined_link_output(device):
             })
     return ret
 
-def user_link_output(device):
+def _user_link_output(device):
     ret = []
     user_links = core.get_user_links_for_this_controller(device)
     for link in user_links:
+        status = 'Broken'
+        if link.aldb_records_exist() is True:
+            status = 'Good'
         ret.append({
             'responder': link._device.dev_addr_str,
-            'data_1': link._data_1,
-            'data_2': link._data_2,
-            'status': 'something'
+            'data_1': link.data_1,
+            'data_2': link.data_2,
+            'status': status
         })
     return ret
 

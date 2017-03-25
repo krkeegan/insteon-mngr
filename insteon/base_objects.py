@@ -106,7 +106,9 @@ class Group(object):
         aldb_controller_links = self.root.aldb.get_matching_records(attributes)
         for aldb_link in aldb_controller_links:
             if (aldb_link.is_a_defined_link() is False and
-                aldb_link.linked_device is not None):
+                aldb_link.linked_device is not None and # Unknown Link
+                aldb_link.linked_device is not self._root.plm # plm link
+                ):
                 ret.append(aldb_link)
         return ret
 

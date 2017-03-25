@@ -37,6 +37,7 @@ class UserLink(object):
     def data_3(self):
         return self._data_3
 
+    @property
     def controller_device(self):
         '''Returns the controller device of this link or None if it does not
         exist'''
@@ -56,11 +57,39 @@ class UserLink(object):
             linked_addr = aldb_record.linked_device.root.dev_addr_str
             record_addr = aldb_record.device.root.dev_addr_str
             if (aldb_parsed['group'] == self._group and
-                aldb_parsed['in_use'] == True):
+                    aldb_parsed['in_use'] is True):
                 if (aldb_parsed['controller'] is True and
-                    linked_addr == self._device.dev_addr_str):
+                        linked_addr == self._device.dev_addr_str):
                     ret = True
                 elif(aldb_parsed['controller'] is False and
                      record_addr == self._device.dev_addr_str):
                     ret = True
+        return ret
+
+    def aldb_records_exist(self):
+        ret = False
+        attributes = {
+            'in_use':  True,
+            'responder': True,
+            'group': self.group,
+            'dev_addr_hi': self.controller_device.root.dev_addr_hi,
+            'dev_addr_mid': self.controller_device.root.dev_addr_mid,
+            'dev_addr_low': self.controller_device.root.dev_addr_low,
+            'data_1': self.data_1,
+            'data_2': self.data_2,
+            'data_3': self.data_3
+        }
+        records = self._device.aldb.get_matching_records(attributes)
+        if len(records) > 0:
+            attributes = {
+                'in_use':  True,
+                'controller': True,
+                'group': self.group,
+                'dev_addr_hi': self._device.root.dev_addr_hi,
+                'dev_addr_mid': self._device.root.dev_addr_mid,
+                'dev_addr_low': self._device.root.dev_addr_low
+            }
+            records = self.controller_device.root.aldb.get_matching_records(attributes)
+            if len(records) > 0:
+                ret = True
         return ret

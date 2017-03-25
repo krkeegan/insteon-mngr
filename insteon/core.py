@@ -40,7 +40,7 @@ class Insteon_Core(object):
         all_links = self._get_all_user_links()
         ret = []
         for link in all_links:
-            if device == link.controller_device():
+            if device == link.controller_device:
                 ret.append(link)
         return ret
 
