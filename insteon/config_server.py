@@ -57,6 +57,19 @@ def device_links(device_id, group_number):
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_links(device_id, group_number))
 
+@post('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks.json')
+def add_defined_device_link(device_id, group_number):
+    root = core.get_device_by_addr(device_id)
+    controller_device = root.get_object_by_group_num(int(group_number))
+    # Be careful, no documentation guarantees that data_3 is always the group
+    responder_id = request.json['address']
+    responder_group = int(request.json['data_3'])
+    responder_root = core.get_device_by_addr(responder_id)
+    responder = responder_root.get_object_by_group_num(int(responder_group))
+    responder.add_user_link(controller_device, request.json)
+    response.headers['Content-Type'] = 'application/json'
+    return jsonify(json_links(device_id, group_number))
+
 @route('/modems/<:re:[A-Fa-f0-9]{6}>/devices.json', method='PATCH')
 def api_device_put():
     for device_id in request.json.keys():
@@ -181,13 +194,15 @@ def _undefined_link_output(device):
                 ret.append({
                     'responder': link_addr,
                     'data_1': responder_parsed['data_1'],
-                    'data_2': responder_parsed['data_2']
+                    'data_2': responder_parsed['data_2'],
+                    'data_3': responder_parsed['data_3']
                 })
         else:
             ret.append({
                 'responder': link.device.dev_addr_str,
                 'data_1': link_parsed['data_1'],
-                'data_2': link_parsed['data_2']
+                'data_2': link_parsed['data_2'],
+                'data_3': link_parsed['data_3']
             })
     return ret
 

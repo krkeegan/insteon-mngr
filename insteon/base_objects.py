@@ -154,6 +154,30 @@ class Group(object):
     def get_attributes(self):
         return self._attributes.copy()
 
+    def add_user_link(self, controller_device, data):
+        controller_id = controller_device.root.dev_addr_str
+        group_number = controller_device.group_number
+        found = False
+        for user_link in self._user_links:
+            if (controller_id == user_link.controller_id and
+                group_number == user_link.group and
+                data['data_1'] == user_link.data_1 and
+                data['data_2'] == user_link.data_2 and
+                data['data_3'] == user_link.data_3):
+                found = True
+                break
+        if not found:
+            self._user_links.append(UserLink(
+                self,
+                controller_id,
+                group_number,
+                {
+                    'data_1': data['data_1'],
+                    'data_2': data['data_2'],
+                    'data_3': data['data_3']
+                }
+            ))
+
 class Root(Group):
     '''The root object of an insteon device, inherited by Devices and Modems'''
     def __init__(self, core, plm, **kwargs):
@@ -399,7 +423,7 @@ class Root(Group):
         # pylint: disable=R0201
         return NotImplemented
 
-    def export_links(self):
+    def import_links(self):
         attributes = {
             'in_use': True,
             'responder': True

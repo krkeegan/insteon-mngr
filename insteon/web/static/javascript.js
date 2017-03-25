@@ -16,13 +16,30 @@ function linksData (data, status, xhr) {
     if ($('tbody#definedLinks').length) {
       $('tbody#definedLinks').html('')
       for (var i = 0; i < data['definedLinks'].length; i++) {
+        var fixButton = ''
+        if (data['definedLinks'][i]['status'] == 'Broken'){
+        fixButton =  `
+          <button type="button" id="definedLinkFix" class="btn btn-default btn-xs">
+            Fix
+          </button>`
+        }
         $('tbody#definedLinks').append(`
           <tr>
             <th scope='row'>${data['definedLinks'][i]['responder']}</th>
             <td>${data['definedLinks'][i]['data_1']}</td>
             <td>${data['definedLinks'][i]['data_2']}</td>
             <td>${data['definedLinks'][i]['status']}</td>
-            <td>Fix/Delete/Edit</td>
+            <td>`
+            +
+            fixButton
+            +
+              `<button type="button" id="definedLinkEdit" class="btn btn-default btn-xs">
+                Edit
+              </button>
+              <button type="button" id="definedLinkDelete" class="btn btn-default btn-xs">
+                Delete
+              </button>
+            </td>
           </tr>
         `)
       }
@@ -35,10 +52,41 @@ function linksData (data, status, xhr) {
             <th scope='row'>${data['undefinedLinks'][i]['responder']}</th>
             <td>${data['undefinedLinks'][i]['data_1']}</td>
             <td>${data['undefinedLinks'][i]['data_2']}</td>
-            <td>Import/Delete</td>
+            <td>
+              <button type="button"
+                address="${data['undefinedLinks'][i]['responder']}"
+                data_1="${data['undefinedLinks'][i]['data_1']}"
+                data_2="${data['undefinedLinks'][i]['data_2']}"
+                data_3="${data['undefinedLinks'][i]['data_3']}"
+                id="undefinedLinkImport" class="btn btn-default btn-xs"
+              >
+                Import
+              </button>
+              <button type="button" id="undefinedLinkDelete" class="btn btn-default btn-xs">
+                Delete
+              </button>
+            </td>
           </tr>
         `)
       }
+      $('#undefinedLinkImport').click(function () {
+        var jsonData = {
+          'address': $(this).attr('address'),
+          'group': $(this).attr('group'),
+          'data_1': $(this).attr('data_1'),
+          'data_2': $(this).attr('data_2'),
+          'data_3': $(this).attr('data_3')
+        }
+        var path = window.location.pathname.replace(/\/$/, '')
+        $.ajax({
+          url: path + '/links/definedLinks.json',
+          method: 'POST',
+          data: JSON.stringify(jsonData),
+          contentType: 'application/json; charset=utf-8',
+          dataType: 'json',
+          success: linksData
+        })
+      })
     }
     if ($('tbody#unknownLinks').length) {
       $('tbody#unknownLinks').html('')
@@ -46,7 +94,14 @@ function linksData (data, status, xhr) {
         $('tbody#unknownLinks').append(`
           <tr>
             <th scope='row'>${data['unknownLinks'][i]['device']}</th>
-            <td>Add Device/Delete Link</td>
+            <td>
+            <button type="button" id="unknownLinkAdd" class="btn btn-default btn-xs">
+              Add Device
+            </button>
+            <button type="button" id="unknownLinkDelete" class="btn btn-default btn-xs">
+              Delete
+            </button>
+            </td>
           </tr>
         `)
       }
