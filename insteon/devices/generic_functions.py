@@ -2,7 +2,7 @@ class GenericFunctions(object):
     def __init__(self, device):
         self._device = device
         # The following define the human readable names
-        self.data_1_name = 'On Level'
+        self.data_1_name = 'On/Off'
         self.data_2_name = 'None'
         # The following define the default responder values
         self.data_1_default = 0xFF
