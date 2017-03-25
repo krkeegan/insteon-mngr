@@ -1,7 +1,9 @@
 /* global $ */
+var coreJSON
 
 function coreData (data, status, xhr) {
   if (status === 'success') {
+    coreJSON = data
     updateModemList(data)
     updateNavigation(data)
     updateModemPage(data)
@@ -16,13 +18,42 @@ function linksData (data, status, xhr) {
     if ($('tbody#definedLinks').length) {
       $('tbody#definedLinks').html('')
       for (var i = 0; i < data['definedLinks'].length; i++) {
+        var fixButton = ''
+        var rowClass = ''
+        if (data['definedLinks'][i]['status'] == 'Broken'){
+          fixButton =  `
+            <button type="button" id="definedLinkFix" class="btn btn-default btn-xs">
+              Fix
+            </button>
+            `
+          rowClass = 'danger'
+        }
+        var data1Human = 'Unk'
+        for (var key in data['definedLinks'][i]['details']['data_1']['values']) {
+          if (data['definedLinks'][i]['data_1'] === data['definedLinks'][i]['details']['data_1']['values'][key]) {
+            data1Human = key
+          }
+        }
+        var data2Human = 'Unk'
+        for (var key in data['definedLinks'][i]['details']['data_2']['values']) {
+          if (data['definedLinks'][i]['data_2'] === data['definedLinks'][i]['details']['data_2']['values'][key]) {
+            data2Human = key
+          }
+        }
         $('tbody#definedLinks').append(`
-          <tr>
+          <tr class="${rowClass}">
             <th scope='row'>${data['definedLinks'][i]['responder']}</th>
-            <td>${data['definedLinks'][i]['data_1']}</td>
-            <td>${data['definedLinks'][i]['data_2']}</td>
-            <td>${data['definedLinks'][i]['status']}</td>
-            <td>Fix/Delete/Edit</td>
+            <td>${data['definedLinks'][i]['details']['data_1']['name']}: ${data1Human}</td>
+            <td>${data['definedLinks'][i]['details']['data_2']['name']}: ${data2Human}</td>
+            <td>
+              ${fixButton}
+              <button type="button" id="definedLinkEdit" class="btn btn-default btn-xs">
+                Edit
+              </button>
+              <button type="button" id="definedLinkDelete" class="btn btn-default btn-xs">
+                Delete
+              </button>
+            </td>
           </tr>
         `)
       }
@@ -33,12 +64,43 @@ function linksData (data, status, xhr) {
         $('tbody#undefinedLinks').append(`
           <tr>
             <th scope='row'>${data['undefinedLinks'][i]['responder']}</th>
-            <td>${data['undefinedLinks'][i]['data_1']}</td>
-            <td>${data['undefinedLinks'][i]['data_2']}</td>
-            <td>Import/Delete</td>
+            <td>${data['undefinedLinks'][i]['details']['data_1']['name']}: ${data['undefinedLinks'][i]['data_1']}</td>
+            <td>${data['undefinedLinks'][i]['details']['data_2']['name']}: ${data['undefinedLinks'][i]['data_2']}</td>
+            <td>
+              <button type="button"
+                address="${data['undefinedLinks'][i]['responder']}"
+                data_1="${data['undefinedLinks'][i]['data_1']}"
+                data_2="${data['undefinedLinks'][i]['data_2']}"
+                data_3="${data['undefinedLinks'][i]['data_3']}"
+                id="undefinedLinkImport" class="btn btn-default btn-xs"
+              >
+                Import
+              </button>
+              <button type="button" id="undefinedLinkDelete" class="btn btn-default btn-xs">
+                Delete
+              </button>
+            </td>
           </tr>
         `)
       }
+      $('#undefinedLinkImport').click(function () {
+        var jsonData = {
+          'address': $(this).attr('address'),
+          'group': parseInt($(this).attr('group')),
+          'data_1': parseInt($(this).attr('data_1')),
+          'data_2': parseInt($(this).attr('data_2')),
+          'data_3': parseInt($(this).attr('data_3'))
+        }
+        var path = window.location.pathname.replace(/\/$/, '')
+        $.ajax({
+          url: path + '/links/definedLinks.json',
+          method: 'POST',
+          data: JSON.stringify(jsonData),
+          contentType: 'application/json; charset=utf-8',
+          dataType: 'json',
+          success: linksData
+        })
+      })
     }
     if ($('tbody#unknownLinks').length) {
       $('tbody#unknownLinks').html('')
@@ -46,7 +108,14 @@ function linksData (data, status, xhr) {
         $('tbody#unknownLinks').append(`
           <tr>
             <th scope='row'>${data['unknownLinks'][i]['device']}</th>
-            <td>Add Device/Delete Link</td>
+            <td>
+            <button type="button" id="unknownLinkAdd" class="btn btn-default btn-xs">
+              Add Device
+            </button>
+            <button type="button" id="unknownLinkDelete" class="btn btn-default btn-xs">
+              Delete
+            </button>
+            </td>
           </tr>
         `)
       }
@@ -63,7 +132,7 @@ function updateModemList (data) {
           <th scope='row'>${data[address]['name']}</th>
           <td>${address}</td>
           <td>status</td>
-          <td><a href='/modem/${address}'>View</a></td>
+          <td><a href='/modems/${address}'>View</a></td>
         </tr>
       `)
     }
@@ -76,7 +145,7 @@ function updateNavigation (data) {
     $('#navModem').html(`${data[modemAddress]['name']} - ${modemAddress}`)
   }
   if ($('a#navModem').length) {
-    $('a#navModem').attr('href', '/modem/' + modemAddress)
+    $('a#navModem').attr('href', '/modems/' + modemAddress)
   }
   if ($('li#navModemGroup').length) {
     var modemGroup = getModemGroup()
@@ -87,7 +156,7 @@ function updateNavigation (data) {
     $('#navDevice').html(`${data[modemAddress]['devices'][deviceAddress]['name']} - ${deviceAddress}`)
   }
   if ($('a#navDevice').length) {
-    $('a#navDevice').attr('href', '/modem/' + modemAddress + '/device/' + deviceAddress)
+    $('a#navDevice').attr('href', '/modems/' + modemAddress + '/devices/' + deviceAddress)
   }
   if ($('li#navDeviceGroup').length) {
     var deviceGroup = getDeviceGroup()
@@ -95,7 +164,7 @@ function updateNavigation (data) {
   }
 }
 
-function updateModemPage (data) {
+function updateModemSettings (data) {
   var modemAddress = getModemAddress()
   if ($('form#modemSettings').length) {
     $('form#modemSettings').html('')
@@ -122,11 +191,28 @@ function updateModemPage (data) {
       'Modem Port', 'port', 'text', data[modemAddress]['port'])
     )
     $('form#modemSettings').append(`
-      <button type="submit" class="btn btn-default btn-block">
+      <button type="button" id="modemSettingsSubmit" class="btn btn-default btn-block">
         Save Settings
       </button>
     `)
+    $('#modemSettingsSubmit').click(function () {
+      var jsonData = {}
+      jsonData[modemAddress] = constructJSON(['name', 'user', 'password', 'ip', 'port'])
+      $.ajax({
+        url: '/modems.json',
+        method: 'PATCH',
+        data: JSON.stringify(jsonData),
+        contentType: 'application/json; charset=utf-8',
+        dataType: 'json',
+        success: [updateModemSettings, updateNavigation]
+      })
+    })
   }
+}
+
+function updateModemPage (data) {
+  var modemAddress = getModemAddress()
+  updateModemSettings(data)
   if ($('tbody#modemScenes').length) {
     $('tbody#modemScenes').html(``)
     for (var groupNumber in data[modemAddress]['groups']) {
@@ -135,7 +221,7 @@ function updateModemPage (data) {
           <th scope='row'>${data[modemAddress]['groups'][groupNumber]['name']}</th>
           <td>${groupNumber}</td>
           <td>status</td>
-          <td><a href='/modem/${modemAddress}/group/${groupNumber}'>View</a></td>
+          <td><a href='/modems/${modemAddress}/groups/${groupNumber}'>View</a></td>
         </tr>
       `)
     }
@@ -147,7 +233,7 @@ function updateModemPage (data) {
           <th scope='row'>${data[modemAddress]['devices'][deviceAddress]['name']}</th>
           <td>${deviceAddress}</td>
           <td>status</td>
-          <td><a href='/modem/${modemAddress}/device/${deviceAddress}'>View</a></td>
+          <td><a href='/modems/${modemAddress}/devices/${deviceAddress}'>View</a></td>
         </tr>
       `)
     }
@@ -163,10 +249,22 @@ function updateModemGroupPage (data) {
       'Scene Name', 'name', 'text', data[modemAddress]['groups'][groupNumber]['name'])
     )
     $('form#modemGroupSettings').append(`
-      <button type="submit" class="btn btn-default btn-block">
+      <button type="button" id="modemGroupSettingsSubmit" class="btn btn-default btn-block">
         Save Settings
       </button>
     `)
+    $('#modemGroupSettingsSubmit').click(function () {
+      var jsonData = {}
+      jsonData[groupNumber] = constructJSON(['name'])
+      $.ajax({
+        url: '/modems/' + modemAddress + '/groups.json',
+        method: 'PATCH',
+        data: JSON.stringify(jsonData),
+        contentType: 'application/json; charset=utf-8',
+        dataType: 'json',
+        success: [updateModemGroupPage, updateNavigation]
+      })
+    })
   }
 }
 
@@ -182,10 +280,22 @@ function updateDevicePage (data) {
       'Device Address', 'name', 'text', deviceAddress, true)
     )
     $('form#deviceSettings').append(`
-      <button type="submit" class="btn btn-default btn-block">
+      <button type="button" id="deviceSettingsSubmit" class="btn btn-default btn-block">
         Save Settings
       </button>
     `)
+    $('#deviceSettingsSubmit').click(function () {
+      var jsonData = {}
+      jsonData[deviceAddress] = constructJSON(['name'])
+      $.ajax({
+        url: '/modems/' + modemAddress + '/devices.json',
+        method: 'PATCH',
+        data: JSON.stringify(jsonData),
+        contentType: 'application/json; charset=utf-8',
+        dataType: 'json',
+        success: [updateModemGroupPage, updateNavigation]
+      })
+    })
   }
   if ($('tbody#deviceGroups').length) {
     $('tbody#deviceGroups').html(``)
@@ -195,7 +305,7 @@ function updateDevicePage (data) {
           <th scope='row'>${data[modemAddress]['devices'][deviceAddress]['groups'][groupNumber]['name']}</th>
           <td>${groupNumber}</td>
           <td>status</td>
-          <td><a href='/modem/${modemAddress}/device/${deviceAddress}/group/${groupNumber}'>View</a></td>
+          <td><a href='/modems/${modemAddress}/devices/${deviceAddress}/groups/${groupNumber}'>View</a></td>
         </tr>
       `)
     }
@@ -212,10 +322,22 @@ function updateDeviceGroupPage (data) {
       'Group Name', 'name', 'text', data[modemAddress]['devices'][deviceAddress]['groups'][deviceGroup]['name'])
     )
     $('form#deviceGroupSettings').append(`
-      <button type="submit" class="btn btn-default btn-block">
+      <button type="button" id="deviceGroupSettingsSubmit" class="btn btn-default btn-block">
         Save Settings
       </button>
     `)
+    $('#deviceGroupSettingsSubmit').click(function () {
+      var jsonData = {}
+      jsonData[deviceGroup] = constructJSON(['name'])
+      $.ajax({
+        url: '/modems/' + modemAddress + '/devices/' + deviceAddress + '/groups.json',
+        method: 'PATCH',
+        data: JSON.stringify(jsonData),
+        contentType: 'application/json; charset=utf-8',
+        dataType: 'json',
+        success: [updateModemGroupPage, updateNavigation]
+      })
+    })
   }
 }
 
@@ -236,30 +358,38 @@ function createFormElement (label, id, type, value, readOnly) {
   return divElement.html()
 }
 
+function constructJSON (list) {
+  var ret = {}
+  for (var i = 0; i < list.length; i++) {
+    ret[list[i]] = $('input#' + list[i]).val()
+  }
+  return ret
+}
+
 function getModemAddress () {
-  var regex = /^\/modem\/([A-Fa-f0-9]{6})/
+  var regex = /^\/modems\/([A-Fa-f0-9]{6})/
   return regex.exec(window.location.pathname)[1]
 }
 
 function getModemGroup () {
-  var regex = /^\/modem\/[A-Fa-f0-9]{6}\/group\/([0-9]{1,3})/
+  var regex = /^\/modems\/[A-Fa-f0-9]{6}\/groups\/([0-9]{1,3})/
   return regex.exec(window.location.pathname)[1]
 }
 
 function getDeviceAddress () {
-  var regex = /^\/modem\/[A-Fa-f0-9]{6}\/device\/([A-Fa-f0-9]{6})/
+  var regex = /^\/modems\/[A-Fa-f0-9]{6}\/devices\/([A-Fa-f0-9]{6})/
   return regex.exec(window.location.pathname)[1]
 }
 
 function getDeviceGroup () {
-  var regex = /^\/modem\/[A-Fa-f0-9]{6}\/device\/[A-Fa-f0-9]{6}\/group\/([0-9]{1,3})/
+  var regex = /^\/modems\/[A-Fa-f0-9]{6}\/devices\/[A-Fa-f0-9]{6}\/groups\/([0-9]{1,3})/
   return regex.exec(window.location.pathname)[1]
 }
 
 $(document).ready(function () {
-  $.getJSON('/api', coreData)
+  $.getJSON('/modems.json', coreData)
   if ($('tbody#definedLinks').length) {
     var path = window.location.pathname.replace(/\/$/, '')
-    $.getJSON('/api' + path + '/links', linksData)
+    $.getJSON(path + '/links.json', linksData)
   }
 })

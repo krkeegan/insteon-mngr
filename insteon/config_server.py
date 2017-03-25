@@ -26,52 +26,89 @@ def stop(server):
 ##
 ###################################################################
 
-@route('/api<:re:/?>')
+# Bottle 0.12 doesn't have a patch decorator
+@route('/modems.json', method='PATCH')
+def api_modem_put():
+    for modem_id in request.json.keys():
+        modem = core.get_device_by_addr(modem_id)
+        update_device_attributes(modem, request.json[modem_id])
+    return jsonify(json_core())
+
+@get('/modems.json')
 def api():
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_core())
 
-@route('/api/modem/<modem_id:re:[A-Fa-f0-9]{6}>/group/<group_number:re:[0-9]{1,3}>/links<:re:/?>')
-def modem_links(modem_id, group_number):
-    response.headers['Content-Type'] = 'application/json'
-    return jsonify(json_links(modem_id, group_number))
-
-@route('/api/modem/<:re:[A-Fa-f0-9]{6}>/device/<device_id:re:[A-Fa-f0-9]{6}>/group/<group_number:re:[0-9]{1,3}>/links<:re:/?>')
-def device_links(device_id, group_number):
+@get('/modems/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links.json')
+@get('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links.json')
+def modem_links(device_id, group_number):
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_links(device_id, group_number))
 
+@route('/modems/<modem_id:re:[A-Fa-f0-9]{6}>/groups.json', method='PATCH')
+def api_modem_group_put(modem_id):
+    modem = core.get_device_by_addr(modem_id)
+    for group_number in request.json.keys():
+        group = modem.get_object_by_group_num(int(group_number))
+        update_device_attributes(group, request.json[group_number])
+    return jsonify(json_core())
+
+@post('/modems/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks.json')
+@post('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks.json')
+def add_defined_device_link(device_id, group_number):
+    root = core.get_device_by_addr(device_id)
+    controller_device = root.get_object_by_group_num(int(group_number))
+    # Be careful, no documentation guarantees that data_3 is always the group
+    responder_id = request.json['address']
+    responder_group = int(request.json['data_3'])
+    responder_root = core.get_device_by_addr(responder_id)
+    responder = responder_root.get_object_by_group_num(int(responder_group))
+    responder.add_user_link(controller_device, request.json)
+    response.headers['Content-Type'] = 'application/json'
+    return jsonify(json_links(device_id, group_number))
+
+@route('/modems/<:re:[A-Fa-f0-9]{6}>/devices.json', method='PATCH')
+def api_device_put():
+    for device_id in request.json.keys():
+        device = core.get_device_by_addr(device_id)
+        update_device_attributes(device, request.json[device_id])
+    return jsonify(json_core())
+
+@route('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups.json', method='PATCH')
+def api_device_group_put(device_id):
+    for group_number in request.json.keys():
+        device = core.get_device_by_addr(device_id)
+        group = device.get_object_by_group_num(int(group_number))
+        update_device_attributes(group, request.json[group_number])
+    return jsonify(json_core())
+
 ###################################################################
 ##
-# Static Responses
+# HTML Responses
 ##
 ###################################################################
 
-@route('/static/<path:path>')
+@get('/static/<path:path>')
 def callback(path):
     return static_file(path, root='insteon/web/static')
 
-@route('/modem/<:re:[A-Fa-f0-9]{6}/?>')
+@get('/modems/<:re:[A-Fa-f0-9]{6}/?>')
 def modem_page():
     return static_file('modem.html', root='insteon/web')
 
-@route('/modem/<:re:[A-Fa-f0-9]{6}/group/[0-9]{1,3}/?>')
+@get('/modems/<:re:[A-Fa-f0-9]{6}/groups/[0-9]{1,3}/?>')
 def modem_group_page():
     return static_file('modem_group.html', root='insteon/web')
 
-@route('/modem/<:re:[A-Fa-f0-9]{6}/device/[A-Fa-f0-9]{6}/?>')
+@get('/modems/<:re:[A-Fa-f0-9]{6}/devices/[A-Fa-f0-9]{6}/?>')
 def device_page():
     return static_file('device.html', root='insteon/web')
 
-@route('/modem/<:re:[A-Fa-f0-9]{6}/device/[A-Fa-f0-9]{6}/group/[0-9]{1,3}/?>')
+@get('/modems/<:re:[A-Fa-f0-9]{6}/devices/[A-Fa-f0-9]{6}/groups/[0-9]{1,3}/?>')
 def device_group_page():
     return static_file('device_group.html', root='insteon/web')
 
-# @route('/<path:path>')
-# def html_pages(path):
-#     return static_file(path, root='insteon/web')
-
-@route('/')
+@get('/')
 def index_page():
     return static_file('index.html', root='insteon/web')
 
@@ -110,8 +147,7 @@ def json_core():
             ret[modem.dev_addr_str]['devices'][device.dev_addr_str] = \
                 device.get_attributes()
             ret[modem.dev_addr_str]['devices'][device.dev_addr_str]['groups'] = {}
-            ret[modem.dev_addr_str]['devices'][device.dev_addr_str]['groups'][1] = device.get_attributes()
-            for group in device.get_all_groups():
+            for group in [device] + device.get_all_groups():
                 ret[modem.dev_addr_str]['devices'][device.dev_addr_str]['groups'][group.group_number] = \
                     group.get_attributes()
         ret[modem.dev_addr_str]['groups'] = {}
@@ -124,12 +160,12 @@ def json_links(device_id, group_number):
     ret = {}
     root = core.get_device_by_addr(device_id)
     device = root.get_object_by_group_num(int(group_number))
-    ret['definedLinks'] = user_link_output(device)
-    ret['undefinedLinks'] = undefined_link_output(device)
-    ret['unknownLinks'] = unknown_link_output(device)
+    ret['definedLinks'] = _user_link_output(device)
+    ret['undefinedLinks'] = _undefined_link_output(device)
+    ret['unknownLinks'] = _unknown_link_output(device)
     return ret
 
-def unknown_link_output(device):
+def _unknown_link_output(device):
     ret = []
     for link in device.get_unknown_device_links():
         link_parsed = link.parse_record()
@@ -139,7 +175,7 @@ def unknown_link_output(device):
         ret.append({'device': link_addr})
     return ret
 
-def undefined_link_output(device):
+def _undefined_link_output(device):
     ret = []
     for link in device.get_undefined_links():
         link_parsed = link.parse_record()
@@ -154,27 +190,45 @@ def undefined_link_output(device):
                 ret.append({
                     'responder': link_addr,
                     'data_1': responder_parsed['data_1'],
-                    'data_2': responder_parsed['data_2']
+                    'data_2': responder_parsed['data_2'],
+                    'data_3': responder_parsed['data_3'],
+                    'details': responder.device.functions.get_link_details()
                 })
         else:
             ret.append({
                 'responder': link.device.dev_addr_str,
                 'data_1': link_parsed['data_1'],
-                'data_2': link_parsed['data_2']
+                'data_2': link_parsed['data_2'],
+                'data_3': link_parsed['data_3'],
+                'details': link.device.functions.get_link_details()
             })
     return ret
 
-def user_link_output(device):
+def _user_link_output(device):
     ret = []
     user_links = core.get_user_links_for_this_controller(device)
     for link in user_links:
+        status = 'Broken'
+        if link.aldb_records_exist() is True:
+            status = 'Good'
         ret.append({
             'responder': link._device.dev_addr_str,
-            'data_1': link._data_1,
-            'data_2': link._data_2,
-            'status': 'something'
+            'data_1': link.data_1,
+            'data_2': link.data_2,
+            'details': link.device.functions.get_link_details(),
+            'status': status
         })
     return ret
+
+###################################################################
+##
+# Data Storing Functions
+##
+###################################################################
+
+def update_device_attributes(device, attributes):
+    for key, value in attributes.items():
+        device.attribute(key, value)
 
 ###################################################################
 ##

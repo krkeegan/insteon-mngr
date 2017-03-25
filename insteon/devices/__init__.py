@@ -3,6 +3,8 @@ from insteon.devices.generic_send import GenericSendHandler
 from insteon.devices.generic_functions import GenericFunctions
 from insteon.devices.group import (GroupFunctions, GroupSendHandler,
     PLMGroupSendHandler)
+from insteon.devices.dimmer import DimmerSendHandler, DimmerFunctions
+
 
 def select_device(device=None, dev_cat=0x00, sub_cat=0x00,
                   firmware=0x00, engine_version=0x00):
@@ -11,8 +13,9 @@ def select_device(device=None, dev_cat=0x00, sub_cat=0x00,
     ret['functions'] = GenericFunctions(device)
     ret['send_handler'] = GenericSendHandler(device)
     ret['rcvd_handler'] = GenericRcvdHandler(device)
-    if engine_version > 0x00:
-        pass
+    if dev_cat == 0x01:
+        ret['functions'] = DimmerFunctions(device)
+        ret['send_handler'] = DimmerSendHandler(device)
     return ret
 
 def select_group(device=None, dev_cat=0x00, sub_cat=0x00,

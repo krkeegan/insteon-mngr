@@ -16,6 +16,12 @@ class GroupFunctions(object):
     def __init__(self, group):
         self._group = group
 
+    def get_link_details(self):
+        '''Returns the intrinsic parameters of a device, these are not user
+        editable so are not saved in the config.json file'''
+        ret = {}
+        return ret
+
 
 class PLMGroupSendHandler(object):
     '''Provides the basic command handling for plm group object.'''
