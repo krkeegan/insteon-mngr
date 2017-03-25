@@ -215,22 +215,16 @@ class Root(Group):
     @property
     def dev_cat(self):
         dev_cat = self.attribute('dev_cat')
-        if dev_cat is None:
-            dev_cat = 0x00
         return dev_cat
 
     @property
     def sub_cat(self):
         sub_cat = self.attribute('sub_cat')
-        if sub_cat is None:
-            sub_cat = 0x00
         return sub_cat
 
     @property
     def firmware(self):
         firmware = self.attribute('firmware')
-        if firmware is None:
-            firmware = 0x00
         return firmware
 
     @property
