@@ -39,10 +39,11 @@ def api():
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_core())
 
-@get('/modems/<modem_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links.json')
-def modem_links(modem_id, group_number):
+@get('/modems/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links.json')
+@get('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links.json')
+def modem_links(device_id, group_number):
     response.headers['Content-Type'] = 'application/json'
-    return jsonify(json_links(modem_id, group_number))
+    return jsonify(json_links(device_id, group_number))
 
 @route('/modems/<modem_id:re:[A-Fa-f0-9]{6}>/groups.json', method='PATCH')
 def api_modem_group_put(modem_id):
@@ -52,11 +53,7 @@ def api_modem_group_put(modem_id):
         update_device_attributes(group, request.json[group_number])
     return jsonify(json_core())
 
-@get('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links.json')
-def device_links(device_id, group_number):
-    response.headers['Content-Type'] = 'application/json'
-    return jsonify(json_links(device_id, group_number))
-
+@post('/modems/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks.json')
 @post('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks.json')
 def add_defined_device_link(device_id, group_number):
     root = core.get_device_by_addr(device_id)
