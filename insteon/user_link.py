@@ -13,6 +13,10 @@ class UserLink(object):
         self._data_3 = data['data_3']
 
     @property
+    def device(self):
+        return self._device
+
+    @property
     def controller_id(self):
         return self._address
 

@@ -1,7 +1,9 @@
 /* global $ */
+var coreJSON
 
 function coreData (data, status, xhr) {
   if (status === 'success') {
+    coreJSON = data
     updateModemList(data)
     updateNavigation(data)
     updateModemPage(data)
@@ -17,23 +19,35 @@ function linksData (data, status, xhr) {
       $('tbody#definedLinks').html('')
       for (var i = 0; i < data['definedLinks'].length; i++) {
         var fixButton = ''
+        var rowClass = ''
         if (data['definedLinks'][i]['status'] == 'Broken'){
-        fixButton =  `
-          <button type="button" id="definedLinkFix" class="btn btn-default btn-xs">
-            Fix
-          </button>`
+          fixButton =  `
+            <button type="button" id="definedLinkFix" class="btn btn-default btn-xs">
+              Fix
+            </button>
+            `
+          rowClass = 'danger'
+        }
+        var data1Human = 'Unk'
+        for (var key in data['definedLinks'][i]['details']['data_1']['values']) {
+          if (data['definedLinks'][i]['data_1'] === data['definedLinks'][i]['details']['data_1']['values'][key]) {
+            data1Human = key
+          }
+        }
+        var data2Human = 'Unk'
+        for (var key in data['definedLinks'][i]['details']['data_2']['values']) {
+          if (data['definedLinks'][i]['data_2'] === data['definedLinks'][i]['details']['data_2']['values'][key]) {
+            data2Human = key
+          }
         }
         $('tbody#definedLinks').append(`
-          <tr>
+          <tr class="${rowClass}">
             <th scope='row'>${data['definedLinks'][i]['responder']}</th>
-            <td>${data['definedLinks'][i]['data_1']}</td>
-            <td>${data['definedLinks'][i]['data_2']}</td>
-            <td>${data['definedLinks'][i]['status']}</td>
-            <td>`
-            +
-            fixButton
-            +
-              `<button type="button" id="definedLinkEdit" class="btn btn-default btn-xs">
+            <td>${data['definedLinks'][i]['details']['data_1']['name']}: ${data1Human}</td>
+            <td>${data['definedLinks'][i]['details']['data_2']['name']}: ${data2Human}</td>
+            <td>
+              ${fixButton}
+              <button type="button" id="definedLinkEdit" class="btn btn-default btn-xs">
                 Edit
               </button>
               <button type="button" id="definedLinkDelete" class="btn btn-default btn-xs">
@@ -50,8 +64,8 @@ function linksData (data, status, xhr) {
         $('tbody#undefinedLinks').append(`
           <tr>
             <th scope='row'>${data['undefinedLinks'][i]['responder']}</th>
-            <td>${data['undefinedLinks'][i]['data_1']}</td>
-            <td>${data['undefinedLinks'][i]['data_2']}</td>
+            <td>${data['undefinedLinks'][i]['details']['data_1']['name']}: ${data['undefinedLinks'][i]['data_1']}</td>
+            <td>${data['undefinedLinks'][i]['details']['data_2']['name']}: ${data['undefinedLinks'][i]['data_2']}</td>
             <td>
               <button type="button"
                 address="${data['undefinedLinks'][i]['responder']}"
@@ -72,10 +86,10 @@ function linksData (data, status, xhr) {
       $('#undefinedLinkImport').click(function () {
         var jsonData = {
           'address': $(this).attr('address'),
-          'group': $(this).attr('group'),
-          'data_1': $(this).attr('data_1'),
-          'data_2': $(this).attr('data_2'),
-          'data_3': $(this).attr('data_3')
+          'group': parseInt($(this).attr('group')),
+          'data_1': parseInt($(this).attr('data_1')),
+          'data_2': parseInt($(this).attr('data_2')),
+          'data_3': parseInt($(this).attr('data_3'))
         }
         var path = window.location.pathname.replace(/\/$/, '')
         $.ajax({

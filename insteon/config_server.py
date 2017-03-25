@@ -150,8 +150,7 @@ def json_core():
             ret[modem.dev_addr_str]['devices'][device.dev_addr_str] = \
                 device.get_attributes()
             ret[modem.dev_addr_str]['devices'][device.dev_addr_str]['groups'] = {}
-            ret[modem.dev_addr_str]['devices'][device.dev_addr_str]['groups'][1] = device.get_attributes()
-            for group in device.get_all_groups():
+            for group in [device] + device.get_all_groups():
                 ret[modem.dev_addr_str]['devices'][device.dev_addr_str]['groups'][group.group_number] = \
                     group.get_attributes()
         ret[modem.dev_addr_str]['groups'] = {}
@@ -195,14 +194,16 @@ def _undefined_link_output(device):
                     'responder': link_addr,
                     'data_1': responder_parsed['data_1'],
                     'data_2': responder_parsed['data_2'],
-                    'data_3': responder_parsed['data_3']
+                    'data_3': responder_parsed['data_3'],
+                    'details': responder.device.functions.get_link_details()
                 })
         else:
             ret.append({
                 'responder': link.device.dev_addr_str,
                 'data_1': link_parsed['data_1'],
                 'data_2': link_parsed['data_2'],
-                'data_3': link_parsed['data_3']
+                'data_3': link_parsed['data_3'],
+                'details': link.device.functions.get_link_details()
             })
     return ret
 
@@ -217,6 +218,7 @@ def _user_link_output(device):
             'responder': link._device.dev_addr_str,
             'data_1': link.data_1,
             'data_2': link.data_2,
+            'details': link.device.functions.get_link_details(),
             'status': status
         })
     return ret
