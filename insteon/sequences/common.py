@@ -269,7 +269,7 @@ class InitializeDevice(BaseSequence):
                 'cmd_1': 0x01,
                 'insteon_msg_type': 'broadcast'
             }
-            trigger = InsteonTrigger(device=self,
+            trigger = InsteonTrigger(device=self._device,
                                      attributes=trigger_attributes)
             trigger.trigger_function = lambda: self._device.send_handler.get_status()
             trigger.name = self._device.dev_addr_str + 'init_step_2'
