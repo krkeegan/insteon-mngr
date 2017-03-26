@@ -50,7 +50,7 @@ function linksData (data, status, xhr) {
           rowClass = 'danger'
         }
         var linkDetails = getDeviceLinkDetails(
-          data['definedLinks'][i]['responder'],
+          data['definedLinks'][i]['responder_id'],
           data['definedLinks'][i]['data_3']
         )
         var data1Human = 'Unk'
@@ -67,7 +67,7 @@ function linksData (data, status, xhr) {
         }
         $('tbody#definedLinks').append(`
           <tr class="${rowClass}">
-            <th scope='row'>${data['definedLinks'][i]['responder']}</th>
+            <th scope='row'>${data['definedLinks'][i]['responder_name']} - ${data['definedLinks'][i]['responder_id']}</th>
             <td>${linkDetails['data_1']['name']}: ${data1Human}</td>
             <td>${linkDetails['data_2']['name']}: ${data2Human}</td>
             <td>
@@ -87,17 +87,17 @@ function linksData (data, status, xhr) {
       $('tbody#undefinedLinks').html('')
       for (var i = 0; i < data['undefinedLinks'].length; i++) {
         var linkDetails = getDeviceLinkDetails(
-          data['undefinedLinks'][i]['responder'],
+          data['undefinedLinks'][i]['responder_id'],
           data['undefinedLinks'][i]['data_3']
         )
         $('tbody#undefinedLinks').append(`
           <tr>
-            <th scope='row'>${data['undefinedLinks'][i]['responder']}</th>
+            <th scope='row'>${data['undefinedLinks'][i]['responder_name']} - ${data['undefinedLinks'][i]['responder_id']}</th>
             <td>${linkDetails['data_1']['name']}: ${data['undefinedLinks'][i]['data_1']}</td>
             <td>${linkDetails['data_2']['name']}: ${data['undefinedLinks'][i]['data_2']}</td>
             <td>
               <button type="button"
-                address="${data['undefinedLinks'][i]['responder']}"
+                address="${data['undefinedLinks'][i]['responder_id']}"
                 data_1="${data['undefinedLinks'][i]['data_1']}"
                 data_2="${data['undefinedLinks'][i]['data_2']}"
                 data_3="${data['undefinedLinks'][i]['data_3']}"

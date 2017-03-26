@@ -189,13 +189,15 @@ def _undefined_link_output(device):
                 responder_parsed = responder.parse_record()
                 ret.append({
                     'responder': link_addr,
+                    'responder_name': responder.device.name,
                     'data_1': responder_parsed['data_1'],
                     'data_2': responder_parsed['data_2'],
                     'data_3': responder_parsed['data_3']
                 })
         else:
             ret.append({
-                'responder': link.device.dev_addr_str,
+                'responder_id': link.device.root.dev_addr_str,
+                'responder_name': link.device.name,
                 'data_1': link_parsed['data_1'],
                 'data_2': link_parsed['data_2'],
                 'data_3': link_parsed['data_3']
@@ -210,7 +212,8 @@ def _user_link_output(device):
         if link.aldb_records_exist() is True:
             status = 'Good'
         ret.append({
-            'responder': link._device.dev_addr_str,
+            'responder_id': link.device.dev_addr_str,
+            'responder_name': link.device.name,
             'data_1': link.data_1,
             'data_2': link.data_2,
             'data_3': link.data_3,
