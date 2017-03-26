@@ -1,5 +1,5 @@
 /* global $ */
-var coreJSON
+var coreJSON = {}
 
 function coreData (data, status, xhr) {
   if (status === 'success') {
@@ -11,6 +11,27 @@ function coreData (data, status, xhr) {
     updateDevicePage(data)
     updateDeviceGroupPage(data)
   }
+}
+
+function getDeviceLinkDetails (deviceID, groupID) {
+  var ret = {}
+  if (coreJSON.hasOwnProperty(deviceID)) {
+    ret = coreJSON[deviceID]
+    if (ret['groups'].hasOwnProperty(groupID)) {
+      ret = ret['groups'][groupID]
+    }
+  } else {
+    for (var modem in coreJSON) {
+      if (coreJSON[modem]['devices'].hasOwnProperty(deviceID)) {
+        ret = coreJSON[modem]['devices'][deviceID]
+        if (ret['groups'].hasOwnProperty(groupID)) {
+          ret = ret['groups'][groupID]
+        }
+        break
+      }
+    }
+  }
+  return ret
 }
 
 function linksData (data, status, xhr) {
@@ -28,23 +49,27 @@ function linksData (data, status, xhr) {
             `
           rowClass = 'danger'
         }
+        var linkDetails = getDeviceLinkDetails(
+          data['definedLinks'][i]['responder'],
+          data['definedLinks'][i]['data_3']
+        )
         var data1Human = 'Unk'
-        for (var key in data['definedLinks'][i]['details']['data_1']['values']) {
-          if (data['definedLinks'][i]['data_1'] === data['definedLinks'][i]['details']['data_1']['values'][key]) {
+        for (var key in linkDetails['data_1']['values']) {
+          if (data['definedLinks'][i]['data_1'] === linkDetails['data_1']['values'][key]) {
             data1Human = key
           }
         }
         var data2Human = 'Unk'
-        for (var key in data['definedLinks'][i]['details']['data_2']['values']) {
-          if (data['definedLinks'][i]['data_2'] === data['definedLinks'][i]['details']['data_2']['values'][key]) {
+        for (var key in linkDetails['data_2']['values']) {
+          if (data['definedLinks'][i]['data_2'] === linkDetails['data_2']['values'][key]) {
             data2Human = key
           }
         }
         $('tbody#definedLinks').append(`
           <tr class="${rowClass}">
             <th scope='row'>${data['definedLinks'][i]['responder']}</th>
-            <td>${data['definedLinks'][i]['details']['data_1']['name']}: ${data1Human}</td>
-            <td>${data['definedLinks'][i]['details']['data_2']['name']}: ${data2Human}</td>
+            <td>${linkDetails['data_1']['name']}: ${data1Human}</td>
+            <td>${linkDetails['data_2']['name']}: ${data2Human}</td>
             <td>
               ${fixButton}
               <button type="button" id="definedLinkEdit" class="btn btn-default btn-xs">
@@ -61,11 +86,15 @@ function linksData (data, status, xhr) {
     if ($('tbody#undefinedLinks').length) {
       $('tbody#undefinedLinks').html('')
       for (var i = 0; i < data['undefinedLinks'].length; i++) {
+        var linkDetails = getDeviceLinkDetails(
+          data['undefinedLinks'][i]['responder'],
+          data['undefinedLinks'][i]['data_3']
+        )
         $('tbody#undefinedLinks').append(`
           <tr>
             <th scope='row'>${data['undefinedLinks'][i]['responder']}</th>
-            <td>${data['undefinedLinks'][i]['details']['data_1']['name']}: ${data['undefinedLinks'][i]['data_1']}</td>
-            <td>${data['undefinedLinks'][i]['details']['data_2']['name']}: ${data['undefinedLinks'][i]['data_2']}</td>
+            <td>${linkDetails['data_1']['name']}: ${data['undefinedLinks'][i]['data_1']}</td>
+            <td>${linkDetails['data_2']['name']}: ${data['undefinedLinks'][i]['data_2']}</td>
             <td>
               <button type="button"
                 address="${data['undefinedLinks'][i]['responder']}"

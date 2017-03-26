@@ -152,7 +152,9 @@ class Group(object):
         return ret
 
     def get_attributes(self):
-        return self._attributes.copy()
+        ret = self._attributes.copy()
+        ret.update(self.functions.get_link_details())
+        return ret
 
     def add_user_link(self, controller_device, data):
         controller_id = controller_device.root.dev_addr_str

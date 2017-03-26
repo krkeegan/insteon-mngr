@@ -191,16 +191,14 @@ def _undefined_link_output(device):
                     'responder': link_addr,
                     'data_1': responder_parsed['data_1'],
                     'data_2': responder_parsed['data_2'],
-                    'data_3': responder_parsed['data_3'],
-                    'details': responder.device.functions.get_link_details()
+                    'data_3': responder_parsed['data_3']
                 })
         else:
             ret.append({
                 'responder': link.device.dev_addr_str,
                 'data_1': link_parsed['data_1'],
                 'data_2': link_parsed['data_2'],
-                'data_3': link_parsed['data_3'],
-                'details': link.device.functions.get_link_details()
+                'data_3': link_parsed['data_3']
             })
     return ret
 
@@ -215,7 +213,7 @@ def _user_link_output(device):
             'responder': link._device.dev_addr_str,
             'data_1': link.data_1,
             'data_2': link.data_2,
-            'details': link.device.functions.get_link_details(),
+            'data_3': link.data_3,
             'status': status
         })
     return ret
