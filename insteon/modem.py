@@ -494,6 +494,9 @@ class ModemSendHandler(object):
 
 
 class ModemGroup(Group):
+    def __init__(self, root, group_number, **kwargs):
+        super().__init__(root, group_number, **kwargs)
+
     def get_unknown_device_links(self):
         '''Returns all links on the device which do not associated with a
         known device.  For Modems, responder links only appear under

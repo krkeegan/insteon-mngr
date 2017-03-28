@@ -16,20 +16,19 @@ class GroupFunctions(object):
     def __init__(self, group):
         self._group = group
 
-    def get_link_details(self):
+    def get_features(self):
         '''Returns the intrinsic parameters of a device, these are not user
         editable so are not saved in the config.json file'''
-        ret = {}
+        ret = {
+            'responder': False
+        }
         return ret
 
 
-class PLMGroupSendHandler(object):
+class PLMGroupSendHandler(GroupSendHandler):
     '''Provides the basic command handling for plm group object.'''
     def __init__(self, group):
-        # Be careful storing any attributes, this object may be dropped
-        # and replaced with a new object in a different class at runtime
-        # if the dev_cat changes
-        self._group = group
+        super().__init__(group)
 
     def _state_commands(self):
         on_plm_bytes = {
@@ -76,3 +75,13 @@ class PLMGroupSendHandler(object):
             message.seq_time = wait_time
             message.extra_ack_time = wait_time
             self._group.root.plm.queue_device_msg(message)
+
+class PLMGroupFunctions(GroupFunctions):
+    def __init__(self, group):
+        super().__init__(group)
+
+    def get_features(self):
+        '''Returns the intrinsic parameters of a device, these are not user
+        editable so are not saved in the config.json file'''
+        ret = super().get_features()
+        return ret

@@ -10,6 +10,10 @@ function coreData (data, status, xhr) {
     updateModemGroupPage(data)
     updateDevicePage(data)
     updateDeviceGroupPage(data)
+    if ($('tbody#definedLinks').length) {
+      var path = window.location.pathname.replace(/\/$/, '')
+      $.getJSON(path + '/links.json', linksData)
+    }
   }
 }
 
@@ -34,6 +38,35 @@ function getDeviceLinkDetails (deviceID, groupID) {
   return ret
 }
 
+function addResponder (ret, deviceID, group, deviceData) {
+  if (deviceData['responder'] === true) {
+    // Key is used solely to catch duplicates
+    ret[deviceID + '_' + group] = {
+      'name': deviceData['name'],
+      'group_number': group,
+      'deviceID': deviceID
+    }
+  }
+  return ret
+}
+
+function getResponderList () {
+  var ret = {}
+  for (var modem in coreJSON) {
+    ret = addResponder(ret, modem, 1, coreJSON[modem])
+    for (var modemGroup in coreJSON[modem]['groups']) {
+      ret = addResponder(ret, modem, modemGroup, coreJSON[modem]['groups'][modemGroup])
+    }
+    for (var device in coreJSON[modem]['devices']) {
+      ret = addResponder(ret, device, 1, coreJSON[modem]['devices'][device])
+      for (var deviceGroup in coreJSON[modem]['devices'][device]['groups']) {
+        ret = addResponder(ret, device, deviceGroup, coreJSON[modem]['devices'][device]['groups'][deviceGroup])
+      }
+    }
+  }
+  return ret
+}
+
 function linksData (data, status, xhr) {
   if (status === 'success') {
     if ($('tbody#definedLinks').length) {
@@ -41,8 +74,8 @@ function linksData (data, status, xhr) {
       for (var i = 0; i < data['definedLinks'].length; i++) {
         var fixButton = ''
         var rowClass = ''
-        if (data['definedLinks'][i]['status'] == 'Broken'){
-          fixButton =  `
+        if (data['definedLinks'][i]['status'] === 'Broken') {
+          fixButton = `
             <button type="button" id="definedLinkFix" class="btn btn-default btn-xs">
               Fix
             </button>
@@ -53,23 +86,42 @@ function linksData (data, status, xhr) {
           data['definedLinks'][i]['responder_id'],
           data['definedLinks'][i]['data_3']
         )
-        var data1Human = 'Unk'
+        var responderInput = $('<select disabled="disabled"/>')
+        var responders = getResponderList()
+        for (var key in responders) {
+          var deviceID = responders[key]['deviceID']
+          var deviceName = responders[key]['name']
+          var option = $('<option>').attr('value', deviceID).text(deviceName + ' - ' + deviceID)
+          // This may not be suffcient, we might need to match group here too
+          if (data['definedLinks'][i]['responder_id'] === deviceID) {
+            option.attr('selected', true)
+          }
+          responderInput.append(option)
+        }
+        responderInput = $('<div>').append(responderInput).html()
+        var data1Input = $('<select disabled="disabled"/>')
         for (var key in linkDetails['data_1']['values']) {
+          var option = $('<option>').attr('value', linkDetails['data_1']['values'][key]).text(key)
           if (data['definedLinks'][i]['data_1'] === linkDetails['data_1']['values'][key]) {
-            data1Human = key
+            option.attr('selected', true)
           }
+          data1Input.append(option)
         }
-        var data2Human = 'Unk'
+        data1Input = $('<div>').append(data1Input).html()
+        var data2Input = $('<select disabled="disabled"/>')
         for (var key in linkDetails['data_2']['values']) {
+          var option = $('<option>').attr('value', linkDetails['data_2']['values'][key]).text(key)
           if (data['definedLinks'][i]['data_2'] === linkDetails['data_2']['values'][key]) {
-            data2Human = key
+            option.attr('selected', true)
           }
+          data2Input.append(option)
         }
+        data2Input = $('<div>').append(data2Input).html()
         $('tbody#definedLinks').append(`
-          <tr class="${rowClass}">
-            <th scope='row'>${data['definedLinks'][i]['responder_name']} - ${data['definedLinks'][i]['responder_id']}</th>
-            <td>${linkDetails['data_1']['name']}: ${data1Human}</td>
-            <td>${linkDetails['data_2']['name']}: ${data2Human}</td>
+          <tr id="definedLinksRow${i}" class="${rowClass}">
+            <th scope='row'>${responderInput}</th>
+            <td id="definedLinksData1${i}">${linkDetails['data_1']['name']}: ${data1Input}</td>
+            <td id="definedLinksData2${i}">${linkDetails['data_2']['name']}: ${data2Input}</td>
             <td>
               ${fixButton}
               <button type="button" id="definedLinkEdit" class="btn btn-default btn-xs">
@@ -417,8 +469,4 @@ function getDeviceGroup () {
 
 $(document).ready(function () {
   $.getJSON('/modems.json', coreData)
-  if ($('tbody#definedLinks').length) {
-    var path = window.location.pathname.replace(/\/$/, '')
-    $.getJSON(path + '/links.json', linksData)
-  }
 })

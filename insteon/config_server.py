@@ -141,19 +141,19 @@ def json_core():
     ret = {}
     modems = core.get_all_modems()
     for modem in modems:
-        ret[modem.dev_addr_str] = modem.get_attributes()
+        ret[modem.dev_addr_str] = modem.get_features_and_attributes()
         ret[modem.dev_addr_str]['devices'] = {}
         for device in modem.get_all_devices():
             ret[modem.dev_addr_str]['devices'][device.dev_addr_str] = \
-                device.get_attributes()
+                device.get_features_and_attributes()
             ret[modem.dev_addr_str]['devices'][device.dev_addr_str]['groups'] = {}
             for group in [device] + device.get_all_groups():
                 ret[modem.dev_addr_str]['devices'][device.dev_addr_str]['groups'][group.group_number] = \
-                    group.get_attributes()
+                    group.get_features_and_attributes()
         ret[modem.dev_addr_str]['groups'] = {}
         for group in modem.get_all_groups():
             ret[modem.dev_addr_str]['groups'][group.group_number] = \
-                group.get_attributes()
+                group.get_features_and_attributes()
     return ret
 
 def json_links(device_id, group_number):

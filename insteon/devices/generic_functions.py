@@ -1,12 +1,6 @@
 class GenericFunctions(object):
     def __init__(self, device):
         self._device = device
-        # The following define the human readable names
-        self.data_1_name = 'On/Off'
-        self.data_2_name = 'None'
-        # The following define the default responder values
-        self.data_1_default = 0xFF
-        self.data_2_default = 0x00
 
     def get_responder_data3(self):
         '''Returns the correct data3 value for responder links on this device'''
@@ -35,18 +29,20 @@ class GenericFunctions(object):
     def list_data_2_options(self):
         return {'None': 0x00}
 
-    def get_link_details(self):
+    def get_features(self):
         '''Returns the intrinsic parameters of a device, these are not user
         editable so are not saved in the config.json file'''
-        ret = {}
+        ret = {
+            'responder': True
+        }
         ret['data_1'] = {
-            'name': self.data_1_name,
-            'default': self.data_1_default,
+            'name': 'On/Off',
+            'default': 0xFF,
             'values': self.list_data_1_options()
         }
         ret['data_2'] = {
-            'name': self.data_2_name,
-            'default': self.data_2_default,
+            'name': 'None',
+            'default': 0x00,
             'values': self.list_data_2_options()
         }
         return ret

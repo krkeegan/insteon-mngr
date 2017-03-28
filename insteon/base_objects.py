@@ -113,6 +113,10 @@ class Group(object):
         return ret
 
     def attribute(self, attr, value=None):
+        '''An attribute is a characteristic of an object that is not intrinsic
+        to the nature of device. This includes dev_cat and related items as well
+        as the object state.  Attribute excludes things like whether the object is a
+        responder or is_deaf, these are features.'''
         if value is not None:
             self._attributes[attr] = value
         try:
@@ -153,7 +157,11 @@ class Group(object):
 
     def get_attributes(self):
         ret = self._attributes.copy()
-        ret.update(self.functions.get_link_details())
+        return ret
+
+    def get_features_and_attributes(self):
+        ret = self.get_attributes()
+        ret.update(self.functions.get_features())
         return ret
 
     def add_user_link(self, controller_device, data):
