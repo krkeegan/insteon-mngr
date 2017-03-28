@@ -4,7 +4,7 @@ import re
 
 from bottle import (route, run, Bottle, response, get, post, put, delete,
                     request, error, static_file, view, TEMPLATE_PATH,
-                    WSGIRefServer)
+                    WSGIRefServer, redirect)
 
 from insteon.base_objects import BYTE_TO_ID
 
@@ -100,9 +100,9 @@ def modem_page():
 def modem_group_page():
     return static_file('modem_group.html', root='insteon/web')
 
-@get('/modems/<:re:[A-Fa-f0-9]{6}/devices/[A-Fa-f0-9]{6}/?>')
-def device_page():
-    return static_file('device.html', root='insteon/web')
+@get('/modems/<modem_id:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}/?>')
+def device_page(modem_id, device_id):
+    redirect('/modems/' + modem_id + '/devices/' + device_id +'/groups/1')
 
 @get('/modems/<:re:[A-Fa-f0-9]{6}/devices/[A-Fa-f0-9]{6}/groups/[0-9]{1,3}/?>')
 def device_group_page():

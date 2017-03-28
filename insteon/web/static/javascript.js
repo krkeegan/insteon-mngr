@@ -8,7 +8,6 @@ function coreData (data, status, xhr) {
     updateNavigation(data)
     updateModemPage(data)
     updateModemGroupPage(data)
-    updateDevicePage(data)
     updateDeviceGroupPage(data)
     if ($('tbody#definedLinks').length) {
       var path = window.location.pathname.replace(/\/$/, '')
@@ -232,16 +231,10 @@ function updateNavigation (data) {
     var modemGroup = getModemGroup()
     $('li#navModemGroup').html(`${data[modemAddress]['groups'][modemGroup]['name']} - ${modemGroup}`)
   }
-  if ($('#navDevice').length) {
-    var deviceAddress = getDeviceAddress()
-    $('#navDevice').html(`${data[modemAddress]['devices'][deviceAddress]['name']} - ${deviceAddress}`)
-  }
-  if ($('a#navDevice').length) {
-    $('a#navDevice').attr('href', '/modems/' + modemAddress + '/devices/' + deviceAddress)
-  }
   if ($('li#navDeviceGroup').length) {
     var deviceGroup = getDeviceGroup()
-    $('li#navDeviceGroup').html(`${data[modemAddress]['devices'][deviceAddress]['groups'][deviceGroup]['name']} - ${deviceGroup}`)
+    var deviceAddress = getDeviceAddress()
+    $('li#navDeviceGroup').html(`${data[modemAddress]['devices'][deviceAddress]['groups'][deviceGroup]['name']} - ${deviceAddress} - ${deviceGroup}`)
   }
 }
 
@@ -349,27 +342,28 @@ function updateModemGroupPage (data) {
   }
 }
 
-function updateDevicePage (data) {
+function updateDeviceGroupPage (data) {
   var modemAddress = getModemAddress()
-  if ($('form#deviceSettings').length) {
+  if ($('form#deviceGroupSettings').length) {
     var deviceAddress = getDeviceAddress()
-    $('form#deviceSettings').html('')
-    $('form#deviceSettings').append(createFormElement(
-      'Device Name', 'name', 'text', data[modemAddress]['devices'][deviceAddress]['name'])
+    var deviceGroup = getDeviceGroup()
+    $('form#deviceGroupSettings').html('')
+    $('form#deviceGroupSettings').append(createFormElement(
+      'Group Name', 'name', 'text', data[modemAddress]['devices'][deviceAddress]['groups'][deviceGroup]['name'])
     )
     $('form#deviceSettings').append(createFormElement(
       'Device Address', 'name', 'text', deviceAddress, true)
     )
-    $('form#deviceSettings').append(`
-      <button type="button" id="deviceSettingsSubmit" class="btn btn-default btn-block">
+    $('form#deviceGroupSettings').append(`
+      <button type="button" id="deviceGroupSettingsSubmit" class="btn btn-default btn-block">
         Save Settings
       </button>
     `)
-    $('#deviceSettingsSubmit').click(function () {
+    $('#deviceGroupSettingsSubmit').click(function () {
       var jsonData = {}
-      jsonData[deviceAddress] = constructJSON(['name'])
+      jsonData[deviceGroup] = constructJSON(['name'])
       $.ajax({
-        url: '/modems/' + modemAddress + '/devices.json',
+        url: '/modems/' + modemAddress + '/devices/' + deviceAddress + '/groups.json',
         method: 'PATCH',
         data: JSON.stringify(jsonData),
         contentType: 'application/json; charset=utf-8',
@@ -390,35 +384,6 @@ function updateDevicePage (data) {
         </tr>
       `)
     }
-  }
-}
-
-function updateDeviceGroupPage (data) {
-  var modemAddress = getModemAddress()
-  if ($('form#deviceGroupSettings').length) {
-    var deviceAddress = getDeviceAddress()
-    var deviceGroup = getDeviceGroup()
-    $('form#deviceGroupSettings').html('')
-    $('form#deviceGroupSettings').append(createFormElement(
-      'Group Name', 'name', 'text', data[modemAddress]['devices'][deviceAddress]['groups'][deviceGroup]['name'])
-    )
-    $('form#deviceGroupSettings').append(`
-      <button type="button" id="deviceGroupSettingsSubmit" class="btn btn-default btn-block">
-        Save Settings
-      </button>
-    `)
-    $('#deviceGroupSettingsSubmit').click(function () {
-      var jsonData = {}
-      jsonData[deviceGroup] = constructJSON(['name'])
-      $.ajax({
-        url: '/modems/' + modemAddress + '/devices/' + deviceAddress + '/groups.json',
-        method: 'PATCH',
-        data: JSON.stringify(jsonData),
-        contentType: 'application/json; charset=utf-8',
-        dataType: 'json',
-        success: [updateModemGroupPage, updateNavigation]
-      })
-    })
   }
 }
 
