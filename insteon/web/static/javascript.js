@@ -123,15 +123,40 @@ function linksData (data, status, xhr) {
             <td id="definedLinksData2${i}">${linkDetails['data_2']['name']}: ${data2Input}</td>
             <td>
               ${fixButton}
-              <button type="button" id="definedLinkEdit" class="btn btn-default btn-xs">
+              <button type="button" class="btn btn-default btn-xs definedLinkEdit">
                 Edit
               </button>
-              <button type="button" id="definedLinkDelete" class="btn btn-default btn-xs">
+              <button type="button" class="btn btn-default btn-xs definedLinkDelete">
                 Delete
+              </button>
+              <button type="button" class="btn btn-default btn-xs definedLinkSave" style="display: none">
+                Save
+              </button>
+              <button type="button" class="btn btn-default btn-xs definedLinkCancel" style="display: none">
+                Cancel
               </button>
             </td>
           </tr>
         `)
+        $('.definedLinkEdit').click(function (event) {
+          $(this).parents('tr').find('select').removeAttr('disabled')
+          $(this).parents('tr').find('.definedLinkEdit').hide()
+          $(this).parents('tr').find('.definedLinkDelete').hide()
+          $(this).parents('tr').find('.definedLinkSave').show()
+          $(this).parents('tr').find('.definedLinkCancel').show()
+        })
+        $('.definedLinkCancel').click(function (event) {
+          $(this).parents('tr').find('select').attr('disabled', true)
+          $(this).parents('tr').find('select').val(function () {
+            return $(this).find('option').filter(function () {
+              return $(this).prop('defaultSelected')
+            }).val()
+          })
+          $(this).parents('tr').find('.definedLinkEdit').show()
+          $(this).parents('tr').find('.definedLinkDelete').show()
+          $(this).parents('tr').find('.definedLinkSave').hide()
+          $(this).parents('tr').find('.definedLinkCancel').hide()
+        })
       }
     }
     if ($('tbody#undefinedLinks').length) {
@@ -156,14 +181,14 @@ function linksData (data, status, xhr) {
               >
                 Import
               </button>
-              <button type="button" id="undefinedLinkDelete" class="btn btn-default btn-xs">
+              <button type="button" class="btn btn-default btn-xs undefinedLinkDelete">
                 Delete
               </button>
             </td>
           </tr>
         `)
       }
-      $('#undefinedLinkImport').click(function () {
+      $('.undefinedLinkImport').click(function () {
         var jsonData = {
           'address': $(this).attr('address'),
           'group': parseInt($(this).attr('group')),
