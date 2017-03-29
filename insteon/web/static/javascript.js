@@ -85,7 +85,7 @@ function linksData (data, status, xhr) {
           data['definedLinks'][i]['responder_id'],
           data['definedLinks'][i]['data_3']
         )
-        var responderInput = $('<select disabled="disabled"/>')
+        var responderInput = $('<select class="col-sm-12 form-control form-control-sm" disabled="disabled"/>')
         var responders = getResponderList()
         for (var key in responders) {
           var deviceID = responders[key]['deviceID']
@@ -98,7 +98,7 @@ function linksData (data, status, xhr) {
           responderInput.append(option)
         }
         responderInput = $('<div>').append(responderInput).html()
-        var data1Input = $('<select disabled="disabled"/>')
+        var data1Input = $('<select class="form-control" disabled="disabled"/>')
         for (var key in linkDetails['data_1']['values']) {
           var option = $('<option>').attr('value', linkDetails['data_1']['values'][key]).text(key)
           if (data['definedLinks'][i]['data_1'] === linkDetails['data_1']['values'][key]) {
@@ -107,7 +107,7 @@ function linksData (data, status, xhr) {
           data1Input.append(option)
         }
         data1Input = $('<div>').append(data1Input).html()
-        var data2Input = $('<select disabled="disabled"/>')
+        var data2Input = $('<select class="col-sm-8 form-control form-control-sm" disabled="disabled"/>')
         for (var key in linkDetails['data_2']['values']) {
           var option = $('<option>').attr('value', linkDetails['data_2']['values'][key]).text(key)
           if (data['definedLinks'][i]['data_2'] === linkDetails['data_2']['values'][key]) {
@@ -118,21 +118,45 @@ function linksData (data, status, xhr) {
         data2Input = $('<div>').append(data2Input).html()
         $('tbody#definedLinks').append(`
           <tr id="definedLinksRow${i}" class="${rowClass}">
-            <th scope='row'>${responderInput}</th>
-            <td id="definedLinksData1${i}">${linkDetails['data_1']['name']}: ${data1Input}</td>
-            <td id="definedLinksData2${i}">${linkDetails['data_2']['name']}: ${data2Input}</td>
-            <td>
+            <th class="row" scope='row'>
+              <div>
+              <label class="visible-sm visible-xs col-form-label">
+                -
+              </label>
+                ${responderInput}
+              </div>
+            </th>
+            <td class="row form-group" id="definedLinksData1${i}">
+              <label class="col-md-4 col-form-label">
+                ${linkDetails['data_1']['name']}
+              </label>
+              <div class="col-md-8">
+                ${data1Input}
+              </div>
+            </td>
+            <td class="row form-group" id="definedLinksData2${i}">
+              <label class="col-md-4 col-form-label">
+                ${linkDetails['data_2']['name']}
+              </label>
+              <div class="col-md-8">
+                ${data2Input}
+              </div>
+            </td>
+            <td class="row">
+              <label class="visible-sm visible-xs col-form-label">
+                -
+              </label>
               ${fixButton}
-              <button type="button" class="btn btn-default btn-xs definedLinkEdit">
+              <button type="button" class="btn btn-default definedLinkEdit">
                 Edit
               </button>
-              <button type="button" class="btn btn-default btn-xs definedLinkDelete">
+              <button type="button" class="btn btn-danger definedLinkDelete">
                 Delete
               </button>
-              <button type="button" class="btn btn-default btn-xs definedLinkSave" style="display: none">
+              <button type="button" class="btn btn-success definedLinkSave" style="display: none">
                 Save
               </button>
-              <button type="button" class="btn btn-default btn-xs definedLinkCancel" style="display: none">
+              <button type="button" class="btn btn-default definedLinkCancel" style="display: none">
                 Cancel
               </button>
             </td>
@@ -177,11 +201,11 @@ function linksData (data, status, xhr) {
                 data_1="${data['undefinedLinks'][i]['data_1']}"
                 data_2="${data['undefinedLinks'][i]['data_2']}"
                 data_3="${data['undefinedLinks'][i]['data_3']}"
-                id="undefinedLinkImport" class="btn btn-default btn-xs"
+                id="undefinedLinkImport" class="btn btn-default"
               >
                 Import
               </button>
-              <button type="button" class="btn btn-default btn-xs undefinedLinkDelete">
+              <button type="button" class="btn btn-danger undefinedLinkDelete">
                 Delete
               </button>
             </td>
