@@ -212,8 +212,9 @@ def _user_link_output(device):
         if link.aldb_records_exist() is True:
             status = 'Good'
         ret.append({
-            'responder_id': link.device.dev_addr_str,
+            'responder_id': link.device.root.dev_addr_str,
             'responder_name': link.device.name,
+            'responder_group': link.device.group_number,
             'data_1': link.data_1,
             'data_2': link.data_2,
             'data_3': link.data_3,

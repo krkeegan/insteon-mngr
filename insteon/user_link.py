@@ -4,7 +4,7 @@ class UserLink(object):
     '''The base class for user_links'''
 
     def __init__(self, device, reciprocal_id, group_number, data):
-        self._device = device
+        self._root_device = device.root
         self._core = device.root.core
         self._address = reciprocal_id.upper()
         self._group = int(group_number)
@@ -14,7 +14,8 @@ class UserLink(object):
 
     @property
     def device(self):
-        return self._device
+        device = self._root_device.get_object_by_group_num(self.data_3)
+        return device
 
     @property
     def controller_id(self):
@@ -63,10 +64,10 @@ class UserLink(object):
             if (aldb_parsed['group'] == self._group and
                     aldb_parsed['in_use'] is True):
                 if (aldb_parsed['controller'] is True and
-                        linked_addr == self._device.dev_addr_str):
+                        linked_addr == self.device.root.dev_addr_str):
                     ret = True
                 elif(aldb_parsed['controller'] is False and
-                     record_addr == self._device.dev_addr_str):
+                     record_addr == self.device.root.dev_addr_str):
                     ret = True
         return ret
 
@@ -83,15 +84,15 @@ class UserLink(object):
             'data_2': self.data_2,
             'data_3': self.data_3
         }
-        records = self._device.aldb.get_matching_records(attributes)
+        records = self.device.root.aldb.get_matching_records(attributes)
         if len(records) > 0:
             attributes = {
                 'in_use':  True,
                 'controller': True,
                 'group': self.group,
-                'dev_addr_hi': self._device.root.dev_addr_hi,
-                'dev_addr_mid': self._device.root.dev_addr_mid,
-                'dev_addr_low': self._device.root.dev_addr_low
+                'dev_addr_hi': self.device.root.dev_addr_hi,
+                'dev_addr_mid': self.device.root.dev_addr_mid,
+                'dev_addr_low': self.device.root.dev_addr_low
             }
             records = self.controller_device.root.aldb.get_matching_records(attributes)
             if len(records) > 0:

@@ -42,7 +42,7 @@ function addResponder (ret, deviceID, group, deviceData) {
     // Key is used solely to catch duplicates
     ret[deviceID + '_' + group] = {
       'name': deviceData['name'],
-      'group_number': group,
+      'groupNumber': group,
       'deviceID': deviceID
     }
   }
@@ -91,7 +91,11 @@ function generateResponderSelect (responderID) {
   for (var key in responders) {
     var deviceID = responders[key]['deviceID']
     var deviceName = responders[key]['name']
-    var option = $('<option>').attr('value', deviceID).text(deviceName + ' - ' + deviceID)
+    var groupNumber = responders[key]['groupNumber']
+    // var option = $('<option>').attr('value', deviceID).text(deviceName + ' - ' + deviceID)
+    var option = $('<option>').text(deviceName + ' - ' + deviceID)
+    option.data('deviceID', deviceID)
+    option.data('groupNumber', groupNumber)
     // This may not be suffcient, we might need to match group here too
     if (responderID === deviceID) {
       option.attr('selected', true)
@@ -192,8 +196,8 @@ function linksData (data, status, xhr) {
       $('.responderInput').change(function () {
         // Update Data Fields when Responder is Changed
         var linkDetails = getDeviceLinkDetails(
-          $(this).find(':selected').val(),
-          $(this).find(':selected').data('data_3')
+          $(this).find(':selected').data('deviceID'),
+          $(this).find(':selected').data('groupNumber')
         )
         var dataRow = $(this).parents('tr')
         dataRow.find('.definedLinksData1').html(
