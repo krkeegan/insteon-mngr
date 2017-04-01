@@ -66,123 +66,144 @@ function getResponderList () {
   return ret
 }
 
+function generateDataSelect (currentValue, dataDetails) {
+  var ret = $(`
+  <label class="col-md-4 col-form-label label-sm">
+    ${dataDetails['name']}
+  </label>
+  <div class="col-md-8">
+    <select class="form-control input-sm"/>
+  </div>
+  `)
+  for (var key in dataDetails['values']) {
+    var option = $('<option>').attr('value', dataDetails['values'][key]).text(key)
+    if (currentValue === dataDetails['values'][key]) {
+      option.attr('selected', true)
+    }
+    ret.find('select').append(option)
+  }
+  return ret
+}
+
+function generateResponderSelect (responderID) {
+  var ret = $('<select class="form-control input-sm responderInput"/>')
+  var responders = getResponderList()
+  for (var key in responders) {
+    var deviceID = responders[key]['deviceID']
+    var deviceName = responders[key]['name']
+    var option = $('<option>').attr('value', deviceID).text(deviceName + ' - ' + deviceID)
+    // This may not be suffcient, we might need to match group here too
+    if (responderID === deviceID) {
+      option.attr('selected', true)
+    }
+    ret.append(option)
+  }
+  return ret
+}
+
+function outputDefinedLinkRow (data) {
+  var ret = $(`
+    <tr id="definedLinksRow">
+      <th class="row" scope='row'>
+      <label class="visible-sm visible-xs col-form-label">
+        &nbsp;
+      </label>
+      </th>
+      <td class="row form-group definedLinksData1">
+      </td>
+      <td class="row form-group definedLinksData2">
+      </td>
+      <td class="row">
+        <label class="visible-sm visible-xs col-form-label">
+          &nbsp;
+        </label>
+        <button type="button" class="btn btn-default btn-sm definedLinkFix" style="display: none">
+          Fix
+        </button>
+        <button type="button" class="btn btn-default btn-sm definedLinkEdit">
+          Edit
+        </button>
+        <button type="button" class="btn btn-danger btn-sm definedLinkDelete">
+          Delete
+        </button>
+        <button type="button" class="btn btn-success btn-sm definedLinkSave" style="display: none">
+          Save
+        </button>
+        <button type="button" class="btn btn-default btn-sm definedLinkCancel" style="display: none">
+          Cancel
+        </button>
+      </td>
+    </tr>
+  `)
+  for (var key in data) {
+    ret.data(key, data[key])
+  }
+  if (data['status'] === 'Broken') {
+    ret.find('.definedLinkEdit').show()
+    ret.find('.definedLinkEdit').hide()
+    ret.find('tr').addClass('danger')
+  }
+  var linkDetails = getDeviceLinkDetails(
+    data['responder_id'],
+    data['data_3']
+  )
+  ret.find('th').find('label').after(generateResponderSelect(data['responder_id']))
+  ret.find('.definedLinksData1').append(generateDataSelect(data['data_1'],
+                                        linkDetails['data_1']))
+  ret.find('.definedLinksData2').append(generateDataSelect(data['data_2'],
+                                        linkDetails['data_2']))
+  ret.find('select').attr('disabled', true)
+  return ret
+}
+
 function linksData (data, status, xhr) {
   if (status === 'success') {
     if ($('tbody#definedLinks').length) {
       $('tbody#definedLinks').html('')
       for (var i = 0; i < data['definedLinks'].length; i++) {
-        var fixButton = ''
-        var rowClass = ''
-        if (data['definedLinks'][i]['status'] === 'Broken') {
-          fixButton = `
-            <button type="button" id="definedLinkFix" class="btn btn-default btn-xs">
-              Fix
-            </button>
-            `
-          rowClass = 'danger'
-        }
-        var linkDetails = getDeviceLinkDetails(
-          data['definedLinks'][i]['responder_id'],
-          data['definedLinks'][i]['data_3']
-        )
-        var responderInput = $('<select class="col-sm-12 form-control form-control-sm" disabled="disabled"/>')
-        var responders = getResponderList()
-        for (var key in responders) {
-          var deviceID = responders[key]['deviceID']
-          var deviceName = responders[key]['name']
-          var option = $('<option>').attr('value', deviceID).text(deviceName + ' - ' + deviceID)
-          // This may not be suffcient, we might need to match group here too
-          if (data['definedLinks'][i]['responder_id'] === deviceID) {
-            option.attr('selected', true)
-          }
-          responderInput.append(option)
-        }
-        responderInput = $('<div>').append(responderInput).html()
-        var data1Input = $('<select class="form-control" disabled="disabled"/>')
-        for (var key in linkDetails['data_1']['values']) {
-          var option = $('<option>').attr('value', linkDetails['data_1']['values'][key]).text(key)
-          if (data['definedLinks'][i]['data_1'] === linkDetails['data_1']['values'][key]) {
-            option.attr('selected', true)
-          }
-          data1Input.append(option)
-        }
-        data1Input = $('<div>').append(data1Input).html()
-        var data2Input = $('<select class="col-sm-8 form-control form-control-sm" disabled="disabled"/>')
-        for (var key in linkDetails['data_2']['values']) {
-          var option = $('<option>').attr('value', linkDetails['data_2']['values'][key]).text(key)
-          if (data['definedLinks'][i]['data_2'] === linkDetails['data_2']['values'][key]) {
-            option.attr('selected', true)
-          }
-          data2Input.append(option)
-        }
-        data2Input = $('<div>').append(data2Input).html()
-        $('tbody#definedLinks').append(`
-          <tr id="definedLinksRow${i}" class="${rowClass}">
-            <th class="row" scope='row'>
-              <div>
-              <label class="visible-sm visible-xs col-form-label">
-                -
-              </label>
-                ${responderInput}
-              </div>
-            </th>
-            <td class="row form-group" id="definedLinksData1${i}">
-              <label class="col-md-4 col-form-label">
-                ${linkDetails['data_1']['name']}
-              </label>
-              <div class="col-md-8">
-                ${data1Input}
-              </div>
-            </td>
-            <td class="row form-group" id="definedLinksData2${i}">
-              <label class="col-md-4 col-form-label">
-                ${linkDetails['data_2']['name']}
-              </label>
-              <div class="col-md-8">
-                ${data2Input}
-              </div>
-            </td>
-            <td class="row">
-              <label class="visible-sm visible-xs col-form-label">
-                -
-              </label>
-              ${fixButton}
-              <button type="button" class="btn btn-default definedLinkEdit">
-                Edit
-              </button>
-              <button type="button" class="btn btn-danger definedLinkDelete">
-                Delete
-              </button>
-              <button type="button" class="btn btn-success definedLinkSave" style="display: none">
-                Save
-              </button>
-              <button type="button" class="btn btn-default definedLinkCancel" style="display: none">
-                Cancel
-              </button>
-            </td>
-          </tr>
-        `)
-        $('.definedLinkEdit').click(function (event) {
-          $(this).parents('tr').find('select').removeAttr('disabled')
-          $(this).parents('tr').find('.definedLinkEdit').hide()
-          $(this).parents('tr').find('.definedLinkDelete').hide()
-          $(this).parents('tr').find('.definedLinkSave').show()
-          $(this).parents('tr').find('.definedLinkCancel').show()
-        })
-        $('.definedLinkCancel').click(function (event) {
-          $(this).parents('tr').find('select').attr('disabled', true)
-          $(this).parents('tr').find('select').val(function () {
-            return $(this).find('option').filter(function () {
-              return $(this).prop('defaultSelected')
-            }).val()
-          })
-          $(this).parents('tr').find('.definedLinkEdit').show()
-          $(this).parents('tr').find('.definedLinkDelete').show()
-          $(this).parents('tr').find('.definedLinkSave').hide()
-          $(this).parents('tr').find('.definedLinkCancel').hide()
-        })
+        $('tbody#definedLinks').append(outputDefinedLinkRow(data['definedLinks'][i]))
       }
-    }
+      $('.definedLinkEdit').click(function () {
+        $(this).parents('tr').find('select').removeAttr('disabled')
+        $(this).parents('tr').find('.definedLinkEdit').hide()
+        $(this).parents('tr').find('.definedLinkDelete').hide()
+        $(this).parents('tr').find('.definedLinkSave').show()
+        $(this).parents('tr').find('.definedLinkCancel').show()
+      })
+      $('.definedLinkCancel').click(function () {
+        // Reset data fields back to how they appeared on load
+        $(this).parents('tr').find('.responderInput').val(function () {
+          return $(this).find('option').filter(function () {
+            return $(this).prop('defaultSelected')
+          }).val()
+        })
+        $(this).parents('tr').find('.responderInput').trigger('change')
+        $(this).parents('tr').find('select').val(function () {
+          return $(this).find('option').filter(function () {
+            return $(this).prop('defaultSelected')
+          }).val()
+        })
+        $(this).parents('tr').find('select').attr('disabled', true)
+        $(this).parents('tr').find('.definedLinkEdit').show()
+        $(this).parents('tr').find('.definedLinkDelete').show()
+        $(this).parents('tr').find('.definedLinkSave').hide()
+        $(this).parents('tr').find('.definedLinkCancel').hide()
+      })
+      $('.responderInput').change(function () {
+        // Update Data Fields when Responder is Changed
+        var linkDetails = getDeviceLinkDetails(
+          $(this).find(':selected').val(),
+          $(this).find(':selected').data('data_3')
+        )
+        var dataRow = $(this).parents('tr')
+        dataRow.find('.definedLinksData1').html(
+          generateDataSelect(dataRow.data('data_1'), linkDetails['data_1'])
+        )
+        dataRow.find('.definedLinksData2').html(
+          generateDataSelect(dataRow.data('data_2'), linkDetails['data_2'])
+        )
+      })
+    } // End Defined Links
     if ($('tbody#undefinedLinks').length) {
       $('tbody#undefinedLinks').html('')
       for (var i = 0; i < data['undefinedLinks'].length; i++) {
