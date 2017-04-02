@@ -66,6 +66,23 @@ def add_defined_device_link(device_id, group_number):
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_links(device_id, group_number))
 
+@route('/modems/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks/<uid:re:[0-9]{6}>.json', method='PATCH')
+@route('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks/<uid:re:[0-9]{6}>.json', method='PATCH')
+def edit_defined_device_link(device_id, group_number, uid):
+    root = core.get_device_by_addr(device_id)
+    responder = root.get_object_by_group_num(int(group_number))
+    # Be careful, no documentation guarantees that data_3 is always the group
+    user_link = root.find_user_link(int(uid))
+    # TODO call edit user link
+    '''
+    If responder id is different, delete user link on original device and
+    create new link on correct device but using the same uid
+    In either case, the user_link object then needs to call some sort of
+    write/update aldb 
+    '''
+    response.headers['Content-Type'] = 'application/json'
+    return jsonify(json_links(device_id, group_number))
+
 @route('/modems/<:re:[A-Fa-f0-9]{6}>/devices.json', method='PATCH')
 def api_device_put():
     for device_id in request.json.keys():

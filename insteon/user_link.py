@@ -55,6 +55,8 @@ class UserLink(object):
 
     @property
     def uid(self):
+        '''An integer that is unique to all user_links in the core. The uid
+        is not consistent across restarts.'''
         return self._uid
 
     def matches_aldb(self, aldb_record):

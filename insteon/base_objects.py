@@ -345,6 +345,13 @@ class Root(Group):
     def get_all_user_links(self):
         return self._user_links.copy()
 
+    def find_user_link(self, search_uid):
+        ret = None
+        for link_uid in self._user_links:
+            if search_uid == link_uid:
+                ret = self._user_links[link_uid]
+        return ret
+
     def remove_state_machine(self, value):
         if value == self.state_machine:
             print('finished', self.state_machine)

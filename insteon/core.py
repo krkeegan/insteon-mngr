@@ -38,6 +38,8 @@ class Insteon_Core(object):
         return ret
 
     def get_new_user_link_unique_id(self):
+        '''Returns an integer between 100,000 and 999,999 that is not used by
+        an existing user_link as a uid'''
         rand = random.randint(100000,999999)
         all_links = self._get_all_user_links()
         while rand in all_links:

@@ -94,8 +94,8 @@ function generateResponderSelect (responderID) {
     var groupNumber = responders[key]['groupNumber']
     // var option = $('<option>').attr('value', deviceID).text(deviceName + ' - ' + deviceID)
     var option = $('<option>').text(deviceName + ' - ' + deviceID)
-    option.data('deviceID', deviceID)
-    option.data('groupNumber', groupNumber)
+    option.data('responder_id', deviceID)
+    option.data('responder_group', groupNumber)
     // This may not be suffcient, we might need to match group here too
     if (responderID === deviceID) {
       option.attr('selected', true)
@@ -105,7 +105,7 @@ function generateResponderSelect (responderID) {
   return ret
 }
 
-function outputDefinedLinkRow (data) {
+function outputDefinedLinkRow (uid, data) {
   var ret = $(`
     <tr id="definedLinksRow">
       <th class="row" scope='row'>
@@ -142,6 +142,7 @@ function outputDefinedLinkRow (data) {
   for (var key in data) {
     ret.data(key, data[key])
   }
+  ret.data('uid', uid)
   if (data['status'] === 'Broken') {
     ret.find('.definedLinkEdit').show()
     ret.find('.definedLinkEdit').hide()
@@ -165,7 +166,7 @@ function linksData (data, status, xhr) {
     if ($('tbody#definedLinks').length) {
       $('tbody#definedLinks').html('')
       for (var uid in data['definedLinks']) {
-        $('tbody#definedLinks').append(outputDefinedLinkRow(data['definedLinks'][uid]))
+        $('tbody#definedLinks').append(outputDefinedLinkRow(uid, data['definedLinks'][uid]))
       }
       $('.definedLinkEdit').click(function () {
         $(this).parents('tr').find('select').removeAttr('disabled')
@@ -196,8 +197,8 @@ function linksData (data, status, xhr) {
       $('.responderInput').change(function () {
         // Update Data Fields when Responder is Changed
         var linkDetails = getDeviceLinkDetails(
-          $(this).find(':selected').data('deviceID'),
-          $(this).find(':selected').data('groupNumber')
+          $(this).find(':selected').data('responder_id'),
+          $(this).find(':selected').data('responder_group')
         )
         var dataRow = $(this).parents('tr')
         dataRow.find('.definedLinksData1').html(
@@ -208,7 +209,23 @@ function linksData (data, status, xhr) {
         )
       })
       $('.definedLinkSave').click(function () {
-        $(this)
+        var row = $(this).parents('tr')
+        var uid = row.data('uid')
+        var jsonData = {
+          'responder_id': row.find('.responderInput').find(':selected').data('responder_id'),
+          'responder_group': row.find('.responderInput').find(':selected').data('responder_group'),
+          'data_1': row.find('.definedLinksData1').find(':selected').val(),
+          'data_2': row.find('.definedLinksData2').find(':selected').val()
+        }
+        var path = window.location.pathname.replace(/\/$/, '')
+        $.ajax({
+          url: path + '/links/definedLinks/' + uid + '.json',
+          method: 'PATCH',
+          data: JSON.stringify(jsonData),
+          contentType: 'application/json; charset=utf-8',
+          dataType: 'json',
+          success: function () {}
+        })
       })
     } // End Defined Links
     if ($('tbody#undefinedLinks').length) {
