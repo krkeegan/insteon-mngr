@@ -59,8 +59,7 @@ def add_defined_device_link(device_id, group_number):
     root = core.get_device_by_addr(device_id)
     controller_device = root.get_object_by_group_num(int(group_number))
     # Be careful, no documentation guarantees that data_3 is always the group
-    responder_id = request.json['address']
-    responder_group = int(request.json['data_3'])
+    responder_id = request.json['responder_id']
     responder_root = core.get_device_by_addr(responder_id)
     responder_root.add_user_link(controller_device, request.json)
     response.headers['Content-Type'] = 'application/json'
@@ -78,7 +77,7 @@ def edit_defined_device_link(device_id, group_number, uid):
     If responder id is different, delete user link on original device and
     create new link on correct device but using the same uid
     In either case, the user_link object then needs to call some sort of
-    write/update aldb 
+    write/update aldb
     '''
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_links(device_id, group_number))
@@ -204,11 +203,13 @@ def _undefined_link_output(device):
             for responder in link.get_reciprocal_records():
                 responder_parsed = responder.parse_record()
                 ret.append({
-                    'responder': link_addr,
+                    'responder_id': link_addr,
                     'responder_name': responder.device.name,
                     'data_1': responder_parsed['data_1'],
                     'data_2': responder_parsed['data_2'],
-                    'data_3': responder_parsed['data_3']
+                    'data_3': responder_parsed['data_3'],
+                    'responder_key': responder.key,
+                    'controller_key': link.key
                 })
         else:
             ret.append({
@@ -216,7 +217,9 @@ def _undefined_link_output(device):
                 'responder_name': link.device.name,
                 'data_1': link_parsed['data_1'],
                 'data_2': link_parsed['data_2'],
-                'data_3': link_parsed['data_3']
+                'data_3': link_parsed['data_3'],
+                'responder_key': link.key,
+                'controller_key': link.get_reciprocal_records()[0].key
             })
     return ret
 
@@ -225,7 +228,7 @@ def _user_link_output(device):
     user_links = core.get_user_links_for_this_controller(device)
     for link in user_links.values():
         status = 'Broken'
-        if link.aldb_records_exist() is True:
+        if link.are_aldb_records_correct() is True:
             status = 'Good'
         ret[link.uid] = {
             'responder_id': link.device.root.dev_addr_str,

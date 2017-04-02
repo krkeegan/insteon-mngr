@@ -105,22 +105,48 @@ function generateResponderSelect (responderID) {
   return ret
 }
 
-function outputDefinedLinkRow (uid, data) {
+function generateLinkRow (data) {
   var ret = $(`
-    <tr id="definedLinksRow">
+    <tr>
       <th class="row" scope='row'>
       <label class="visible-sm visible-xs col-form-label">
         &nbsp;
       </label>
       </th>
-      <td class="row form-group definedLinksData1">
+      <td class="row form-group linkRowData1">
       </td>
-      <td class="row form-group definedLinksData2">
+      <td class="row form-group linkRowData2">
       </td>
-      <td class="row">
+      <td class="row linkRowButtons">
         <label class="visible-sm visible-xs col-form-label">
           &nbsp;
         </label>
+      </td>
+    </tr>
+  `)
+  if ('data_1' in data) {
+    var linkDetails = getDeviceLinkDetails(
+      data['responder_id'],
+      data['data_3']
+    )
+    ret.find('th').find('label').after(generateResponderSelect(data['responder_id']))
+    ret.find('.linkRowData1').append(generateDataSelect(data['data_1'],
+                                          linkDetails['data_1']))
+    ret.find('.linkRowData2').append(generateDataSelect(data['data_2'],
+                                          linkDetails['data_2']))
+  } else {
+    ret.find('th').find('label').after(generateResponderSelect(data['device']))
+  }
+  ret.find('select').attr('disabled', true)
+  for (var key in data) {
+    ret.data(key, data[key])
+  }
+  return ret
+}
+
+function outputDefinedLinkRow (uid, data) {
+  var ret = generateLinkRow(data)
+  ret.find('.linkRowButtons').append(`
         <button type="button" class="btn btn-default btn-sm definedLinkFix" style="display: none">
           Fix
         </button>
@@ -136,28 +162,26 @@ function outputDefinedLinkRow (uid, data) {
         <button type="button" class="btn btn-default btn-sm definedLinkCancel" style="display: none">
           Cancel
         </button>
-      </td>
-    </tr>
   `)
-  for (var key in data) {
-    ret.data(key, data[key])
-  }
   ret.data('uid', uid)
   if (data['status'] === 'Broken') {
     ret.find('.definedLinkEdit').show()
     ret.find('.definedLinkEdit').hide()
     ret.find('tr').addClass('danger')
   }
-  var linkDetails = getDeviceLinkDetails(
-    data['responder_id'],
-    data['data_3']
-  )
-  ret.find('th').find('label').after(generateResponderSelect(data['responder_id']))
-  ret.find('.definedLinksData1').append(generateDataSelect(data['data_1'],
-                                        linkDetails['data_1']))
-  ret.find('.definedLinksData2').append(generateDataSelect(data['data_2'],
-                                        linkDetails['data_2']))
-  ret.find('select').attr('disabled', true)
+  return ret
+}
+
+function outputUndefinedLinkRow (data) {
+  var ret = generateLinkRow(data)
+  ret.find('.linkRowButtons').append(`
+    <button type="button" class="btn btn-default undefinedLinkImport">
+      Import
+    </button>
+    <button type="button" class="btn btn-danger undefinedLinkDelete">
+      Delete
+    </button>
+  `)
   return ret
 }
 
@@ -201,10 +225,10 @@ function linksData (data, status, xhr) {
           $(this).find(':selected').data('responder_group')
         )
         var dataRow = $(this).parents('tr')
-        dataRow.find('.definedLinksData1').html(
+        dataRow.find('.linkRowData1').html(
           generateDataSelect(dataRow.data('data_1'), linkDetails['data_1'])
         )
-        dataRow.find('.definedLinksData2').html(
+        dataRow.find('.linkRowData2').html(
           generateDataSelect(dataRow.data('data_2'), linkDetails['data_2'])
         )
       })
@@ -214,8 +238,8 @@ function linksData (data, status, xhr) {
         var jsonData = {
           'responder_id': row.find('.responderInput').find(':selected').data('responder_id'),
           'responder_group': row.find('.responderInput').find(':selected').data('responder_group'),
-          'data_1': row.find('.definedLinksData1').find(':selected').val(),
-          'data_2': row.find('.definedLinksData2').find(':selected').val()
+          'data_1': row.find('.linkRowData1').find(':selected').val(),
+          'data_2': row.find('.linkRowData2').find(':selected').val()
         }
         var path = window.location.pathname.replace(/\/$/, '')
         $.ajax({
@@ -231,39 +255,12 @@ function linksData (data, status, xhr) {
     if ($('tbody#undefinedLinks').length) {
       $('tbody#undefinedLinks').html('')
       for (var i = 0; i < data['undefinedLinks'].length; i++) {
-        var linkDetails = getDeviceLinkDetails(
-          data['undefinedLinks'][i]['responder_id'],
-          data['undefinedLinks'][i]['data_3']
-        )
-        $('tbody#undefinedLinks').append(`
-          <tr>
-            <th scope='row'>${data['undefinedLinks'][i]['responder_name']} - ${data['undefinedLinks'][i]['responder_id']}</th>
-            <td>${linkDetails['data_1']['name']}: ${data['undefinedLinks'][i]['data_1']}</td>
-            <td>${linkDetails['data_2']['name']}: ${data['undefinedLinks'][i]['data_2']}</td>
-            <td>
-              <button type="button"
-                address="${data['undefinedLinks'][i]['responder_id']}"
-                data_1="${data['undefinedLinks'][i]['data_1']}"
-                data_2="${data['undefinedLinks'][i]['data_2']}"
-                data_3="${data['undefinedLinks'][i]['data_3']}"
-                id="undefinedLinkImport" class="btn btn-default"
-              >
-                Import
-              </button>
-              <button type="button" class="btn btn-danger undefinedLinkDelete">
-                Delete
-              </button>
-            </td>
-          </tr>
-        `)
+        $('tbody#undefinedLinks').append(outputUndefinedLinkRow(data['undefinedLinks'][i]))
       }
       $('.undefinedLinkImport').click(function () {
-        var jsonData = {
-          'address': $(this).attr('address'),
-          'group': parseInt($(this).attr('group')),
-          'data_1': parseInt($(this).attr('data_1')),
-          'data_2': parseInt($(this).attr('data_2')),
-          'data_3': parseInt($(this).attr('data_3'))
+        var jsonData = {}
+        for (var key in $(this).parents('tr').data()) {
+          jsonData[key] = $(this).parents('tr').data(key)
         }
         var path = window.location.pathname.replace(/\/$/, '')
         $.ajax({
@@ -279,19 +276,16 @@ function linksData (data, status, xhr) {
     if ($('tbody#unknownLinks').length) {
       $('tbody#unknownLinks').html('')
       for (var i = 0; i < data['unknownLinks'].length; i++) {
-        $('tbody#unknownLinks').append(`
-          <tr>
-            <th scope='row'>${data['unknownLinks'][i]['device']}</th>
-            <td>
-            <button type="button" id="unknownLinkAdd" class="btn btn-default btn-xs">
-              Add Device
-            </button>
-            <button type="button" id="unknownLinkDelete" class="btn btn-default btn-xs">
-              Delete
-            </button>
-            </td>
-          </tr>
+        var row = generateLinkRow(data['unknownLinks'][i])
+        row.find('.linkRowButtons').append(`
+        <button type="button" class="btn btn-default">
+          Add Device
+        </button>
+        <button type="button" class="btn btn-danger">
+          Delete
+        </button>
         `)
+        $('tbody#unknownLinks').append(row)
       }
     }
   }

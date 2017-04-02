@@ -3,7 +3,7 @@
 class UserLink(object):
     '''The base class for user_links'''
 
-    def __init__(self, device, reciprocal_id, group_number, data):
+    def __init__(self, device, reciprocal_id, group_number, data, uid):
         self._root_device = device.root
         self._core = device.root.core
         self._address = reciprocal_id.upper()
@@ -11,7 +11,15 @@ class UserLink(object):
         self._data_1 = data['data_1']
         self._data_2 = data['data_2']
         self._data_3 = data['data_3']
-        self._uid = self._core.get_new_user_link_unique_id()
+        self._uid = uid
+        if uid is None:
+            self._uid = self._core.get_new_user_link_unique_id()
+        self._controller_key = None
+        self._responder_key = None
+        if 'controller_key' in data:
+            self._controller_key = data['controller_key']
+        if 'responder_key' in data:
+            self._responder_key = data['responder_key']
 
     @property
     def device(self):
@@ -30,7 +38,9 @@ class UserLink(object):
     def data(self):
         return {'data_1': self._data_1,
                 'data_2': self._data_2,
-                'data_3': self._data_3}
+                'data_3': self._data_3,
+                'controller_key': self._controller_key,
+                'responder_key': self._responder_key}
     @property
     def data_1(self):
         return self._data_1
@@ -59,49 +69,34 @@ class UserLink(object):
         is not consistent across restarts.'''
         return self._uid
 
-    def matches_aldb(self, aldb_record):
-        '''Returns true if the aldb_record passed is either the controller or
-        responder aldb record of this user link else false'''
-        # We are not checking data_1-3 here should we be?
-        ret = False
-        aldb_parsed = aldb_record.parse_record()
-        if aldb_record.linked_device is not None:
-            linked_addr = aldb_record.linked_device.root.dev_addr_str
-            record_addr = aldb_record.device.root.dev_addr_str
-            if (aldb_parsed['group'] == self._group and
-                    aldb_parsed['in_use'] is True):
-                if (aldb_parsed['controller'] is True and
-                        linked_addr == self.device.root.dev_addr_str):
-                    ret = True
-                elif(aldb_parsed['controller'] is False and
-                     record_addr == self.device.root.dev_addr_str):
-                    ret = True
-        return ret
+    @property
+    def controller_key(self):
+        return self._controller_key
 
-    def aldb_records_exist(self):
+    @property
+    def responder_key(self):
+        return self._responder_key
+
+    def are_aldb_records_correct(self):
         ret = False
-        attributes = {
-            'in_use':  True,
-            'responder': True,
-            'group': self.group,
-            'dev_addr_hi': self.controller_device.root.dev_addr_hi,
-            'dev_addr_mid': self.controller_device.root.dev_addr_mid,
-            'dev_addr_low': self.controller_device.root.dev_addr_low,
-            'data_1': self.data_1,
-            'data_2': self.data_2,
-            'data_3': self.data_3
-        }
-        records = self.device.root.aldb.get_matching_records(attributes)
-        if len(records) > 0:
-            attributes = {
-                'in_use':  True,
-                'controller': True,
-                'group': self.group,
-                'dev_addr_hi': self.device.root.dev_addr_hi,
-                'dev_addr_mid': self.device.root.dev_addr_mid,
-                'dev_addr_low': self.device.root.dev_addr_low
-            }
-            records = self.controller_device.root.aldb.get_matching_records(attributes)
-            if len(records) > 0:
+        responder = self.device.root.aldb.get_record(self._responder_key).parse_record()
+        controller = self.controller_device.root.aldb.get_record(self._controller_key).parse_record()
+        if (responder['in_use'] == True and
+            responder['responder'] == True and
+            responder['group'] == self.group and
+            responder['dev_addr_hi'] == self.controller_device.root.dev_addr_hi and
+            responder['dev_addr_mid'] == self.controller_device.root.dev_addr_mid and
+            responder['dev_addr_low'] == self.controller_device.root.dev_addr_low and
+            responder['data_1'] == self.data_1 and
+            responder['data_2'] == self.data_2 and
+            responder['data_3'] == self.data_3
+            ):
+            if (controller['in_use'] == True and
+                controller['controller'] == True and
+                controller['group'] == self.group and
+                controller['dev_addr_hi'] == self.device.root.dev_addr_hi and
+                controller['dev_addr_mid'] == self.device.root.dev_addr_mid and
+                controller['dev_addr_low'] == self.device.root.dev_addr_low
+                ):
                 ret = True
         return ret

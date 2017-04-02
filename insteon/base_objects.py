@@ -295,7 +295,8 @@ class Root(Group):
                         self,
                         controller_id,
                         group_number,
-                        data
+                        data,
+                        None
                     )
                     self._user_links[user_link.uid] = user_link
 
@@ -334,11 +335,8 @@ class Root(Group):
                 self,
                 controller_id,
                 group_number,
-                {
-                    'data_1': data['data_1'],
-                    'data_2': data['data_2'],
-                    'data_3': data['data_3']
-                }
+                data,
+                None
             )
             self._user_links[new_user_link.uid] = new_user_link
 
@@ -439,43 +437,3 @@ class Root(Group):
     def update_device_classes(self):
         # pylint: disable=R0201
         return NotImplemented
-
-    # TODO do we still want this?
-    def import_links(self):
-        attributes = {
-            'in_use': True,
-            'responder': True
-        }
-        for aldb_record in self.aldb.get_matching_records(attributes):
-            parsed = aldb_record.parse_record()
-            linked_device = aldb_record.linked_device
-            linked_root = None
-            if linked_device is not None:
-                linked_root = linked_device.root
-            controller_id = aldb_record.get_linked_device_str()
-            group_number = parsed['group']
-            group_number = 0x01 if group_number == 0x00 else group_number
-            if group_number == 0x01 and linked_root is self.plm:
-                # ignore i2cs required links
-                continue
-            found = False
-            for user_link in self._user_links.values():
-                if (controller_id == user_link.controller_id and
-                    group_number == user_link.group and
-                    parsed['data_1'] == user_link.data_1 and
-                    parsed['data_2'] == user_link.data_2 and
-                    parsed['data_3'] == user_link.data_3):
-                    found = True
-                    break
-            if not found:
-                new_user_link = UserLink(
-                    self,
-                    controller_id,
-                    group_number,
-                    {
-                        'data_1': parsed['data_1'],
-                        'data_2': parsed['data_2'],
-                        'data_3': parsed['data_3']
-                    }
-                )
-                self._user_links[new_user_link.uid] = new_user_link
