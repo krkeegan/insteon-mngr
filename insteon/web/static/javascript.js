@@ -164,8 +164,8 @@ function linksData (data, status, xhr) {
   if (status === 'success') {
     if ($('tbody#definedLinks').length) {
       $('tbody#definedLinks').html('')
-      for (var i = 0; i < data['definedLinks'].length; i++) {
-        $('tbody#definedLinks').append(outputDefinedLinkRow(data['definedLinks'][i]))
+      for (var uid in data['definedLinks']) {
+        $('tbody#definedLinks').append(outputDefinedLinkRow(data['definedLinks'][uid]))
       }
       $('.definedLinkEdit').click(function () {
         $(this).parents('tr').find('select').removeAttr('disabled')
@@ -206,6 +206,9 @@ function linksData (data, status, xhr) {
         dataRow.find('.definedLinksData2').html(
           generateDataSelect(dataRow.data('data_2'), linkDetails['data_2'])
         )
+      })
+      $('.definedLinkSave').click(function () {
+        $(this)
       })
     } // End Defined Links
     if ($('tbody#undefinedLinks').length) {

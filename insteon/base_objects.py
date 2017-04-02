@@ -164,29 +164,6 @@ class Group(object):
         ret.update(self.functions.get_features())
         return ret
 
-    def add_user_link(self, controller_device, data):
-        controller_id = controller_device.root.dev_addr_str
-        group_number = controller_device.group_number
-        found = False
-        for user_link in self._user_links:
-            if (controller_id == user_link.controller_id and
-                group_number == user_link.group and
-                data['data_1'] == user_link.data_1 and
-                data['data_2'] == user_link.data_2 and
-                data['data_3'] == user_link.data_3):
-                found = True
-                break
-        if not found:
-            self._user_links.append(UserLink(
-                self,
-                controller_id,
-                group_number,
-                {
-                    'data_1': data['data_1'],
-                    'data_2': data['data_2'],
-                    'data_3': data['data_3']
-                }
-            ))
 
 class Root(Group):
     '''The root object of an insteon device, inherited by Devices and Modems'''
@@ -199,7 +176,7 @@ class Root(Group):
         self._out_history = []
         self._id_bytes = bytearray(3)
         self._groups = []
-        self._user_links = []
+        self._user_links = {}
         if 'device_id' in kwargs:
             self._id_bytes = ID_STR_TO_BYTES(kwargs['device_id'])
         super().__init__(self, 0x01, **kwargs)
@@ -314,18 +291,19 @@ class Root(Group):
         for controller_id, groups in links.items():
             for group_number, all_data in groups.items():
                 for data in all_data:
-                    self._user_links.append(UserLink(
+                    user_link = UserLink(
                         self,
                         controller_id,
                         group_number,
                         data
-                    ))
+                    )
+                    self._user_links[user_link.uid] = user_link
 
     def save_user_links(self):
         '''Constructs a dictionary for saving the user links to the config
         file'''
         ret = {}
-        for user_link in self._user_links:
+        for user_link in self._user_links.values():
             if user_link.controller_id not in ret:
                 ret[user_link.controller_id] = {}
             if user_link.group not in ret[user_link.controller_id]:
@@ -338,6 +316,34 @@ class Root(Group):
     ##################################
     # Public functions
     ##################################
+
+    def add_user_link(self, controller_device, data):
+        controller_id = controller_device.root.dev_addr_str
+        group_number = controller_device.group_number
+        found = False
+        for user_link in self._user_links.values():
+            if (controller_id == user_link.controller_id and
+                group_number == user_link.group and
+                data['data_1'] == user_link.data_1 and
+                data['data_2'] == user_link.data_2 and
+                data['data_3'] == user_link.data_3):
+                found = True
+                break
+        if not found:
+            new_user_link = UserLink(
+                self,
+                controller_id,
+                group_number,
+                {
+                    'data_1': data['data_1'],
+                    'data_2': data['data_2'],
+                    'data_3': data['data_3']
+                }
+            )
+            self._user_links[new_user_link.uid] = new_user_link
+
+    def get_all_user_links(self):
+        return self._user_links.copy()
 
     def remove_state_machine(self, value):
         if value == self.state_machine:
@@ -427,6 +433,7 @@ class Root(Group):
         # pylint: disable=R0201
         return NotImplemented
 
+    # TODO do we still want this?
     def import_links(self):
         attributes = {
             'in_use': True,
@@ -445,7 +452,7 @@ class Root(Group):
                 # ignore i2cs required links
                 continue
             found = False
-            for user_link in self._user_links:
+            for user_link in self._user_links.values():
                 if (controller_id == user_link.controller_id and
                     group_number == user_link.group and
                     parsed['data_1'] == user_link.data_1 and
@@ -454,7 +461,7 @@ class Root(Group):
                     found = True
                     break
             if not found:
-                self._user_links.append(UserLink(
+                new_user_link = UserLink(
                     self,
                     controller_id,
                     group_number,
@@ -463,4 +470,5 @@ class Root(Group):
                         'data_2': parsed['data_2'],
                         'data_3': parsed['data_3']
                     }
-                ))
+                )
+                self._user_links[new_user_link.uid] = new_user_link

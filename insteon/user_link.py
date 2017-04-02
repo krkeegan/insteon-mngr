@@ -11,6 +11,7 @@ class UserLink(object):
         self._data_1 = data['data_1']
         self._data_2 = data['data_2']
         self._data_3 = data['data_3']
+        self._uid = self._core.get_new_user_link_unique_id()
 
     @property
     def device(self):
@@ -51,6 +52,10 @@ class UserLink(object):
         if root is not None:
             ret = root.get_object_by_group_num(self._group)
         return ret
+
+    @property
+    def uid(self):
+        return self._uid
 
     def matches_aldb(self, aldb_record):
         '''Returns true if the aldb_record passed is either the controller or

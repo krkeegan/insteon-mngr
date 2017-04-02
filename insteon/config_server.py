@@ -62,8 +62,7 @@ def add_defined_device_link(device_id, group_number):
     responder_id = request.json['address']
     responder_group = int(request.json['data_3'])
     responder_root = core.get_device_by_addr(responder_id)
-    responder = responder_root.get_object_by_group_num(int(responder_group))
-    responder.add_user_link(controller_device, request.json)
+    responder_root.add_user_link(controller_device, request.json)
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_links(device_id, group_number))
 
@@ -205,13 +204,13 @@ def _undefined_link_output(device):
     return ret
 
 def _user_link_output(device):
-    ret = []
+    ret = {}
     user_links = core.get_user_links_for_this_controller(device)
-    for link in user_links:
+    for link in user_links.values():
         status = 'Broken'
         if link.aldb_records_exist() is True:
             status = 'Good'
-        ret.append({
+        ret[link.uid] = {
             'responder_id': link.device.root.dev_addr_str,
             'responder_name': link.device.name,
             'responder_group': link.device.group_number,
@@ -219,7 +218,7 @@ def _user_link_output(device):
             'data_2': link.data_2,
             'data_3': link.data_3,
             'status': status
-        })
+        }
     return ret
 
 ###################################################################

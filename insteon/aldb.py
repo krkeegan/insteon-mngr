@@ -164,8 +164,8 @@ class ALDBRecord(object):
         if self.is_controller():
             user_links = self._core.get_user_links_for_this_controller(self.device)
         else:
-            user_links = self.device.root._user_links
-        for user_link in user_links:
+            user_links = self.device.root.get_all_user_links
+        for user_link in user_links.values():
             if user_link.matches_aldb(self):
                 ret = True
                 break
