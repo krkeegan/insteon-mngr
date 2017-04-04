@@ -137,8 +137,26 @@ function generateLinkRow (data) {
                                           linkDetails['data_1']))
     ret.find('.linkRowData2').append(generateDataSelect(data['data_2'],
                                           linkDetails['data_2']))
-  } else {
+  } else if ('device' in data) {
     ret.find('th').find('label').after(generateResponderSelect(data['device']))
+  } else if ('empty' in data) {
+    var responders = getResponderList()
+    var deviceID = ''
+    var groupNumber = 0
+    for (var key in responders) {
+      deviceID = responders[key]['deviceID']
+      groupNumber = responders[key]['groupNumber']
+      break
+    }
+    var linkDetails = getDeviceLinkDetails(
+      deviceID,
+      groupNumber
+    )
+    ret.find('th').find('label').after(generateResponderSelect(''))
+    var empty = {}
+    empty['values'] = {}
+    ret.find('.linkRowData1').append(generateDataSelect('', linkDetails['data_1']))
+    ret.find('.linkRowData2').append(generateDataSelect('', linkDetails['data_2']))
   }
   ret.find('select').attr('disabled', true)
   for (var key in data) {
@@ -194,6 +212,11 @@ function linksData (data, status, xhr) {
       $('tbody#definedLinks').html('')
       for (var uid in data['definedLinks']) {
         $('tbody#definedLinks').append(outputDefinedLinkRow(uid, data['definedLinks'][uid]))
+      }
+      if ($('tbody#definedLinks').is(':empty')) {
+        $('#definedLinksContainer').hide()
+      } else {
+        $('#definedLinksContainer').show()
       }
       $('.definedLinkEdit').click(function () {
         $(this).parents('tr').find('select').removeAttr('disabled')
@@ -261,6 +284,33 @@ function linksData (data, status, xhr) {
         })
       })
     } // End Defined Links
+    if ($('tbody#addLinks').length) {
+      $('tbody#addLinks').html('')
+      var empty = {}
+      empty['empty'] = true
+      var row = generateLinkRow(empty)
+      row.find('.linkRowButtons').append(`
+      <button type="button" class="btn btn-success">
+        Add Link
+      </button>
+      `)
+      row.find('select').removeAttr('disabled')
+      $('tbody#addLinks').append(row)
+      $('.responderInput').change(function () {
+        // Update Data Fields when Responder is Changed
+        var linkDetails = getDeviceLinkDetails(
+          $(this).find(':selected').data('responder_id'),
+          $(this).find(':selected').data('responder_group')
+        )
+        var dataRow = $(this).parents('tr')
+        dataRow.find('.linkRowData1').html(
+          generateDataSelect(dataRow.data('data_1'), linkDetails['data_1'])
+        )
+        dataRow.find('.linkRowData2').html(
+          generateDataSelect(dataRow.data('data_2'), linkDetails['data_2'])
+        )
+      })
+    }
     if ($('tbody#undefinedLinks').length) {
       $('tbody#undefinedLinks').html('')
       for (var i = 0; i < data['undefinedLinks'].length; i++) {
