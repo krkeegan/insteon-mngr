@@ -30,8 +30,8 @@ class ScanDeviceALDBi1(BaseSequence):
             self._device.aldb.print_records()
             self._device.remove_state_machine('query_aldb')
             aldb_sequence = SetALDBDelta(self._device)
-            aldb_sequence.success_callback = self.success_callback
-            aldb_sequence.failure_callback = self.failure_callback
+            aldb_sequence.success_callback = lambda: self.on_success()
+            aldb_sequence.failure_callback = lambda: self.on_failure()
             aldb_sequence.start()
         else:
             dev_bytes = self._device.aldb.get_next_aldb_address(msb, lsb)
@@ -114,10 +114,11 @@ class WriteALDBRecordi1(WriteALDBRecord):
         self._device.queue_device_msg(message)
 
     def _write_failure(self):
-        if self.failure_callback is not None:
-            self._failure()
+        self.on_failure()
 
     def _write_complete(self):
         self._device.remove_state_machine('write_aldb')
         aldb_sequence = SetALDBDelta(self._device)
+        aldb_sequence.success_callback = lambda: self.on_success()
+        aldb_sequence.failure_callback = lambda: self.on_failure()
         aldb_sequence.start()

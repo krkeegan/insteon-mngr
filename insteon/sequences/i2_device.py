@@ -1,5 +1,5 @@
 from insteon.trigger import InsteonTrigger
-from insteon.sequences.common import SetALDBDelta, BaseSequence, StatusRequest, WriteALDBRecord
+from insteon.sequences.common import SetALDBDelta, BaseSequence, WriteALDBRecord
 
 
 class ScanDeviceALDBi2(BaseSequence):
@@ -31,8 +31,8 @@ class ScanDeviceALDBi2(BaseSequence):
             self._device.remove_state_machine('query_aldb')
             self._device.aldb.print_records()
             aldb_sequence = SetALDBDelta(self._device)
-            aldb_sequence.success_callback = self.success_callback
-            aldb_sequence.failure_callback = self.failure_callback
+            aldb_sequence.success_callback = lambda: self.on_success()
+            aldb_sequence.failure_callback = lambda: self.on_failure()
             aldb_sequence.start()
         else:
             dev_bytes = self._device.aldb.get_next_aldb_address(msb, lsb)
@@ -62,6 +62,8 @@ class WriteALDBRecordi2(WriteALDBRecord):
                                  command_name='write_aldb',
                                  attributes=trigger_attributes)
         aldb_sequence = SetALDBDelta(self._device)
+        aldb_sequence.success_callback = lambda: self.on_success()
+        aldb_sequence.failure_callback = lambda: self.on_failure()
         trigger.trigger_function = lambda: aldb_sequence.start()
         trigger.name = self._device.dev_addr_str + 'write_aldb'
         trigger.queue()
@@ -70,5 +72,4 @@ class WriteALDBRecordi2(WriteALDBRecord):
         self._device.queue_device_msg(msg)
 
     def _write_failure(self):
-        if self.failure_callback is not None:
-            self._failure()
+        self.on_failure

@@ -6,6 +6,8 @@ class BaseSequence(object):
         self._device = device
         self._success = None
         self._failure = None
+        self._complete = False
+        self._success = False
 
     @property
     def success_callback(self):
@@ -23,6 +25,26 @@ class BaseSequence(object):
     def failure_callback(self, callback):
         self._failure = callback
 
+    @property
+    def is_complete(self):
+        return self._complete
+
+    @property
+    def is_success(self):
+        return self._success
+
+    def on_success(self):
+        self._complete = True
+        self._success = True
+        if self.success_callback is not None:
+            self._success()
+
+    def on_failure(self):
+        self._complete = True
+        self._success = False
+        if self.failure_callback is not None:
+            self._failure()
+
     def start(self):
         return NotImplemented
 
@@ -33,6 +55,7 @@ class StatusRequest(BaseSequence):
     we receive'''
     # TODO what would happen if this message was never acked?  Would this
     # trigger remain in waiting and fire the next time we received an ack?
+    # should add a maximum timer to the BaseSequence that triggers failure
 
     def start(self):
         trigger_attributes = {
@@ -54,8 +77,7 @@ class StatusRequest(BaseSequence):
         if self._device.attribute('aldb_delta') != aldb_delta:
             print('aldb has changed, rescanning')
             self._device.send_handler.query_aldb()
-        elif self.success_callback is not None:
-            self._success()
+        self.on_success()
 
 
 class SetALDBDelta(StatusRequest):
@@ -66,8 +88,7 @@ class SetALDBDelta(StatusRequest):
         self._device.state = msg.get_byte_by_name('cmd_2')
         self._device.set_aldb_delta(msg.get_byte_by_name('cmd_1'))
         print ('cached aldb_delta')
-        if self.success_callback is not None:
-            self._success()
+        self.on_success()
 
 
 class WriteALDBRecord(BaseSequence):
@@ -243,12 +264,14 @@ class AddPLMtoDevice(BaseSequence):
         print('plm->device link created')
         self._device.plm.remove_state_machine('link plm->device')
         self._device.remove_state_machine('link plm->device')
+        self.on_success()
         self._device.send_handler.initialize_device()
 
     def _add_plm_to_dev_link_fail(self):
         print('Error, unable to create plm->device link')
         self._device.plm.remove_state_machine('link plm->device')
         self._device.remove_state_machine('link plm->device')
+        self.on_failure()
 
 
 class InitializeDevice(BaseSequence):
