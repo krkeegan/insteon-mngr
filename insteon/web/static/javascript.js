@@ -266,6 +266,11 @@ function linksData (data, status, xhr) {
       for (var i = 0; i < data['undefinedLinks'].length; i++) {
         $('tbody#undefinedLinks').append(outputUndefinedLinkRow(data['undefinedLinks'][i]))
       }
+      if ($('tbody#undefinedLinks').is(':empty')) {
+        $('#undefinedLinksContainer').hide()
+      } else {
+        $('#undefinedLinksContainer').show()
+      }
       $('.undefinedLinkImport').click(function () {
         var jsonData = {}
         for (var key in $(this).parents('tr').data()) {
@@ -295,6 +300,11 @@ function linksData (data, status, xhr) {
         </button>
         `)
         $('tbody#unknownLinks').append(row)
+      }
+      if ($('tbody#unknownLinks').is(':empty')) {
+        $('#unknownLinksContainer').hide()
+      } else {
+        $('#unknownLinksContainer').show()
       }
     }
   }
