@@ -54,6 +54,14 @@ class Insteon_Core(object):
                 ret[uid] = link
         return ret
 
+    def find_user_link(self, search_uid):
+        ret = None
+        all_links = self._get_all_user_links()
+        for link_uid in all_links:
+            if search_uid == link_uid:
+                ret = all_links[link_uid]
+        return ret
+
     def get_matching_aldb_records(self, attributes):
         ret = []
         for modem in self.get_all_modems():

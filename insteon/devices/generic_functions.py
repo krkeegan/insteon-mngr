@@ -1,12 +1,16 @@
 class GenericFunctions(object):
     def __init__(self, device):
         self._device = device
+        # This sets the default base group number, older devices seem to be 0x00
+        # newer devices are 0x01, in many cases they are interchangable, but
+        # some devices are picky
+        self._base_group = 0x00
 
     def get_responder_data3(self):
         '''Returns the correct data3 value for responder links on this device'''
-        ret = self._device.group
-        if ret == 0x01:
-            ret = 0x00
+        ret = self._device.group_number
+        if ret == 0x00 or ret == 0x01:
+            ret = self._base_group
         return ret
 
     def state_str(self):
@@ -33,7 +37,8 @@ class GenericFunctions(object):
         '''Returns the intrinsic parameters of a device, these are not user
         editable so are not saved in the config.json file'''
         ret = {
-            'responder': True
+            'responder': True,
+            'base_group_number': self._base_group
         }
         ret['data_1'] = {
             'name': 'On/Off',

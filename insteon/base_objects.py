@@ -318,7 +318,7 @@ class Root(Group):
     # Public functions
     ##################################
 
-    def add_user_link(self, controller_device, data):
+    def add_user_link(self, controller_device, data, uid):
         controller_id = controller_device.root.dev_addr_str
         group_number = controller_device.group_number
         found = False
@@ -342,6 +342,14 @@ class Root(Group):
 
     def get_all_user_links(self):
         return self._user_links.copy()
+
+    def delete_user_link(self, uid):
+        ret = True
+        try:
+            del self._user_links[uid]
+        except KeyError:
+            ret = False
+        return ret
 
     def find_user_link(self, search_uid):
         ret = None

@@ -38,6 +38,9 @@ function getDeviceLinkDetails (deviceID, groupID) {
 }
 
 function addResponder (ret, deviceID, group, deviceData) {
+  if (group === 1 || group === 0) {
+    group = deviceData['base_group_number']
+  }
   if (deviceData['responder'] === true) {
     // Key is used solely to catch duplicates
     ret[deviceID + '_' + group] = {
@@ -54,12 +57,12 @@ function getResponderList () {
   for (var modem in coreJSON) {
     ret = addResponder(ret, modem, 1, coreJSON[modem])
     for (var modemGroup in coreJSON[modem]['groups']) {
-      ret = addResponder(ret, modem, modemGroup, coreJSON[modem]['groups'][modemGroup])
+      ret = addResponder(ret, modem, parseInt(modemGroup), coreJSON[modem]['groups'][modemGroup])
     }
     for (var device in coreJSON[modem]['devices']) {
       ret = addResponder(ret, device, 1, coreJSON[modem]['devices'][device])
       for (var deviceGroup in coreJSON[modem]['devices'][device]['groups']) {
-        ret = addResponder(ret, device, deviceGroup, coreJSON[modem]['devices'][device]['groups'][deviceGroup])
+        ret = addResponder(ret, device, parseInt(deviceGroup), coreJSON[modem]['devices'][device]['groups'][deviceGroup])
       }
     }
   }
@@ -147,7 +150,7 @@ function generateLinkRow (data) {
 function outputDefinedLinkRow (uid, data) {
   var ret = generateLinkRow(data)
   ret.find('.linkRowButtons').append(`
-        <button type="button" class="btn btn-default btn-sm definedLinkFix" style="display: none">
+        <button type="button" class="btn btn-warning btn-sm definedLinkFix" style="display: none">
           Fix
         </button>
         <button type="button" class="btn btn-default btn-sm definedLinkEdit">
@@ -165,9 +168,9 @@ function outputDefinedLinkRow (uid, data) {
   `)
   ret.data('uid', uid)
   if (data['status'] === 'Broken') {
-    ret.find('.definedLinkEdit').show()
-    ret.find('.definedLinkEdit').hide()
-    ret.find('tr').addClass('danger')
+    ret.find('.definedLinkFix').show()
+    // ret.find('.definedLinkEdit').hide()
+    ret.addClass('danger')
   }
   return ret
 }
@@ -195,9 +198,11 @@ function linksData (data, status, xhr) {
       $('.definedLinkEdit').click(function () {
         $(this).parents('tr').find('select').removeAttr('disabled')
         $(this).parents('tr').find('.definedLinkEdit').hide()
+        $(this).parents('tr').find('.definedLinkFix').hide()
         $(this).parents('tr').find('.definedLinkDelete').hide()
         $(this).parents('tr').find('.definedLinkSave').show()
         $(this).parents('tr').find('.definedLinkCancel').show()
+        $(this).parents('tr').removeClass('danger')
       })
       $('.definedLinkCancel').click(function () {
         // Reset data fields back to how they appeared on load
@@ -217,6 +222,10 @@ function linksData (data, status, xhr) {
         $(this).parents('tr').find('.definedLinkDelete').show()
         $(this).parents('tr').find('.definedLinkSave').hide()
         $(this).parents('tr').find('.definedLinkCancel').hide()
+        if ($(this).parents('tr').data('status') === 'Broken') {
+          $(this).parents('tr').find('.definedLinkFix').show()
+          $(this).parents('tr').addClass('danger')
+        }
       })
       $('.responderInput').change(function () {
         // Update Data Fields when Responder is Changed
@@ -237,9 +246,9 @@ function linksData (data, status, xhr) {
         var uid = row.data('uid')
         var jsonData = {
           'responder_id': row.find('.responderInput').find(':selected').data('responder_id'),
-          'responder_group': row.find('.responderInput').find(':selected').data('responder_group'),
-          'data_1': row.find('.linkRowData1').find(':selected').val(),
-          'data_2': row.find('.linkRowData2').find(':selected').val()
+          'data_1': parseInt(row.find('.linkRowData1').find(':selected').val()),
+          'data_2': parseInt(row.find('.linkRowData2').find(':selected').val()),
+          'data_3': parseInt(row.find('.responderInput').find(':selected').data('responder_group'))
         }
         var path = window.location.pathname.replace(/\/$/, '')
         $.ajax({
@@ -248,7 +257,7 @@ function linksData (data, status, xhr) {
           data: JSON.stringify(jsonData),
           contentType: 'application/json; charset=utf-8',
           dataType: 'json',
-          success: function () {}
+          success: linksData
         })
       })
     } // End Defined Links

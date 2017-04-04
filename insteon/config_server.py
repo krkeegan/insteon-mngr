@@ -61,24 +61,17 @@ def add_defined_device_link(device_id, group_number):
     # Be careful, no documentation guarantees that data_3 is always the group
     responder_id = request.json['responder_id']
     responder_root = core.get_device_by_addr(responder_id)
-    responder_root.add_user_link(controller_device, request.json)
+    responder_root.add_user_link(controller_device, request.json, None)
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_links(device_id, group_number))
 
 @route('/modems/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks/<uid:re:[0-9]{6}>.json', method='PATCH')
 @route('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks/<uid:re:[0-9]{6}>.json', method='PATCH')
 def edit_defined_device_link(device_id, group_number, uid):
-    root = core.get_device_by_addr(device_id)
-    responder = root.get_object_by_group_num(int(group_number))
-    # Be careful, no documentation guarantees that data_3 is always the group
-    user_link = root.find_user_link(int(uid))
-    # TODO call edit user link
-    '''
-    If responder id is different, delete user link on original device and
-    create new link on correct device but using the same uid
-    In either case, the user_link object then needs to call some sort of
-    write/update aldb
-    '''
+    controller_root = core.get_device_by_addr(device_id)
+    controller = controller_root.get_object_by_group_num(int(group_number))
+    user_link = core.find_user_link(int(uid))
+    user_link.edit(controller, request.json)
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_links(device_id, group_number))
 
@@ -234,6 +227,8 @@ def _user_link_output(device):
             'responder_id': link.device.root.dev_addr_str,
             'responder_name': link.device.name,
             'responder_group': link.device.group_number,
+            'responder_key': link.responder_key,
+            'controller_key': link.controller_key,
             'data_1': link.data_1,
             'data_2': link.data_2,
             'data_3': link.data_3,
