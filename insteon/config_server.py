@@ -206,6 +206,10 @@ def _undefined_link_output(device):
                     'controller_key': link.key
                 })
         else:
+            controller_key = None
+            reciprocal_records = link.get_reciprocal_records()
+            if len(reciprocal_records) > 0:
+                controller_key = reciprocal_records[0].key
             ret.append({
                 'responder_id': link.device.root.dev_addr_str,
                 'responder_name': link.device.name,
@@ -213,7 +217,7 @@ def _undefined_link_output(device):
                 'data_2': link_parsed['data_2'],
                 'data_3': link_parsed['data_3'],
                 'responder_key': link.key,
-                'controller_key': link.get_reciprocal_records()[0].key
+                'controller_key': controller_key
             })
     return ret
 
