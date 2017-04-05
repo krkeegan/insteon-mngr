@@ -210,6 +210,26 @@ function outputUndefinedLinkRow (data) {
   return ret
 }
 
+function saveLink () {
+  var row = $(this).parents('tr')
+  var uid = row.data('uid')
+  var jsonData = {
+    'responder_id': row.find('.responderInput').find(':selected').data('responder_id'),
+    'data_1': parseInt(row.find('.linkRowData1').find(':selected').val()),
+    'data_2': parseInt(row.find('.linkRowData2').find(':selected').val()),
+    'data_3': parseInt(row.find('.responderInput').find(':selected').data('responder_group'))
+  }
+  var path = window.location.pathname.replace(/\/$/, '')
+  $.ajax({
+    url: path + '/links/definedLinks/' + uid + '.json',
+    method: 'PATCH',
+    data: JSON.stringify(jsonData),
+    contentType: 'application/json; charset=utf-8',
+    dataType: 'json',
+    success: linksData
+  })
+}
+
 function linksData (data, status, xhr) {
   if (status === 'success') {
     if ($('tbody#definedLinks').length) {
@@ -268,25 +288,8 @@ function linksData (data, status, xhr) {
           generateDataSelect(dataRow.data('data_2'), linkDetails['data_2'])
         )
       })
-      $('.definedLinkSave').click(function () {
-        var row = $(this).parents('tr')
-        var uid = row.data('uid')
-        var jsonData = {
-          'responder_id': row.find('.responderInput').find(':selected').data('responder_id'),
-          'data_1': parseInt(row.find('.linkRowData1').find(':selected').val()),
-          'data_2': parseInt(row.find('.linkRowData2').find(':selected').val()),
-          'data_3': parseInt(row.find('.responderInput').find(':selected').data('responder_group'))
-        }
-        var path = window.location.pathname.replace(/\/$/, '')
-        $.ajax({
-          url: path + '/links/definedLinks/' + uid + '.json',
-          method: 'PATCH',
-          data: JSON.stringify(jsonData),
-          contentType: 'application/json; charset=utf-8',
-          dataType: 'json',
-          success: linksData
-        })
-      })
+      $('.definedLinkSave').click(saveLink)
+      $('.definedLinkFix').click(saveLink)
     } // End Defined Links
     if ($('tbody#addLinks').length) {
       $('tbody#addLinks').html('')

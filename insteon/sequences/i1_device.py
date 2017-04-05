@@ -120,6 +120,28 @@ class WriteALDBRecordi1(WriteALDBRecord):
 
     def _write_complete(self):
         self._device.remove_state_machine('write_aldb')
+        link_flags = 0xA2
+        group = self._linked_device.group_number
+        if self.controller:
+            link_flags = 0xE2
+            group = self._device.group_number
+        aldb_entry = bytearray([
+            link_flags,
+            group,
+            self._linked_device.dev_addr_hi,
+            self._linked_device.dev_addr_mid,
+            self._linked_device.dev_addr_low,
+            self.data1,
+            self.data2,
+            self._device.group_number
+        ])
+        record = self._device.aldb.get_record(
+            self._device.aldb.get_aldb_key(
+                self.address[0],
+                self.address[1]
+            )
+        )
+        record.edit_record(aldb_entry)
         aldb_sequence = SetALDBDelta(self._device)
         aldb_sequence.success_callback = lambda: self.on_success()
         aldb_sequence.failure_callback = lambda: self.on_failure()
