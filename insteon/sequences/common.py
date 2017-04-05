@@ -4,18 +4,18 @@ from insteon.trigger import InsteonTrigger, PLMTrigger
 class BaseSequence(object):
     def __init__(self, device):
         self._device = device
-        self._success = None
-        self._failure = None
+        self._success_callback = None
+        self._failure_callback = None
         self._complete = False
         self._success = False
 
     @property
     def success_callback(self):
-        return self._success
+        return self._success_callback
 
     @success_callback.setter
     def success_callback(self, callback):
-        self._success = callback
+        self._success_callback = callback
 
     @property
     def failure_callback(self):
@@ -37,7 +37,7 @@ class BaseSequence(object):
         self._complete = True
         self._success = True
         if self.success_callback is not None:
-            self._success()
+            self.success_callback()
 
     def on_failure(self):
         self._complete = True
@@ -148,6 +148,21 @@ class WriteALDBRecord(BaseSequence):
     @data2.setter
     def data2(self, byte):
         self._d2 = byte
+
+    @property
+    def key(self):
+        # pylint: disable=E1305
+        ret = None
+        if self._address is not None:
+            ret = ('{:02x}'.format(self._address[0:2], 'x').upper() +
+                   '{:02x}'.format(self._address[2:4], 'x').upper())
+        return ret
+
+    @key.setter
+    def key(self, value):
+        msb = int(value[0:2], 16)
+        lsb = int(value[2:4], 16)
+        self._address = bytearray([msb, lsb])
 
     @property
     def address(self):

@@ -1,5 +1,7 @@
 '''The user_link classes'''
 
+from insteon import ID_STR_TO_BYTES
+
 class UserLink(object):
     '''The base class for user_links'''
 
@@ -53,6 +55,18 @@ class UserLink(object):
     @property
     def data_3(self):
         return self._data_3
+
+    @property
+    def dev_addr_hi(self):
+        return ID_STR_TO_BYTES(self._address)[0]
+
+    @property
+    def dev_addr_mid(self):
+        return ID_STR_TO_BYTES(self._address)[1]
+
+    @property
+    def dev_addr_low(self):
+        return ID_STR_TO_BYTES(self._address)[2]
 
     @property
     def controller_device(self):

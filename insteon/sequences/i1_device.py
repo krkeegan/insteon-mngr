@@ -62,6 +62,8 @@ class WriteALDBRecordi1(WriteALDBRecord):
     def _perform_write(self):
         # TODO we can skip setting the msb if we can find the last msb
         # requested in the sent message queue
+        # TODO we should skip those bytes that don't need to be rewritten on a
+        # fix
         msb = self.address[0]
         lsb = self.address[1] - 0x07  # i1 devices start at low end
         trigger_attributes = {'cmd_2': msb}
