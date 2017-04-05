@@ -1,17 +1,12 @@
 class GenericFunctions(object):
     def __init__(self, device):
         self._device = device
-        # This sets the default base group number, older devices seem to be 0x00
-        # newer devices are 0x01, in many cases they are interchangable, but
-        # some devices are picky
-        self._base_group = 0x00
 
-    def get_responder_data3(self):
-        '''Returns the correct data3 value for responder links on this device'''
-        ret = self._device.group_number
-        if ret == 0x00 or ret == 0x01:
-            ret = self._base_group
-        return ret
+    def get_controller_data1(self, responder):
+        return 0x03
+
+    def get_controller_data2(self, responder):
+        return 0x00
 
     def state_str(self):
         '''Returns the current state of the device in a human readable form'''
@@ -38,7 +33,6 @@ class GenericFunctions(object):
         editable so are not saved in the config.json file'''
         ret = {
             'responder': True,
-            'base_group_number': self._base_group
         }
         ret['data_1'] = {
             'name': 'On/Off',
@@ -53,6 +47,4 @@ class GenericFunctions(object):
         return ret
 
     def _create_groups(self, group_class):
-        # All devices have a group 0x01, other specialized devices may have more
-        if self._device.get_object_by_group_num(0x01) is None:
-            self._device.create_group(0x01, group_class)
+        pass

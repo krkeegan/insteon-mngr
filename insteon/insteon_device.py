@@ -235,9 +235,6 @@ class InsteonDevice(Root):
     def get_responder_data2(self):
         return self.functions.get_responder_data2()
 
-    def get_responder_data3(self):
-        return self.functions.get_responder_data3()
-
     def update_device_classes(self):
         classes = select_device(device=self, dev_cat=self.dev_cat,
                                 sub_cat=self.sub_cat, firmware=self.firmware,

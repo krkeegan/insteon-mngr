@@ -110,7 +110,8 @@ def modem_group_page():
 
 @get('/modems/<modem_id:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}/?>')
 def device_page(modem_id, device_id):
-    redirect('/modems/' + modem_id + '/devices/' + device_id +'/groups/1')
+    group_number = core.get_device_by_addr(device_id).group_number
+    redirect('/modems/' + modem_id + '/devices/' + device_id +'/groups/' + str(group_number))
 
 @get('/modems/<:re:[A-Fa-f0-9]{6}/devices/[A-Fa-f0-9]{6}/groups/[0-9]{1,3}/?>')
 def device_group_page():

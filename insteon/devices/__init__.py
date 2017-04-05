@@ -16,6 +16,8 @@ def select_device(device=None, dev_cat=0x00, sub_cat=0x00,
     if dev_cat == 0x01:
         ret['functions'] = DimmerFunctions(device)
         ret['send_handler'] = DimmerSendHandler(device)
+    if engine_version >= 0x01:
+        device.set_base_group_number(0x01)
     return ret
 
 def select_group(device=None, dev_cat=0x00, sub_cat=0x00,

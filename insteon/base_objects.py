@@ -168,6 +168,11 @@ class Group(object):
         ret.update(self.functions.get_features())
         return ret
 
+    def set_base_group_number(self, number):
+        '''Used to set whether the root device is group 0x00 or 0x01, older
+        i1 devices seem to be 0x00 while i2 devices are 0x01'''
+        self._group_number = number
+
 
 class Root(Group):
     '''The root object of an insteon device, inherited by Devices and Modems'''
@@ -183,7 +188,7 @@ class Root(Group):
         self._user_links = {}
         if 'device_id' in kwargs:
             self._id_bytes = ID_STR_TO_BYTES(kwargs['device_id'])
-        super().__init__(self, 0x01, **kwargs)
+        super().__init__(self, 0x00, **kwargs)
 
     @property
     def dev_addr_hi(self):

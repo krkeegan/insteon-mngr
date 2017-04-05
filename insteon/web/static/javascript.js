@@ -38,9 +38,6 @@ function getDeviceLinkDetails (deviceID, groupID) {
 }
 
 function addResponder (ret, deviceID, group, deviceData) {
-  if (group === 1 || group === 0) {
-    group = deviceData['base_group_number']
-  }
   if (deviceData['responder'] === true) {
     // Key is used solely to catch duplicates
     ret[deviceID + '_' + group] = {
@@ -60,7 +57,6 @@ function getResponderList () {
       ret = addResponder(ret, modem, parseInt(modemGroup), coreJSON[modem]['groups'][modemGroup])
     }
     for (var device in coreJSON[modem]['devices']) {
-      ret = addResponder(ret, device, 1, coreJSON[modem]['devices'][device])
       for (var deviceGroup in coreJSON[modem]['devices'][device]['groups']) {
         ret = addResponder(ret, device, parseInt(deviceGroup), coreJSON[modem]['devices'][device]['groups'][deviceGroup])
       }

@@ -179,24 +179,23 @@ class WriteALDBRecord(BaseSequence):
             msg_attributes['dev_addr_hi'] = 0x00
             msg_attributes['dev_addr_mid'] = 0x00
             msg_attributes['dev_addr_low'] = 0x00
-
         elif self.controller:
             msg_attributes['link_flags'] = 0xE2
-            msg_attributes['group'] = self._device.group
+            msg_attributes['group'] = self._device.group_number
             msg_attributes['data_1'] = self.data1  # hops I think
             msg_attributes['data_2'] = self.data2  # unkown always 0x00
-            # group of responding device
-            msg_attributes['data_3'] = self._linked_device.group
+            # group of controller device base_group for 0x01, 0x00 issue
+            msg_attributes['data_3'] = self._device.group_number
             msg_attributes['dev_addr_hi'] = self._linked_device.dev_addr_hi
             msg_attributes['dev_addr_mid'] = self._linked_device.dev_addr_mid
             msg_attributes['dev_addr_low'] = self._linked_device.dev_addr_low
         else:
             msg_attributes['link_flags'] = 0xA2
-            msg_attributes['group'] = self._linked_device.group
+            msg_attributes['group'] = self._linked_device.group_number
             msg_attributes['data_1'] = self.data1  # on level
             msg_attributes['data_2'] = self.data2  # ramp rate
             # group of responder, i1 = 00, i2 = 01
-            msg_attributes['data_3'] = self._device.get_responder_data3()
+            msg_attributes['data_3'] = self._device.group_number
             msg_attributes['dev_addr_hi'] = self._linked_device.dev_addr_hi
             msg_attributes['dev_addr_mid'] = self._linked_device.dev_addr_mid
             msg_attributes['dev_addr_low'] = self._linked_device.dev_addr_low
