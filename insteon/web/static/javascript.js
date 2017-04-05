@@ -134,7 +134,7 @@ function generateLinkRow (data) {
     ret.find('.linkRowData2').append(generateDataSelect(data['data_2'],
                                           linkDetails['data_2']))
   } else if ('device' in data) {
-    ret.find('th').find('label').after(generateResponderSelect(data['device']))
+    ret.find('th').find('label').after((data['device']))
   } else if ('empty' in data) {
     var responders = getResponderList()
     var deviceID = ''
