@@ -57,13 +57,10 @@ class ScanDeviceALDBi1(BaseSequence):
 class WriteALDBRecordi1(WriteALDBRecord):
     def __init__(self, device):
         super().__init__(device)
-        self._position = 0
 
     def _perform_write(self):
         # TODO we can skip setting the msb if we can find the last msb
         # requested in the sent message queue
-        # TODO we should skip those bytes that don't need to be rewritten on a
-        # fix
         msb = self.address[0]
         lsb = self.address[1] - 0x07  # i1 devices start at low end
         trigger_attributes = {'cmd_2': msb}
@@ -79,29 +76,47 @@ class WriteALDBRecordi1(WriteALDBRecord):
         self._device.queue_device_msg(message)
 
     def _send_peek_request(self, lsb):
-        trigger = InsteonTrigger(device=self._device,
-                                 command_name='peek_one_byte')
-        trigger.trigger_function = lambda: self._send_poke_request(lsb)
-        trigger.name = self._device.dev_addr_str + 'write_aldb'
-        trigger.queue()
-        message = self._device.send_handler.create_message('peek_one_byte')
-        message.insert_bytes_into_raw({'lsb': lsb})
-        message.state_machine = 'write_aldb'
-        self._device.queue_device_msg(message)
+        records = self._device.aldb.get_all_records()
+        aldb_key = self._device.aldb.get_aldb_key(self.address[0], self.address[1])
+        if aldb_key in records:
+            record = self._device.aldb.get_record(
+                self._device.aldb.get_aldb_key(self.address[0], self.address[1])
+            )
+            record_parsed = record.parse_record()
+            while((lsb % 8 < 7) and
+                  self._addr_byte_by_lsb(lsb) ==
+                  record_parsed[self._name_position(lsb)]):
+                lsb = lsb + 0x01
+        if (lsb % 8 < 7):
+            trigger = InsteonTrigger(device=self._device,
+                                     command_name='peek_one_byte')
+            trigger.trigger_function = lambda: self._send_poke_request(lsb)
+            trigger.name = self._device.dev_addr_str + 'write_aldb'
+            trigger.queue()
+            message = self._device.send_handler.create_message('peek_one_byte')
+            message.insert_bytes_into_raw({'lsb': lsb})
+            message.state_machine = 'write_aldb'
+            self._device.queue_device_msg(message)
+        else:
+            self._write_complete()
 
-    def _addr_byte_by_pos(self, pos):
-        msg_attributes = self._compiled_record()
+    def _name_position(self, lsb):
+        pos = lsb % 8
         positions = ['link_flags', 'group', 'dev_addr_hi', 'dev_addr_mid',
                      'dev_addr_low', 'data_1', 'data_2', 'data_3']
-        return msg_attributes[positions[pos]]
+        return positions[pos]
+
+    def _addr_byte_by_lsb(self, lsb):
+        msg_attributes = self._compiled_record()
+        return msg_attributes[self._name_position(lsb)]
 
     def _send_poke_request(self, lsb):
-        lsb_byte = self._addr_byte_by_pos(self._position)
+        lsb_byte = self._addr_byte_by_lsb(lsb)
         trigger_attributes = {'cmd_2': lsb_byte}
         trigger = InsteonTrigger(device=self._device,
                                  command_name='poke_one_byte',
                                  attributes=trigger_attributes)
-        if self._position < 7:
+        if (lsb % 8) < 7:
             next_lsb = lsb + 0x01
             callback = lambda: self._send_peek_request(next_lsb)
         else:
@@ -112,7 +127,6 @@ class WriteALDBRecordi1(WriteALDBRecord):
         message = self._device.send_handler.create_message('poke_one_byte')
         message.insert_bytes_into_raw({'lsb': lsb_byte})
         message.state_machine = 'write_aldb'
-        self._position += 1
         self._device.queue_device_msg(message)
 
     def _write_failure(self):
