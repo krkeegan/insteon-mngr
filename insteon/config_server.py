@@ -228,6 +228,11 @@ def _user_link_output(device):
         status = 'Broken'
         if link.are_aldb_records_correct() is True:
             status = 'Good'
+        elif link.link_sequence is not None:
+            if link.link_sequence.is_complete is False:
+                status = 'Working'
+            elif link.link_sequence.is_success is False:
+                status = 'Failed'
         ret[link.uid] = {
             'responder_id': link.device.root.dev_addr_str,
             'responder_name': link.device.name,

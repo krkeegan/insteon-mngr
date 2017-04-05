@@ -12,6 +12,7 @@ class UserLink(object):
         self._data_2 = data['data_2']
         self._data_3 = data['data_3']
         self._uid = uid
+        self._link_sequence = None
         if uid is None:
             self._uid = self._core.get_new_user_link_unique_id()
         self._controller_key = None
@@ -77,30 +78,15 @@ class UserLink(object):
     def responder_key(self):
         return self._responder_key
 
+    @property
+    def link_sequence(self):
+        return self._link_sequence
+
     def are_aldb_records_correct(self):
         ret = False
-        if (self._responder_key is not None and
-                self._controller_key is not None):
-            responder = self.device.root.aldb.get_record(self._responder_key).parse_record()
-            controller = self.controller_device.root.aldb.get_record(self._controller_key).parse_record()
-            if (responder['in_use'] == True and
-                responder['responder'] == True and
-                responder['group'] == self.group and
-                responder['dev_addr_hi'] == self.controller_device.root.dev_addr_hi and
-                responder['dev_addr_mid'] == self.controller_device.root.dev_addr_mid and
-                responder['dev_addr_low'] == self.controller_device.root.dev_addr_low and
-                responder['data_1'] == self.data_1 and
-                responder['data_2'] == self.data_2 and
-                responder['data_3'] == self.data_3
-                ):
-                if (controller['in_use'] == True and
-                    controller['controller'] == True and
-                    controller['group'] == self.group and
-                    controller['dev_addr_hi'] == self.device.root.dev_addr_hi and
-                    controller['dev_addr_mid'] == self.device.root.dev_addr_mid and
-                    controller['dev_addr_low'] == self.device.root.dev_addr_low
-                    ):
-                    ret = True
+        if (self._is_responder_correct() is True and
+                self._is_controller_correct() is True):
+            ret = True
         return ret
 
     def edit(self, controller, data):
@@ -115,3 +101,96 @@ class UserLink(object):
             self._data_1 = data['data_1']
             self._data_2 = data['data_2']
             self._data_3 = data['data_3']
+        self.fix()
+
+    def fix(self):
+        '''Does whatever is necessary to get this link in the proper state
+        returns nothing, but you can query the link itself or the link_sequence
+        if set to get the status'''
+        # TODO check if already active link sequence?
+        ret = None
+        if self._is_controller_correct() is False:
+            if self._adoptable_controller_key() is not None:
+                self._controller_key = self._adoptable_controller_key()
+            else:
+                ret = self.controller_device.root.send_handler.create_controller_link_sequence(self)
+        if self._is_responder_correct() is False:
+            if self._adoptable_responder_key() is not None:
+                self._responder_key = self._adoptable_responder_key()
+            else:
+                if ret is None:
+                    ret = self._root_device.send_handler.create_responder_link_sequence(self)
+                else:
+                    ret.success_callback = self._root_device.send_handler.create_responder_link_sequence(self)
+        if ret is not None:
+            ret.start()
+        self._link_sequence = ret
+
+    def _adoptable_responder_key(self):
+        '''Looks for an existing undefined aldb entry that matches this link
+        and returns that key if found'''
+        ret = None
+        attributes = {
+            'in_use':  True,
+            'responder': True,
+            'group': self.group,
+            'dev_addr_hi': self.dev_addr_hi,
+            'dev_addr_mid': self.dev_addr_mid,
+            'dev_addr_low': self.dev_addr_low,
+            'data_1': self.data_1,
+            'data_2': self.data_2,
+            'data_3': self.data_3,
+        }
+        links = self.device.root.aldb.get_matching_records(attributes)
+        if len(links) > 0:
+            ret = links[0].key
+        return ret
+
+    def _adoptable_controller_key(self):
+        '''Looks for an existing undefined aldb entry that matches this link
+        and returns that key if found'''
+        ret = None
+        attributes = {
+            'in_use':  True,
+            'controller': True,
+            'group': self.group,
+            'dev_addr_hi': self.device.root.dev_addr_hi,
+            'dev_addr_mid': self.device.root.dev_addr_mid,
+            'dev_addr_low': self.device.root.dev_addr_low
+            # Not checking data_1-3 at the moment
+        }
+        links = self.controller_device.root.aldb.get_matching_records(attributes)
+        if len(links) > 0:
+            ret = links[0].key
+        return ret
+
+    def _is_responder_correct(self):
+        ret = False
+        if (self._responder_key is not None):
+            responder = self.device.root.aldb.get_record(self._responder_key).parse_record()
+            if (responder['in_use'] == True and
+                    responder['responder'] == True and
+                    responder['group'] == self.group and
+                    responder['dev_addr_hi'] == self.dev_addr_hi and
+                    responder['dev_addr_mid'] == self.dev_addr_mid and
+                    responder['dev_addr_low'] == self.dev_addr_low and
+                    responder['data_1'] == self.data_1 and
+                    responder['data_2'] == self.data_2 and
+                    responder['data_3'] == self.data_3
+               ):
+                ret = True
+        return ret
+
+    def _is_controller_correct(self):
+        ret = False
+        if (self._controller_key is not None):
+            controller = self.controller_device.root.aldb.get_record(self._controller_key).parse_record()
+            if (controller['in_use'] == True and
+                    controller['controller'] == True and
+                    controller['group'] == self.group and
+                    controller['dev_addr_hi'] == self.device.root.dev_addr_hi and
+                    controller['dev_addr_mid'] == self.device.root.dev_addr_mid and
+                    controller['dev_addr_low'] == self.device.root.dev_addr_low
+               ):
+                ret = True
+        return ret

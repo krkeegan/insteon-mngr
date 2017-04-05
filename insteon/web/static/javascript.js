@@ -184,7 +184,15 @@ function outputDefinedLinkRow (uid, data) {
   if (data['status'] === 'Broken') {
     ret.find('.definedLinkFix').show()
     // ret.find('.definedLinkEdit').hide()
-    ret.addClass('danger')
+    ret.addClass('warning')
+  } else if (data['status'] === 'Working') {
+    ret.find('.definedLinkEdit').hide()
+    ret.find('.definedLinkDelete').hide()
+    ret.addClass('info')
+  } else if (data['status'] === 'Failed') {
+    ret.find('.definedLinkFix').show()
+    // need to do something to notify user here?? maybe an alert?
+    ret.addClass('warning')
   }
   return ret
 }

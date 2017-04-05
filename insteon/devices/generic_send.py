@@ -152,6 +152,36 @@ class GenericSendHandler(object):
         link_sequence.data2 = 0x00
         link_sequence.start()
 
+    def create_controller_link_sequence(self, user_link):
+        '''Creates a controller link sequence based on a passed user_link,
+        returns the link sequence, which needs to be started'''
+        if self._device.engine_version > 0x00:
+            link_sequence = WriteALDBRecordi2(self._device)
+        else:
+            link_sequence = WriteALDBRecordi1(self._device)
+        if user_link.controller_key is not None:
+            link_sequence.key = user_link.controller_key
+        link_sequence.controller = True
+        link_sequence.linked_device = user_link.device
+        link_sequence.data1 = self._device.functions.get_controller_data1(None)
+        link_sequence.data2 = self._device.functions.get_controller_data2(None)
+        return link_sequence
+
+    def create_responder_link_sequence(self, user_link):
+        '''Creates a responder link sequence based on a passed user_link,
+        returns the link sequence, which needs to be started'''
+        if self._device.engine_version > 0x00:
+            link_sequence = WriteALDBRecordi2(self._device)
+        else:
+            link_sequence = WriteALDBRecordi1(self._device)
+        if user_link.responder_key is not None:
+            link_sequence.key = user_link.responder_key
+        link_sequence.controller = False
+        link_sequence.linked_device = user_link.controller_device
+        link_sequence.data1 = user_link.data_1
+        link_sequence.data2 = user_link.data_2
+        return link_sequence
+
     def delete_record(self, address=bytearray(2)):
         if self._device.engine_version > 0x00:
             link_sequence = WriteALDBRecordi2(self._device)
