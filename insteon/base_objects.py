@@ -82,6 +82,7 @@ class Group(object):
     def _get_undefined_responder(self):
         ret = []
         attributes = {
+            'in_use': True,
             'responder': True,
             'group': self.group_number,
             'dev_addr_hi': self.root.dev_addr_hi,
@@ -100,6 +101,7 @@ class Group(object):
     def _get_undefined_controller(self):
         ret = []
         attributes = {
+            'in_use': True,
             'controller': True,
             'group': self.group_number
         }
@@ -138,6 +140,7 @@ class Group(object):
         known device'''
         ret = []
         attributes = {
+            'in_use': True,
             'controller': True,
             'group': self.group_number
         }
@@ -146,6 +149,7 @@ class Group(object):
             if aldb_link.linked_device is None:
                 ret.append(aldb_link)
         attributes = {
+            'in_use': True,
             'responder': True,
             'data_3': self.group_number
         }
