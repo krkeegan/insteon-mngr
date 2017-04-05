@@ -168,7 +168,7 @@ class ALDBRecord(object):
                     ret = True
                     break
         else:
-            user_links = self.device.root.get_all_user_links
+            user_links = self.device.root.get_all_user_links()
             for user_link in user_links.values():
                 if user_link.responder_key == self.key:
                     ret = True
@@ -184,7 +184,9 @@ class ALDBRecord(object):
         return string
 
     def get_reciprocal_records(self):
-        linked_root = self.linked_device.root
+        linked_root = None
+        if self.linked_device is not None:
+            linked_root = self.linked_device.root
         parsed = self.parse_record()
         controller = True
         records = []
