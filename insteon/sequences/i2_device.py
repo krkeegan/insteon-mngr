@@ -53,6 +53,7 @@ class ScanDeviceALDBi2(BaseSequence):
 
 class WriteALDBRecordi2(WriteALDBRecord):
     def _perform_write(self):
+        self._bind_to_address()
         msg_attributes = self._compiled_record()
         trigger_attributes = {
             'cmd_2': 0x00,

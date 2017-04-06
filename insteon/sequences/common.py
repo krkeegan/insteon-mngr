@@ -180,6 +180,10 @@ class WriteALDBRecord(BaseSequence):
     def address(self, address):
         self._address = address
 
+    def _bind_to_address(self):
+        if self._address is None:
+            self.address = self.address
+
     def _compiled_record(self):
         msg_attributes = {
             'msb': self.address[0],

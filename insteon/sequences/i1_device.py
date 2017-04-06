@@ -59,6 +59,7 @@ class WriteALDBRecordi1(WriteALDBRecord):
         super().__init__(device)
 
     def _perform_write(self):
+        self._bind_to_address()
         # TODO we can skip setting the msb if we can find the last msb
         # requested in the sent message queue
         msb = self.address[0]
