@@ -27,6 +27,7 @@ def stop(server):
 ###################################################################
 
 # Bottle 0.12 doesn't have a patch decorator
+# patch
 @route('/modems.json', method='PATCH')
 def api_modem_put():
     for modem_id in request.json.keys():
@@ -45,6 +46,7 @@ def modem_links(device_id, group_number):
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_links(device_id, group_number))
 
+# patch
 @route('/modems/<modem_id:re:[A-Fa-f0-9]{6}>/groups.json', method='PATCH')
 def api_modem_group_put(modem_id):
     modem = core.get_device_by_addr(modem_id)
@@ -65,6 +67,7 @@ def add_defined_device_link(device_id, group_number):
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_links(device_id, group_number))
 
+# patch
 @route('/modems/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks/<uid:re:[0-9]{6}>.json', method='PATCH')
 @route('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks/<uid:re:[0-9]{6}>.json', method='PATCH')
 def edit_defined_device_link(device_id, group_number, uid):
@@ -75,6 +78,17 @@ def edit_defined_device_link(device_id, group_number, uid):
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_links(device_id, group_number))
 
+@delete('/modems/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks/<uid:re:[0-9]{6}>.json')
+@delete('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks/<uid:re:[0-9]{6}>.json')
+def delete_defined_device_link(device_id, group_number, uid):
+    controller_root = core.get_device_by_addr(device_id)
+    controller = controller_root.get_object_by_group_num(int(group_number))
+    user_link = core.find_user_link(int(uid))
+    user_link.delete()
+    response.headers['Content-Type'] = 'application/json'
+    return jsonify(json_links(device_id, group_number))
+
+# patch
 @route('/modems/<:re:[A-Fa-f0-9]{6}>/devices.json', method='PATCH')
 def api_device_put():
     for device_id in request.json.keys():
@@ -82,6 +96,7 @@ def api_device_put():
         update_device_attributes(device, request.json[device_id])
     return jsonify(json_core())
 
+# patch
 @route('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups.json', method='PATCH')
 def api_device_group_put(device_id):
     for group_number in request.json.keys():

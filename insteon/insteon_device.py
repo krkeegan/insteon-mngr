@@ -46,9 +46,6 @@ class Device_ALDB(ALDB):
 
     def store_peeked_byte(self, msb, lsb, byte):
         record = self.get_record(self.get_aldb_key(msb, lsb))
-        if (lsb % 8) == 0:
-            # First byte, clear out the record
-            record.edit_record(bytearray(8))
         record.edit_record_byte(
             lsb % 8,
             byte

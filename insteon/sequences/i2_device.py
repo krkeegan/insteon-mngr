@@ -70,20 +70,15 @@ class WriteALDBRecordi2(WriteALDBRecord):
         self._device.queue_device_msg(msg)
 
     def _save_record(self):
-        link_flags = 0xA2
-        group = self._linked_device.group_number
-        if self.controller:
-            link_flags = 0xE2
-            group = self._device.group_number
         aldb_entry = bytearray([
-            link_flags,
-            group,
-            self._linked_device.dev_addr_hi,
-            self._linked_device.dev_addr_mid,
-            self._linked_device.dev_addr_low,
-            self.data1,
-            self.data2,
-            self._device.group_number
+            self._compiled_record()['link_flags'],
+            self._compiled_record()['group'],
+            self._compiled_record()['dev_addr_hi'],
+            self._compiled_record()['dev_addr_mid'],
+            self._compiled_record()['dev_addr_low'],
+            self._compiled_record()['data_1'],
+            self._compiled_record()['data_2'],
+            self._compiled_record()['data_3']
         ])
         record = self._device.aldb.get_record(
             self._device.aldb.get_aldb_key(

@@ -182,13 +182,14 @@ class GenericSendHandler(object):
         link_sequence.data2 = user_link.data_2
         return link_sequence
 
-    def delete_record(self, address=bytearray(2)):
+    def delete_record(self, key=None):
         if self._device.engine_version > 0x00:
             link_sequence = WriteALDBRecordi2(self._device)
-        link_sequence.address = address
+        else:
+            link_sequence = WriteALDBRecordi1(self._device)
+        link_sequence.key = key
         link_sequence.in_use = False
-        link_sequence.start()
-
+        return link_sequence
 
     def _write_link(self, linked_obj, is_controller):
         if self._device.attribute('engine_version') == 2:

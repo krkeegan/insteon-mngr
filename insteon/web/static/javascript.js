@@ -290,6 +290,17 @@ function linksData (data, status, xhr) {
       })
       $('.definedLinkSave').click(saveLink)
       $('.definedLinkFix').click(saveLink)
+      $('.definedLinkDelete').click(function () {
+        var row = $(this).parents('tr')
+        var uid = row.data('uid')
+        var path = window.location.pathname.replace(/\/$/, '')
+        $.ajax({
+          url: path + '/links/definedLinks/' + uid + '.json',
+          method: 'DELETE',
+          dataType: 'json',
+          success: linksData
+        })
+      })
     } // End Defined Links
     if ($('tbody#addLinks').length) {
       $('tbody#addLinks').html('')

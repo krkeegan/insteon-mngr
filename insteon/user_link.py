@@ -135,10 +135,34 @@ class UserLink(object):
                 if ret is None:
                     ret = self._root_device.send_handler.create_responder_link_sequence(self)
                 else:
-                    ret.success_callback = self._root_device.send_handler.create_responder_link_sequence(self)
+                    ret.success_callback = self._root_device.send_handler.create_responder_link_sequence(self).start
         if ret is not None:
             ret.start()
         self._link_sequence = ret
+
+    def delete(self):
+        '''Deletes this user link and wipes the associated links on the
+        devices'''
+        ret = None
+        controller_sequence = None
+        responder_sequence = None
+        if self.controller_key is not None:
+            controller_sequence = self.controller_device.root.send_handler.delete_record(key=self.controller_key)
+        if self.responder_key is not None:
+            responder_sequence = self._root_device.send_handler.delete_record(key=self.responder_key)
+        ret = lambda: self._root_device.delete_user_link(self.uid)
+        if responder_sequence is not None and controller_sequence is not None:
+            responder_sequence.success_callback = lambda: self._root_device.delete_user_link(self.uid)
+            controller_sequence.success_callback = lambda: responder_sequence.start()
+            controller_sequence.start()
+        elif responder_sequence is not None:
+            responder_sequence.success_callback = lambda: self._root_device.delete_user_link(self.uid)
+            responder_sequence.start()
+        elif controller_sequence is not None:
+            controller_sequence.success_callback = lambda: self._root_device.delete_user_link(self.uid)
+            controller_sequence.start()
+        else:
+            self._root_device.delete_user_link(self.uid)
 
     def _adoptable_responder_key(self):
         '''Looks for an existing undefined aldb entry that matches this link

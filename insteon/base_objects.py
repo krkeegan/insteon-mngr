@@ -345,7 +345,7 @@ class Root(Group):
                 controller_id,
                 group_number,
                 data,
-                None
+                uid
             )
             self._user_links[new_user_link.uid] = new_user_link
 
