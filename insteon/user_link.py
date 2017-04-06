@@ -143,14 +143,12 @@ class UserLink(object):
     def delete(self):
         '''Deletes this user link and wipes the associated links on the
         devices'''
-        ret = None
         controller_sequence = None
         responder_sequence = None
         if self.controller_key is not None:
             controller_sequence = self.controller_device.root.send_handler.delete_record(key=self.controller_key)
         if self.responder_key is not None:
             responder_sequence = self._root_device.send_handler.delete_record(key=self.responder_key)
-        ret = lambda: self._root_device.delete_user_link(self.uid)
         if responder_sequence is not None and controller_sequence is not None:
             responder_sequence.success_callback = lambda: self._root_device.delete_user_link(self.uid)
             controller_sequence.success_callback = lambda: responder_sequence.start()

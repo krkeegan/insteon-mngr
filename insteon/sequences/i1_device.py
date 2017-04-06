@@ -89,7 +89,7 @@ class WriteALDBRecordi1(WriteALDBRecord):
                   self._addr_byte_by_lsb(lsb) ==
                   record_parsed[self._name_position(lsb)]):
                 lsb = lsb + 0x01
-        if (lsb % 8 >= 7 or (lsb % 8 >= 1 and self.in_use is False)):
+        if lsb % 8 >= 7 or (lsb % 8 >= 1 and self.in_use is False):
             self._write_complete()
         else:
             trigger = InsteonTrigger(device=self._device,
@@ -113,9 +113,6 @@ class WriteALDBRecordi1(WriteALDBRecord):
         return msg_attributes[self._name_position(lsb)]
 
     def _send_poke_request(self, lsb):
-        record = self._device.aldb.get_record(
-            self._device.aldb.get_aldb_key(self.address[0], self.address[1])
-        )
         lsb_byte = self._addr_byte_by_lsb(lsb)
         trigger_attributes = {'cmd_2': lsb_byte}
         trigger = InsteonTrigger(device=self._device,
