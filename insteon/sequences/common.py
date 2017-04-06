@@ -154,8 +154,8 @@ class WriteALDBRecord(BaseSequence):
         # pylint: disable=E1305
         ret = None
         if self._address is not None:
-            ret = ('{:02x}'.format(self._address[0:2], 'x').upper() +
-                   '{:02x}'.format(self._address[2:4], 'x').upper())
+            ret = ('{:02x}'.format(self._address[0], 'x').upper() +
+                   '{:02x}'.format(self._address[1], 'x').upper())
         return ret
 
     @key.setter
