@@ -103,6 +103,12 @@ class UserLink(object):
             ret = True
         return ret
 
+    def set_controller_key(self, key):
+        self._controller_key = key
+
+    def set_responder_key(self, key):
+        self._responder_key = key
+
     def edit(self, controller, data):
         '''Edits the user link'''
         # TODO need to call some sort of aldb_write process
@@ -123,21 +129,34 @@ class UserLink(object):
         if set to get the status'''
         # TODO check if already active link sequence?
         ret = None
+        controller_sequence = None
+        responder_sequence = None
         if self._is_controller_correct() is False:
             if self._adoptable_controller_key() is not None:
                 self._controller_key = self._adoptable_controller_key()
             else:
-                ret = self.controller_device.root.send_handler.create_controller_link_sequence(self)
+                controller_sequence = self.controller_device.root.send_handler.create_controller_link_sequence(self)
         if self._is_responder_correct() is False:
             if self._adoptable_responder_key() is not None:
                 self._responder_key = self._adoptable_responder_key()
             else:
-                if ret is None:
-                    ret = self._root_device.send_handler.create_responder_link_sequence(self)
-                else:
-                    ret.success_callback = self._root_device.send_handler.create_responder_link_sequence(self).start
-        if ret is not None:
-            ret.start()
+                responder_sequence = self._root_device.send_handler.create_responder_link_sequence(self)
+        if responder_sequence is not None and controller_sequence is not None:
+            responder_sequence.success_callback = lambda: (
+                self.set_controller_key(controller_sequence.key),
+                self.set_responder_key(responder_sequence.key),
+                )
+            controller_sequence.success_callback = lambda: responder_sequence.start()
+            ret = controller_sequence
+            controller_sequence.start()
+        elif responder_sequence is not None:
+            responder_sequence.success_callback = lambda: self.set_responder_key(responder_sequence.key)
+            ret = responder_sequence
+            responder_sequence.start()
+        elif controller_sequence is not None:
+            controller_sequence.success_callback = lambda: self.set_controller_key(controller_sequence.key)
+            ret = controller_sequence
+            controller_sequence.start()
         self._link_sequence = ret
 
     def delete(self):
