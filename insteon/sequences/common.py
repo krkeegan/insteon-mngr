@@ -19,11 +19,11 @@ class BaseSequence(object):
 
     @property
     def failure_callback(self):
-        return self._failure
+        return self._failure_callback
 
     @failure_callback.setter
     def failure_callback(self, callback):
-        self._failure = callback
+        self._failure_callback = callback
 
     @property
     def is_complete(self):
@@ -252,7 +252,7 @@ class AddPLMtoDevice(BaseSequence):
     def start(self):
         # Put the PLM in Linking Mode
         # queues a message on the PLM
-        message = self._device.plm.create_message('all_link_start')
+        message = self._device.plm.send_handler.create_message('all_link_start')
         plm_bytes = {
             'link_code': 0x01,
             'group': 0x00,
