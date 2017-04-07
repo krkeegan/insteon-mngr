@@ -111,7 +111,6 @@ class UserLink(object):
 
     def edit(self, controller, data):
         '''Edits the user link'''
-        # TODO need to call some sort of aldb_write process
         if data['responder_id'] != self._root_device.dev_addr_str:
             device = self._core.get_device_by_addr(data['responder_id'])
             data['controller_key'] = self.controller_key

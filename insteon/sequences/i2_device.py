@@ -94,4 +94,4 @@ class WriteALDBRecordi2(WriteALDBRecord):
         aldb_sequence.start()
 
     def _write_failure(self):
-        self.on_failure
+        self.on_failure()

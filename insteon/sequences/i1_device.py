@@ -55,9 +55,6 @@ class ScanDeviceALDBi1(BaseSequence):
 
 
 class WriteALDBRecordi1(WriteALDBRecord):
-    def __init__(self, device):
-        super().__init__(device)
-
     def _perform_write(self):
         self._bind_to_address()
         # TODO we can skip setting the msb if we can find the last msb
