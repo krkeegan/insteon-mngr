@@ -9,6 +9,7 @@ from insteon.plm_message import PLM_Message
 from insteon.plm_schema import PLM_SCHEMA
 from insteon.devices import select_group
 from insteon.modem_rcvd import ModemRcvdHandler
+from insteon.sequences import WriteALDBRecordModem
 
 
 class Modem_ALDB(ALDB):
@@ -25,6 +26,9 @@ class Modem_ALDB(ALDB):
         self._parent.add_device(BYTE_TO_ID(parsed_record['dev_addr_hi'],
                                 parsed_record['dev_addr_mid'],
                                 parsed_record['dev_addr_low']))
+
+    def get_first_empty_addr(self):
+        return self._get_next_position()
 
     def _get_next_position(self):
         position = 0
@@ -477,6 +481,18 @@ class ModemSendHandler(object):
         })
         message.insert_bytes_into_raw(dev_bytes)
         self._device.queue_device_msg(message)
+
+    def create_controller_link_sequence(self, user_link):
+        '''Creates a controller link sequence based on a passed user_link,
+        returns the link sequence, which needs to be started'''
+        link_sequence = WriteALDBRecordModem(self._device)
+        link_sequence.controller = True
+        link_sequence.linked_device = user_link.device
+        return link_sequence
+
+    def create_responder_link_sequence(self, user_link):
+        # TODO Is the modem ever a responder in a way that this would be needed?
+        return NotImplemented
 
     def delete_record(self, position=None):
         message = self.create_message('all_link_manage_rec')
