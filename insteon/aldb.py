@@ -71,6 +71,7 @@ class ALDBRecord(object):
         self._raw = raw
         self._database = database
         self._core = self._database._parent.core
+        self._link_sequence = None
 
     @property
     def device(self):
@@ -97,7 +98,18 @@ class ALDBRecord(object):
     def raw(self, value):
         self._raw = value
 
+    @property
+    def link_sequence(self):
+        return self._link_sequence
+
+    def delete(self):
+        '''Removes the record from the device and the cache'''
+        ret = self._database._parent.send_handler.delete_record(key=self.key)
+        ret.start()
+        self._link_sequence = ret
+
     def delete_record(self):
+        '''Removes the record from the cache only'''
         del self._database.aldb[self.key]
 
     def parse_record(self):

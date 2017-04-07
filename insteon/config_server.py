@@ -88,6 +88,15 @@ def delete_defined_device_link(device_id, group_number, uid):
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_links(device_id, group_number))
 
+@delete('/modems/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/unknownLinks/<key:re:[A-Fa-f0-9]{4}>.json')
+@delete('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/unknownLinks/<key:re:[A-Fa-f0-9]{4}>.json')
+def delete_unknown_link(device_id, group_number, key):
+    device_root = core.get_device_by_addr(device_id)
+    aldb_record = device_root.aldb.get_record(key)
+    aldb_record.delete()
+    response.headers['Content-Type'] = 'application/json'
+    return jsonify(json_links(device_id, group_number))
+
 # patch
 @route('/modems/<:re:[A-Fa-f0-9]{6}>/devices.json', method='PATCH')
 def api_device_put():
@@ -190,13 +199,20 @@ def json_links(device_id, group_number):
     return ret
 
 def _unknown_link_output(device):
-    ret = []
+    ret = {}
     for link in device.get_unknown_device_links():
         link_parsed = link.parse_record()
         link_addr = BYTE_TO_ID(link_parsed['dev_addr_hi'],
                                link_parsed['dev_addr_mid'],
                                link_parsed['dev_addr_low'])
-        ret.append({'device': link_addr})
+        status = None
+        if link.link_sequence is not None:
+            if link.link_sequence.is_complete is False:
+                status = 'Working'
+            elif link.link_sequence.is_success is False:
+                status = 'Failed'
+        ret[link.key] = {'device': link_addr,
+                         'status': status}
     return ret
 
 def _undefined_link_output(device):

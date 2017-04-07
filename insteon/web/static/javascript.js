@@ -378,18 +378,30 @@ function linksData (data, status, xhr) {
     }
     if ($('tbody#unknownLinks').length) {
       $('tbody#unknownLinks').html('')
-      for (var i = 0; i < data['unknownLinks'].length; i++) {
-        var row = generateLinkRow(data['unknownLinks'][i])
+      for (var key in data['unknownLinks']) {
+        var row = generateLinkRow(data['unknownLinks'][key])
         row.find('.linkRowButtons').append(`
         <button type="button" class="btn btn-default">
           Add Device
         </button>
-        <button type="button" class="btn btn-danger">
+        <button type="button" class="btn btn-danger unknownLinkDelete">
           Delete
         </button>
         `)
+        row.data('key', key)
         $('tbody#unknownLinks').append(row)
       }
+      $('.unknownLinkDelete').click(function () {
+        var row = $(this).parents('tr')
+        var key = row.data('key')
+        var path = window.location.pathname.replace(/\/$/, '')
+        $.ajax({
+          url: path + '/links/unknownLinks/' + key + '.json',
+          method: 'DELETE',
+          dataType: 'json',
+          success: linksData
+        })
+      })
       if ($('tbody#unknownLinks').is(':empty')) {
         $('#unknownLinksContainer').hide()
       } else {
