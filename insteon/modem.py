@@ -494,19 +494,11 @@ class ModemSendHandler(object):
         # TODO Is the modem ever a responder in a way that this would be needed?
         return NotImplemented
 
-    def delete_record(self, position=None):
-        message = self.create_message('all_link_manage_rec')
-        record = self._device.aldb.parse_record(position)
-        dev_bytes = {
-            'link_flags': record['link_flags'],
-            'group': record['group'],
-            'dev_addr_hi': record['dev_addr_hi'],
-            'dev_addr_mid': record['dev_addr_mid'],
-            'dev_addr_low': record['dev_addr_low'],
-            'ctrl_code': 0x80
-        }
-        message.insert_bytes_into_raw(dev_bytes)
-        self._device.queue_device_msg(message)
+    def delete_record(self, key=None):
+        link_sequence = WriteALDBRecordModem(self._device)
+        link_sequence.key = key
+        link_sequence.in_use = False
+        return link_sequence
 
 
 class ModemGroup(Group):

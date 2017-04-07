@@ -43,6 +43,15 @@ class GroupSendHandler(object):
         link_sequence.data2 = user_link.data_2
         return link_sequence
 
+    def delete_record(self, key=None):
+        if self._device.root.engine_version > 0x00:
+            link_sequence = WriteALDBRecordi2(self._device)
+        else:
+            link_sequence = WriteALDBRecordi1(self._device)
+        link_sequence.key = key
+        link_sequence.in_use = False
+        return link_sequence
+
 class GroupFunctions(object):
     def __init__(self, device):
         self._device = device
@@ -95,6 +104,12 @@ class PLMGroupSendHandler(GroupSendHandler):
     def create_responder_link_sequence(self, user_link):
         # TODO Is the modem ever a responder in a way that this would be needed?
         return NotImplemented
+
+    def delete_record(self, key=None):
+        link_sequence = WriteALDBRecordModem(self._device)
+        link_sequence.key = key
+        link_sequence.in_use = False
+        return link_sequence
 
     def state(self, state):
         commands = self._state_commands()
