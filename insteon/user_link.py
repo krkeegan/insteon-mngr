@@ -134,12 +134,12 @@ class UserLink(object):
             if self._adoptable_controller_key() is not None:
                 self._controller_key = self._adoptable_controller_key()
             else:
-                controller_sequence = self.controller_device.root.send_handler.create_controller_link_sequence(self)
+                controller_sequence = self.controller_device.send_handler.create_controller_link_sequence(self)
         if self._is_responder_correct() is False:
             if self._adoptable_responder_key() is not None:
                 self._responder_key = self._adoptable_responder_key()
             else:
-                responder_sequence = self._root_device.send_handler.create_responder_link_sequence(self)
+                responder_sequence = self.device.send_handler.create_responder_link_sequence(self)
         if responder_sequence is not None and controller_sequence is not None:
             responder_sequence.success_callback = lambda: (
                 self.set_controller_key(controller_sequence.key),

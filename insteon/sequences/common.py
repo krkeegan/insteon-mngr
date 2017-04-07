@@ -170,7 +170,7 @@ class WriteALDBRecord(BaseSequence):
         the first empty address.'''
         ret = self._address
         if self._address is None:
-            key = self._device.aldb.get_first_empty_addr()
+            key = self._device.root.aldb.get_first_empty_addr()
             msb = int(key[0:2], 16)
             lsb = int(key[2:4], 16)
             ret = bytearray([msb, lsb])
