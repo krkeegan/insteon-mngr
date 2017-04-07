@@ -1,6 +1,7 @@
 '''The user_link classes'''
 
 from insteon import ID_STR_TO_BYTES
+from insteon.sequences import DeleteLinkPair
 
 class UserLink(object):
     '''The base class for user_links'''
@@ -161,27 +162,14 @@ class UserLink(object):
     def delete(self):
         '''Deletes this user link and wipes the associated links on the
         devices'''
-        controller_sequence = None
-        responder_sequence = None
-        if self.controller_key is not None:
-            controller_sequence = self.controller_device.send_handler.delete_record(key=self.controller_key)
-        if self.responder_key is not None:
-            responder_sequence = self.device.send_handler.delete_record(key=self.responder_key)
-        if responder_sequence is not None and controller_sequence is not None:
-            responder_sequence.success_callback = lambda: self._root_device.delete_user_link(self.uid)
-            controller_sequence.success_callback = lambda: responder_sequence.start()
-            controller_sequence.start()
-            self._link_sequence = controller_sequence
-        elif responder_sequence is not None:
-            responder_sequence.success_callback = lambda: self._root_device.delete_user_link(self.uid)
-            responder_sequence.start()
-            self._link_sequence = responder_sequence
-        elif controller_sequence is not None:
-            controller_sequence.success_callback = lambda: self._root_device.delete_user_link(self.uid)
-            controller_sequence.start()
-            self._link_sequence = controller_sequence
-        else:
-            self._root_device.delete_user_link(self.uid)
+        delete_sequence = DeleteLinkPair(self._root_device)
+        delete_sequence.set_controller_device_with_key(self.controller_device,
+                                                       self.controller_key)
+        delete_sequence.set_responder_device_with_key(self.device,
+                                                      self.responder_key)
+        delete_sequence.success_callback = lambda: self._root_device.delete_user_link(self.uid)
+        delete_sequence.start()
+        self._link_sequence = delete_sequence
 
     def _adoptable_responder_key(self):
         '''Looks for an existing undefined aldb entry that matches this link
