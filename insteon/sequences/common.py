@@ -99,6 +99,7 @@ class WriteALDBRecord(BaseSequence):
         self._linked_device = None
         self._d1 = 0x00
         self._d2 = 0x00
+        self._d3 = None
         self._address = None
         self._in_use = True
 
@@ -148,6 +149,19 @@ class WriteALDBRecord(BaseSequence):
     @data2.setter
     def data2(self, byte):
         self._d2 = byte
+
+    @property
+    def data3(self):
+        '''The device specific byte to write to the data3 location defaults
+        to the group of the device.'''
+        ret = self._device.group_number
+        if self._d3 is not None:
+            ret = self._d3
+        return ret
+
+    @data3.setter
+    def data3(self, byte):
+        self._d3 = byte
 
     @property
     def key(self):
