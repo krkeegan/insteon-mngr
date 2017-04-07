@@ -38,7 +38,10 @@ function getDeviceLinkDetails (deviceID, groupID) {
 }
 
 function addResponder (ret, deviceID, group, deviceData) {
-  if (deviceData['responder'] === true) {
+  if (deviceData['responder'] === true &&
+        (deviceID !== currentDeviceAddress() ||
+         group !== parseInt(currentGroup()))
+      ) {
     // Key is used solely to catch duplicates
     ret[deviceID + '_' + group] = {
       'name': deviceData['name'],
@@ -605,24 +608,49 @@ function constructJSON (list) {
   return ret
 }
 
+function pathParse (regex) {
+  var result = regex.exec(window.location.pathname)
+  var ret = null
+  if (result !== null) {
+    ret = regex.exec(window.location.pathname)[1]
+  }
+  return ret
+}
+
 function getModemAddress () {
   var regex = /^\/modems\/([A-Fa-f0-9]{6})/
-  return regex.exec(window.location.pathname)[1]
+  return pathParse(regex)
 }
 
 function getModemGroup () {
   var regex = /^\/modems\/[A-Fa-f0-9]{6}\/groups\/([0-9]{1,3})/
-  return regex.exec(window.location.pathname)[1]
+  return pathParse(regex)
 }
 
 function getDeviceAddress () {
   var regex = /^\/modems\/[A-Fa-f0-9]{6}\/devices\/([A-Fa-f0-9]{6})/
-  return regex.exec(window.location.pathname)[1]
+  return pathParse(regex)
 }
 
 function getDeviceGroup () {
   var regex = /^\/modems\/[A-Fa-f0-9]{6}\/devices\/[A-Fa-f0-9]{6}\/groups\/([0-9]{1,3})/
-  return regex.exec(window.location.pathname)[1]
+  return pathParse(regex)
+}
+
+function currentDeviceAddress () {
+  var ret = getDeviceAddress()
+  if (ret === null) {
+    ret = getModemAddress()
+  }
+  return ret
+}
+
+function currentGroup () {
+  var ret = getDeviceGroup()
+  if (ret === null) {
+    ret = getModemGroup()
+  }
+  return ret
 }
 
 $(document).ready(function () {
