@@ -57,10 +57,21 @@ class ALDB(object):
     def get_first_empty_addr(self):
         records = self.get_all_records()
         ret = None
+        lowest = None
         for key in sorted(records, reverse=True):
+            lowest = key
             if self.aldb[key].is_empty_aldb():
                 ret = key
                 break
+        if ret is None:
+            msb = int(lowest[0:2], 16)
+            lsb = int(lowest[2:4], 16)
+            if lsb >= 8:
+                lsb = lsb - 8
+            else:
+                msb = msb - 1
+            ret = ('{:02x}'.format(msb, 'x').upper() +
+                   '{:02x}'.format(lsb, 'x').upper())
         return ret
 
 
