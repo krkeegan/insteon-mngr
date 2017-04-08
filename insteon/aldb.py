@@ -57,10 +57,21 @@ class ALDB(object):
     def get_first_empty_addr(self):
         records = self.get_all_records()
         ret = None
+        lowest = None
         for key in sorted(records, reverse=True):
+            lowest = key
             if self.aldb[key].is_empty_aldb():
                 ret = key
                 break
+        if ret is None:
+            msb = int(lowest[0:2], 16)
+            lsb = int(lowest[2:4], 16)
+            if lsb >= 8:
+                lsb = lsb - 8
+            else:
+                msb = msb - 1
+            ret = ('{:02x}'.format(msb, 'x').upper() +
+                   '{:02x}'.format(lsb, 'x').upper())
         return ret
 
 
@@ -71,6 +82,7 @@ class ALDBRecord(object):
         self._raw = raw
         self._database = database
         self._core = self._database._parent.core
+        self._link_sequence = None
 
     @property
     def device(self):
@@ -97,7 +109,22 @@ class ALDBRecord(object):
     def raw(self, value):
         self._raw = value
 
+    @property
+    def link_sequence(self):
+        return self._link_sequence
+
+    @link_sequence.setter
+    def link_sequence(self, sequence):
+        self._link_sequence = sequence
+
+    def delete(self):
+        '''Removes the record from the device and the cache'''
+        ret = self._database._parent.send_handler.delete_record(key=self.key)
+        ret.start()
+        self._link_sequence = ret
+
     def delete_record(self):
+        '''Removes the record from the cache only'''
         del self._database.aldb[self.key]
 
     def parse_record(self):
@@ -163,12 +190,16 @@ class ALDBRecord(object):
         ret = False
         if self.is_controller():
             user_links = self._core.get_user_links_for_this_controller(self.device)
+            for user_link in user_links.values():
+                if user_link.controller_key == self.key:
+                    ret = True
+                    break
         else:
-            user_links = self.device.root._user_links
-        for user_link in user_links:
-            if user_link.matches_aldb(self):
-                ret = True
-                break
+            user_links = self.device.root.get_all_user_links()
+            for user_link in user_links.values():
+                if user_link.responder_key == self.key:
+                    ret = True
+                    break
         return ret
 
     def get_linked_device_str(self):
@@ -180,7 +211,9 @@ class ALDBRecord(object):
         return string
 
     def get_reciprocal_records(self):
-        linked_root = self.linked_device.root
+        linked_root = None
+        if self.linked_device is not None:
+            linked_root = self.linked_device.root
         parsed = self.parse_record()
         controller = True
         records = []

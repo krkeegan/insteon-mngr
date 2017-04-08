@@ -137,8 +137,9 @@ class PLM_Message(object):
             return False
 
     def _insert_byte_into_raw(self, data_byte, pos_name):
-        pos = self.attribute_positions[pos_name]
-        self._raw_msg[pos] = data_byte
+        if pos_name in self.attribute_positions:
+            pos = self.attribute_positions[pos_name]
+            self._raw_msg[pos] = data_byte
         return
 
     def insert_bytes_into_raw(self, byte_dict):

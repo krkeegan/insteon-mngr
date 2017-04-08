@@ -82,6 +82,7 @@ class Group(object):
     def _get_undefined_responder(self):
         ret = []
         attributes = {
+            'in_use': True,
             'responder': True,
             'group': self.group_number,
             'dev_addr_hi': self.root.dev_addr_hi,
@@ -93,13 +94,14 @@ class Group(object):
             if (len(aldb_link.get_reciprocal_records()) == 0 and
                 aldb_link.is_a_defined_link() is False):
                 # A responder link exists on the device, this will be listed
-                # in the undefined controller function
+                # in the undefined controller function already
                 ret.append(aldb_link)
         return ret
 
     def _get_undefined_controller(self):
         ret = []
         attributes = {
+            'in_use': True,
             'controller': True,
             'group': self.group_number
         }
@@ -113,6 +115,10 @@ class Group(object):
         return ret
 
     def attribute(self, attr, value=None):
+        '''An attribute is a characteristic of an object that is not intrinsic
+        to the nature of device. This includes dev_cat and related items as well
+        as the object state.  Attribute excludes things like whether the object is a
+        responder or is_deaf, these are features.'''
         if value is not None:
             self._attributes[attr] = value
         try:
@@ -134,6 +140,7 @@ class Group(object):
         known device'''
         ret = []
         attributes = {
+            'in_use': True,
             'controller': True,
             'group': self.group_number
         }
@@ -142,6 +149,7 @@ class Group(object):
             if aldb_link.linked_device is None:
                 ret.append(aldb_link)
         attributes = {
+            'in_use': True,
             'responder': True,
             'data_3': self.group_number
         }
@@ -152,31 +160,19 @@ class Group(object):
         return ret
 
     def get_attributes(self):
-        return self._attributes.copy()
+        ret = self._attributes.copy()
+        return ret
 
-    def add_user_link(self, controller_device, data):
-        controller_id = controller_device.root.dev_addr_str
-        group_number = controller_device.group_number
-        found = False
-        for user_link in self._user_links:
-            if (controller_id == user_link.controller_id and
-                group_number == user_link.group and
-                data['data_1'] == user_link.data_1 and
-                data['data_2'] == user_link.data_2 and
-                data['data_3'] == user_link.data_3):
-                found = True
-                break
-        if not found:
-            self._user_links.append(UserLink(
-                self,
-                controller_id,
-                group_number,
-                {
-                    'data_1': data['data_1'],
-                    'data_2': data['data_2'],
-                    'data_3': data['data_3']
-                }
-            ))
+    def get_features_and_attributes(self):
+        ret = self.get_attributes()
+        ret.update(self.functions.get_features())
+        return ret
+
+    def set_base_group_number(self, number):
+        '''Used to set whether the root device is group 0x00 or 0x01, older
+        i1 devices seem to be 0x00 while i2 devices are 0x01'''
+        self._group_number = number
+
 
 class Root(Group):
     '''The root object of an insteon device, inherited by Devices and Modems'''
@@ -189,10 +185,10 @@ class Root(Group):
         self._out_history = []
         self._id_bytes = bytearray(3)
         self._groups = []
-        self._user_links = []
+        self._user_links = {}
         if 'device_id' in kwargs:
             self._id_bytes = ID_STR_TO_BYTES(kwargs['device_id'])
-        super().__init__(self, 0x01, **kwargs)
+        super().__init__(self, 0x00, **kwargs)
 
     @property
     def dev_addr_hi(self):
@@ -304,18 +300,20 @@ class Root(Group):
         for controller_id, groups in links.items():
             for group_number, all_data in groups.items():
                 for data in all_data:
-                    self._user_links.append(UserLink(
+                    user_link = UserLink(
                         self,
                         controller_id,
                         group_number,
-                        data
-                    ))
+                        data,
+                        None
+                    )
+                    self._user_links[user_link.uid] = user_link
 
     def save_user_links(self):
         '''Constructs a dictionary for saving the user links to the config
         file'''
         ret = {}
-        for user_link in self._user_links:
+        for user_link in self._user_links.values():
             if user_link.controller_id not in ret:
                 ret[user_link.controller_id] = {}
             if user_link.group not in ret[user_link.controller_id]:
@@ -328,6 +326,46 @@ class Root(Group):
     ##################################
     # Public functions
     ##################################
+
+    def add_user_link(self, controller_device, data, uid):
+        controller_id = controller_device.root.dev_addr_str
+        group_number = controller_device.group_number
+        found = False
+        for user_link in self._user_links.values():
+            if (controller_id == user_link.controller_id and
+                group_number == user_link.group and
+                data['data_1'] == user_link.data_1 and
+                data['data_2'] == user_link.data_2 and
+                data['data_3'] == user_link.data_3):
+                found = True
+                break
+        if not found:
+            new_user_link = UserLink(
+                self,
+                controller_id,
+                group_number,
+                data,
+                uid
+            )
+            self._user_links[new_user_link.uid] = new_user_link
+
+    def get_all_user_links(self):
+        return self._user_links.copy()
+
+    def delete_user_link(self, uid):
+        ret = True
+        try:
+            del self._user_links[uid]
+        except KeyError:
+            ret = False
+        return ret
+
+    def find_user_link(self, search_uid):
+        ret = None
+        for link_uid in self._user_links:
+            if search_uid == link_uid:
+                ret = self._user_links[link_uid]
+        return ret
 
     def remove_state_machine(self, value):
         if value == self.state_machine:
@@ -416,41 +454,3 @@ class Root(Group):
     def update_device_classes(self):
         # pylint: disable=R0201
         return NotImplemented
-
-    def import_links(self):
-        attributes = {
-            'in_use': True,
-            'responder': True
-        }
-        for aldb_record in self.aldb.get_matching_records(attributes):
-            parsed = aldb_record.parse_record()
-            linked_device = aldb_record.linked_device
-            linked_root = None
-            if linked_device is not None:
-                linked_root = linked_device.root
-            controller_id = aldb_record.get_linked_device_str()
-            group_number = parsed['group']
-            group_number = 0x01 if group_number == 0x00 else group_number
-            if group_number == 0x01 and linked_root is self.plm:
-                # ignore i2cs required links
-                continue
-            found = False
-            for user_link in self._user_links:
-                if (controller_id == user_link.controller_id and
-                    group_number == user_link.group and
-                    parsed['data_1'] == user_link.data_1 and
-                    parsed['data_2'] == user_link.data_2 and
-                    parsed['data_3'] == user_link.data_3):
-                    found = True
-                    break
-            if not found:
-                self._user_links.append(UserLink(
-                    self,
-                    controller_id,
-                    group_number,
-                    {
-                        'data_1': parsed['data_1'],
-                        'data_2': parsed['data_2'],
-                        'data_3': parsed['data_3']
-                    }
-                ))

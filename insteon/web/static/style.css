@@ -2,3 +2,7 @@
     max-height: 300px;
     overflow-y:scroll;
 }
+
+.label-sm {
+  font-size: 11px;
+}

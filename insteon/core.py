@@ -2,6 +2,7 @@ import json
 import time
 import atexit
 import threading
+import random
 
 from insteon.plm import PLM
 from insteon.hub import Hub
@@ -29,19 +30,36 @@ class Insteon_Core(object):
         self.device_models = json.loads(json_models)
 
     def _get_all_user_links(self):
-        ret = []
+        ret = {}
         for modem in self.get_all_modems():
-            ret.extend(modem._user_links)
+            ret.update(modem.get_all_user_links())
             for device in modem.get_all_devices():
-                ret.extend(device._user_links)
+                ret.update(device.get_all_user_links())
         return ret
+
+    def get_new_user_link_unique_id(self):
+        '''Returns an integer between 100,000 and 999,999 that is not used by
+        an existing user_link as a uid'''
+        rand = random.randint(100000,999999)
+        all_links = self._get_all_user_links()
+        while rand in all_links:
+            rand = random.randint(100000,999999)
+        return rand
 
     def get_user_links_for_this_controller(self, device):
         all_links = self._get_all_user_links()
-        ret = []
-        for link in all_links:
+        ret = {}
+        for uid, link in all_links.items():
             if device == link.controller_device:
-                ret.append(link)
+                ret[uid] = link
+        return ret
+
+    def find_user_link(self, search_uid):
+        ret = None
+        all_links = self._get_all_user_links()
+        for link_uid in all_links:
+            if search_uid == link_uid:
+                ret = all_links[link_uid]
         return ret
 
     def get_matching_aldb_records(self, attributes):

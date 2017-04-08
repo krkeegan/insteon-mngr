@@ -1,5 +1,5 @@
 from insteon.trigger import InsteonTrigger
-from insteon.sequences.common import SetALDBDelta, BaseSequence, StatusRequest, WriteALDBRecord
+from insteon.sequences.common import SetALDBDelta, BaseSequence, WriteALDBRecord
 
 
 class ScanDeviceALDBi2(BaseSequence):
@@ -31,8 +31,8 @@ class ScanDeviceALDBi2(BaseSequence):
             self._device.remove_state_machine('query_aldb')
             self._device.aldb.print_records()
             aldb_sequence = SetALDBDelta(self._device)
-            aldb_sequence.success_callback = self.success_callback
-            aldb_sequence.failure_callback = self.failure_callback
+            aldb_sequence.success_callback = lambda: self.on_success()
+            aldb_sequence.failure_callback = lambda: self.on_failure()
             aldb_sequence.start()
         else:
             dev_bytes = self._device.aldb.get_next_aldb_address(msb, lsb)
@@ -53,22 +53,45 @@ class ScanDeviceALDBi2(BaseSequence):
 
 class WriteALDBRecordi2(WriteALDBRecord):
     def _perform_write(self):
+        super()._perform_write()
         msg_attributes = self._compiled_record()
         trigger_attributes = {
             'cmd_2': 0x00,
-            'msg_length': 'standard'
+            'msg_length': 'standard',
+            'plm_cmd': 0x50
         }
         trigger = InsteonTrigger(device=self._device,
                                  command_name='write_aldb',
                                  attributes=trigger_attributes)
-        aldb_sequence = SetALDBDelta(self._device)
-        trigger.trigger_function = lambda: aldb_sequence.start()
+        trigger.trigger_function = lambda: self._save_record()
         trigger.name = self._device.dev_addr_str + 'write_aldb'
         trigger.queue()
         msg = self._device.send_handler.create_message('write_aldb')
         msg.insert_bytes_into_raw(msg_attributes)
         self._device.queue_device_msg(msg)
 
+    def _save_record(self):
+        aldb_entry = bytearray([
+            self._compiled_record()['link_flags'],
+            self._compiled_record()['group'],
+            self._compiled_record()['dev_addr_hi'],
+            self._compiled_record()['dev_addr_mid'],
+            self._compiled_record()['dev_addr_low'],
+            self._compiled_record()['data_1'],
+            self._compiled_record()['data_2'],
+            self._compiled_record()['data_3']
+        ])
+        record = self._device.aldb.get_record(
+            self._device.aldb.get_aldb_key(
+                self.address[0],
+                self.address[1]
+            )
+        )
+        record.edit_record(aldb_entry)
+        aldb_sequence = SetALDBDelta(self._device)
+        aldb_sequence.success_callback = lambda: self.on_success()
+        aldb_sequence.failure_callback = lambda: self.on_failure()
+        aldb_sequence.start()
+
     def _write_failure(self):
-        if self.failure_callback is not None:
-            self._failure()
+        self.on_failure()

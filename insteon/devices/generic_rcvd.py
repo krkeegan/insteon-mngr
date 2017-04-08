@@ -235,6 +235,7 @@ class GenericRcvdHandler(object):
         # msg is passed to all similar functions
         # TODO consider adding more time for following message to arrive
         last_sent_msg = self._device.last_sent_msg
+        ret = False
         if (last_sent_msg.insteon_msg.device_prelim_ack is False and
                 last_sent_msg.insteon_msg.device_ack is False):
             if self._device.last_sent_msg.get_byte_by_name('usr_2') == 0x00:
@@ -242,9 +243,10 @@ class GenericRcvdHandler(object):
                 self._device.last_sent_msg.insteon_msg.device_prelim_ack = True
             else:
                 self._device.last_sent_msg.insteon_msg.device_ack = True
+                ret = True
         else:
             print('received spurious ext_aldb_ack')
-        return False  # Never set ack
+        return ret
 
     def _ext_aldb_rcvd(self, msg):
         '''Sets the device_ack flag, while not specifically an ack'''

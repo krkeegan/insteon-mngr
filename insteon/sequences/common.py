@@ -4,24 +4,46 @@ from insteon.trigger import InsteonTrigger, PLMTrigger
 class BaseSequence(object):
     def __init__(self, device):
         self._device = device
-        self._success = None
-        self._failure = None
+        self._success_callback = None
+        self._failure_callback = None
+        self._complete = False
+        self._success = False
 
     @property
     def success_callback(self):
-        return self._success
+        return self._success_callback
 
     @success_callback.setter
     def success_callback(self, callback):
-        self._success = callback
+        self._success_callback = callback
 
     @property
     def failure_callback(self):
-        return self._failure
+        return self._failure_callback
 
     @failure_callback.setter
     def failure_callback(self, callback):
-        self._failure = callback
+        self._failure_callback = callback
+
+    @property
+    def is_complete(self):
+        return self._complete
+
+    @property
+    def is_success(self):
+        return self._success
+
+    def on_success(self):
+        self._complete = True
+        self._success = True
+        if self.success_callback is not None:
+            self.success_callback()
+
+    def on_failure(self):
+        self._complete = True
+        self._success = False
+        if self.failure_callback is not None:
+            self._failure()
 
     def start(self):
         return NotImplemented
@@ -33,6 +55,7 @@ class StatusRequest(BaseSequence):
     we receive'''
     # TODO what would happen if this message was never acked?  Would this
     # trigger remain in waiting and fire the next time we received an ack?
+    # should add a maximum timer to the BaseSequence that triggers failure
 
     def start(self):
         trigger_attributes = {
@@ -54,8 +77,7 @@ class StatusRequest(BaseSequence):
         if self._device.attribute('aldb_delta') != aldb_delta:
             print('aldb has changed, rescanning')
             self._device.send_handler.query_aldb()
-        elif self.success_callback is not None:
-            self._success()
+        self.on_success()
 
 
 class SetALDBDelta(StatusRequest):
@@ -66,8 +88,7 @@ class SetALDBDelta(StatusRequest):
         self._device.state = msg.get_byte_by_name('cmd_2')
         self._device.set_aldb_delta(msg.get_byte_by_name('cmd_1'))
         print ('cached aldb_delta')
-        if self.success_callback is not None:
-            self._success()
+        self.on_success()
 
 
 class WriteALDBRecord(BaseSequence):
@@ -78,6 +99,7 @@ class WriteALDBRecord(BaseSequence):
         self._linked_device = None
         self._d1 = 0x00
         self._d2 = 0x00
+        self._d3 = None
         self._address = None
         self._in_use = True
 
@@ -129,12 +151,40 @@ class WriteALDBRecord(BaseSequence):
         self._d2 = byte
 
     @property
+    def data3(self):
+        '''The device specific byte to write to the data3 location defaults
+        to the group of the device.'''
+        ret = self._device.group_number
+        if self._d3 is not None:
+            ret = self._d3
+        return ret
+
+    @data3.setter
+    def data3(self, byte):
+        self._d3 = byte
+
+    @property
+    def key(self):
+        # pylint: disable=E1305
+        ret = None
+        if self._address is not None:
+            ret = ('{:02x}'.format(self._address[0], 'x').upper() +
+                   '{:02x}'.format(self._address[1], 'x').upper())
+        return ret
+
+    @key.setter
+    def key(self, value):
+        msb = int(value[0:2], 16)
+        lsb = int(value[2:4], 16)
+        self._address = bytearray([msb, lsb])
+
+    @property
     def address(self):
         '''The address to write to, as a bytearray, if not specified will use
         the first empty address.'''
         ret = self._address
         if self._address is None:
-            key = self._device.aldb.get_first_empty_addr()
+            key = self._device.root.aldb.get_first_empty_addr()
             msb = int(key[0:2], 16)
             lsb = int(key[2:4], 16)
             ret = bytearray([msb, lsb])
@@ -158,27 +208,26 @@ class WriteALDBRecord(BaseSequence):
             msg_attributes['dev_addr_hi'] = 0x00
             msg_attributes['dev_addr_mid'] = 0x00
             msg_attributes['dev_addr_low'] = 0x00
-
         elif self.controller:
             msg_attributes['link_flags'] = 0xE2
-            msg_attributes['group'] = self._device.group
+            msg_attributes['group'] = self._device.group_number
             msg_attributes['data_1'] = self.data1  # hops I think
             msg_attributes['data_2'] = self.data2  # unkown always 0x00
-            # group of responding device
-            msg_attributes['data_3'] = self._linked_device.group
-            msg_attributes['dev_addr_hi'] = self._linked_device.dev_addr_hi
-            msg_attributes['dev_addr_mid'] = self._linked_device.dev_addr_mid
-            msg_attributes['dev_addr_low'] = self._linked_device.dev_addr_low
+            # group of controller device base_group for 0x01, 0x00 issue
+            msg_attributes['data_3'] = self.data3
+            msg_attributes['dev_addr_hi'] = self._linked_device.root.dev_addr_hi
+            msg_attributes['dev_addr_mid'] = self._linked_device.root.dev_addr_mid
+            msg_attributes['dev_addr_low'] = self._linked_device.root.dev_addr_low
         else:
             msg_attributes['link_flags'] = 0xA2
-            msg_attributes['group'] = self._linked_device.group
+            msg_attributes['group'] = self._linked_device.group_number
             msg_attributes['data_1'] = self.data1  # on level
             msg_attributes['data_2'] = self.data2  # ramp rate
             # group of responder, i1 = 00, i2 = 01
-            msg_attributes['data_3'] = self._device.get_responder_data3()
-            msg_attributes['dev_addr_hi'] = self._linked_device.dev_addr_hi
-            msg_attributes['dev_addr_mid'] = self._linked_device.dev_addr_mid
-            msg_attributes['dev_addr_low'] = self._linked_device.dev_addr_low
+            msg_attributes['data_3'] = self.data3
+            msg_attributes['dev_addr_hi'] = self._linked_device.root.dev_addr_hi
+            msg_attributes['dev_addr_mid'] = self._linked_device.root.dev_addr_mid
+            msg_attributes['dev_addr_low'] = self._linked_device.root.dev_addr_low
         return msg_attributes
 
     def start(self):
@@ -192,14 +241,17 @@ class WriteALDBRecord(BaseSequence):
             status_sequence.start()
 
     def _perform_write(self):
-        return NotImplemented
+        if self.key is None:
+            self.key = self._device.root.aldb.get_first_empty_addr()
+        record = self._device.root.aldb.get_record(self.key)
+        record.link_sequence = self
 
 
 class AddPLMtoDevice(BaseSequence):
     def start(self):
         # Put the PLM in Linking Mode
         # queues a message on the PLM
-        message = self._device.plm.create_message('all_link_start')
+        message = self._device.plm.send_handler.create_message('all_link_start')
         plm_bytes = {
             'link_code': 0x01,
             'group': 0x00,
@@ -243,12 +295,14 @@ class AddPLMtoDevice(BaseSequence):
         print('plm->device link created')
         self._device.plm.remove_state_machine('link plm->device')
         self._device.remove_state_machine('link plm->device')
+        self.on_success()
         self._device.send_handler.initialize_device()
 
     def _add_plm_to_dev_link_fail(self):
         print('Error, unable to create plm->device link')
         self._device.plm.remove_state_machine('link plm->device')
         self._device.remove_state_machine('link plm->device')
+        self.on_failure()
 
 
 class InitializeDevice(BaseSequence):

@@ -9,6 +9,7 @@ from insteon.plm_message import PLM_Message
 from insteon.plm_schema import PLM_SCHEMA
 from insteon.devices import select_group
 from insteon.modem_rcvd import ModemRcvdHandler
+from insteon.sequences import WriteALDBRecordModem
 
 
 class Modem_ALDB(ALDB):
@@ -25,6 +26,9 @@ class Modem_ALDB(ALDB):
         self._parent.add_device(BYTE_TO_ID(parsed_record['dev_addr_hi'],
                                 parsed_record['dev_addr_mid'],
                                 parsed_record['dev_addr_low']))
+
+    def get_first_empty_addr(self):
+        return self._get_next_position()
 
     def _get_next_position(self):
         position = 0
@@ -478,22 +482,29 @@ class ModemSendHandler(object):
         message.insert_bytes_into_raw(dev_bytes)
         self._device.queue_device_msg(message)
 
-    def delete_record(self, position=None):
-        message = self.create_message('all_link_manage_rec')
-        record = self._device.aldb.parse_record(position)
-        dev_bytes = {
-            'link_flags': record['link_flags'],
-            'group': record['group'],
-            'dev_addr_hi': record['dev_addr_hi'],
-            'dev_addr_mid': record['dev_addr_mid'],
-            'dev_addr_low': record['dev_addr_low'],
-            'ctrl_code': 0x80
-        }
-        message.insert_bytes_into_raw(dev_bytes)
-        self._device.queue_device_msg(message)
+    def create_controller_link_sequence(self, user_link):
+        '''Creates a controller link sequence based on a passed user_link,
+        returns the link sequence, which needs to be started'''
+        link_sequence = WriteALDBRecordModem(self._device)
+        link_sequence.controller = True
+        link_sequence.linked_device = user_link.device
+        return link_sequence
+
+    def create_responder_link_sequence(self, user_link):
+        # TODO Is the modem ever a responder in a way that this would be needed?
+        return NotImplemented
+
+    def delete_record(self, key=None):
+        link_sequence = WriteALDBRecordModem(self._device)
+        link_sequence.key = key
+        link_sequence.in_use = False
+        return link_sequence
 
 
 class ModemGroup(Group):
+    def __init__(self, root, group_number, **kwargs):
+        super().__init__(root, group_number, **kwargs)
+
     def get_unknown_device_links(self):
         '''Returns all links on the device which do not associated with a
         known device.  For Modems, responder links only appear under

@@ -1,19 +1,12 @@
 class GenericFunctions(object):
     def __init__(self, device):
         self._device = device
-        # The following define the human readable names
-        self.data_1_name = 'On/Off'
-        self.data_2_name = 'None'
-        # The following define the default responder values
-        self.data_1_default = 0xFF
-        self.data_2_default = 0x00
 
-    def get_responder_data3(self):
-        '''Returns the correct data3 value for responder links on this device'''
-        ret = self._device.group
-        if ret == 0x01:
-            ret = 0x00
-        return ret
+    def get_controller_data1(self, responder):
+        return 0x03
+
+    def get_controller_data2(self, responder):
+        return 0x00
 
     def state_str(self):
         '''Returns the current state of the device in a human readable form'''
@@ -35,23 +28,23 @@ class GenericFunctions(object):
     def list_data_2_options(self):
         return {'None': 0x00}
 
-    def get_link_details(self):
+    def get_features(self):
         '''Returns the intrinsic parameters of a device, these are not user
         editable so are not saved in the config.json file'''
-        ret = {}
+        ret = {
+            'responder': True,
+        }
         ret['data_1'] = {
-            'name': self.data_1_name,
-            'default': self.data_1_default,
+            'name': 'On/Off',
+            'default': 0xFF,
             'values': self.list_data_1_options()
         }
         ret['data_2'] = {
-            'name': self.data_2_name,
-            'default': self.data_2_default,
+            'name': 'None',
+            'default': 0x00,
             'values': self.list_data_2_options()
         }
         return ret
 
     def _create_groups(self, group_class):
-        # All devices have a group 0x01, other specialized devices may have more
-        if self._device.get_object_by_group_num(0x01) is None:
-            self._device.create_group(0x01, group_class)
+        pass

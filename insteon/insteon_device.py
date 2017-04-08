@@ -46,9 +46,6 @@ class Device_ALDB(ALDB):
 
     def store_peeked_byte(self, msb, lsb, byte):
         record = self.get_record(self.get_aldb_key(msb, lsb))
-        if (lsb % 8) == 0:
-            # First byte, clear out the record
-            record.edit_record(bytearray(8))
         record.edit_record_byte(
             lsb % 8,
             byte
@@ -234,9 +231,6 @@ class InsteonDevice(Root):
 
     def get_responder_data2(self):
         return self.functions.get_responder_data2()
-
-    def get_responder_data3(self):
-        return self.functions.get_responder_data3()
 
     def update_device_classes(self):
         classes = select_device(device=self, dev_cat=self.dev_cat,
