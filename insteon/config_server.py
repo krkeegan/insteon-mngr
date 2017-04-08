@@ -56,6 +56,13 @@ def api_modem_group_put(modem_id):
         update_device_attributes(group, request.json[group_number])
     return jsonify(json_core())
 
+@post('/modems/<modem_id:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>.json')
+def add_device(modem_id, device_id):
+    modem = core.get_device_by_addr(modem_id)
+    modem.add_device(device_id)
+    response.headers['Content-Type'] = 'application/json'
+    return jsonify(json_core())
+
 @post('/modems/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks.json')
 @post('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks.json')
 def add_defined_device_link(device_id, group_number):

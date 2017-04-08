@@ -16,6 +16,20 @@ function coreData (data, status, xhr) {
   }
 }
 
+function registerAddDevice () {
+  $('button.addDevice').click(function () {
+    var address = $(this).parents('tr').find('#newDeviceAddress').val()
+    var modemAddress = getModemAddress()
+    $.ajax({
+      url: '/modems/' + modemAddress + '/devices/' + address + '.json',
+      method: 'POST',
+      contentType: 'application/json; charset=utf-8',
+      dataType: 'json',
+      success: coreData
+    })
+  })
+}
+
 function getDeviceLinkDetails (deviceID, groupID) {
   var ret = {}
   if (coreJSON.hasOwnProperty(deviceID)) {
@@ -137,7 +151,10 @@ function generateLinkRow (data) {
     ret.find('.linkRowData2').append(generateDataSelect(data['data_2'],
                                           linkDetails['data_2']))
   } else if ('device' in data) {
-    ret.find('th').find('label').after((data['device']))
+    ret.find('th').find('label').after(`
+      ${data['device']}
+      <input type='hidden' id='newDeviceAddress' value='${data['device']}'>
+    `)
   } else if ('empty' in data) {
     var responders = getResponderList()
     var deviceID = ''
@@ -393,7 +410,7 @@ function linksData (data, status, xhr) {
       for (var key in data['unknownLinks']) {
         var row = generateLinkRow(data['unknownLinks'][key])
         row.find('.linkRowButtons').append(`
-        <button type="button" class="btn btn-default">
+        <button type="button" class="btn btn-default addDevice">
           Add Device
         </button>
         <button type="button" class="btn btn-danger unknownLinkDelete">
@@ -418,6 +435,7 @@ function linksData (data, status, xhr) {
         $('#unknownLinksContainer').hide()
       } else {
         $('#unknownLinksContainer').show()
+        registerAddDevice()
       }
     }
   }
@@ -532,6 +550,7 @@ function updateModemPage (data) {
       `)
     }
   }
+  registerAddDevice()
 }
 
 function updateModemGroupPage (data) {
