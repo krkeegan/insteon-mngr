@@ -94,7 +94,7 @@ class Group(object):
             if (len(aldb_link.get_reciprocal_records()) == 0 and
                 aldb_link.is_a_defined_link() is False):
                 # A responder link exists on the device, this will be listed
-                # in the undefined controller function
+                # in the undefined controller function already
                 ret.append(aldb_link)
         return ret
 

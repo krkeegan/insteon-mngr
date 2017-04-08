@@ -113,6 +113,10 @@ class ALDBRecord(object):
     def link_sequence(self):
         return self._link_sequence
 
+    @link_sequence.setter
+    def link_sequence(self, sequence):
+        self._link_sequence = sequence
+
     def delete(self):
         '''Removes the record from the device and the cache'''
         ret = self._database._parent.send_handler.delete_record(key=self.key)

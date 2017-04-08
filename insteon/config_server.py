@@ -7,6 +7,7 @@ from bottle import (route, run, Bottle, response, get, post, put, delete,
                     WSGIRefServer, redirect)
 
 from insteon.base_objects import BYTE_TO_ID
+from insteon.sequences import DeleteLinkPair
 
 core = ''
 
@@ -81,8 +82,6 @@ def edit_defined_device_link(device_id, group_number, uid):
 @delete('/modems/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks/<uid:re:[0-9]{6}>.json')
 @delete('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks/<uid:re:[0-9]{6}>.json')
 def delete_defined_device_link(device_id, group_number, uid):
-    controller_root = core.get_device_by_addr(device_id)
-    controller = controller_root.get_object_by_group_num(int(group_number))
     user_link = core.find_user_link(int(uid))
     user_link.delete()
     response.headers['Content-Type'] = 'application/json'
@@ -94,6 +93,29 @@ def delete_unknown_link(device_id, group_number, key):
     device_root = core.get_device_by_addr(device_id)
     aldb_record = device_root.aldb.get_record(key)
     aldb_record.delete()
+    response.headers['Content-Type'] = 'application/json'
+    return jsonify(json_links(device_id, group_number))
+
+@delete('/modems/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/undefinedLinks/<responder_id:re:[A-Fa-f0-9]{6}><responder_key:re:[A-Fa-f0-9\-]{4}><controller_key:re:[A-Fa-f0-9\-]{4}>.json')
+@delete('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/undefinedLinks/<responder_id:re:[A-Fa-f0-9]{6}><responder_key:re:[A-Fa-f0-9\-]{4}><controller_key:re:[A-Fa-f0-9\-]{4}>.json')
+def delete_undefined_device_link(device_id, group_number, responder_id,
+                                 responder_key, controller_key):
+    device_root = core.get_device_by_addr(device_id)
+    delete_sequence = DeleteLinkPair(device_root)
+    if controller_key != '----':
+        controller_device = core.get_device_by_addr(device_id)
+        delete_sequence.set_controller_device_with_key(controller_device,
+                                                       controller_key)
+        link = controller_device.aldb.get_record(controller_key)
+        link.link_sequence = delete_sequence
+        delete_sequence.start()
+    if responder_key != '----':
+        responder_device = core.get_device_by_addr(responder_id)
+        delete_sequence.set_responder_device_with_key(responder_device,
+                                                      responder_key)
+        link = responder_device.aldb.get_record(responder_key)
+        link.link_sequence = delete_sequence
+        delete_sequence.start()
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_links(device_id, group_number))
 
@@ -217,6 +239,7 @@ def _unknown_link_output(device):
 
 def _undefined_link_output(device):
     # Three classes of undefined links can exist
+    # TODO need to add status items to this
     ret = {}
     for link in device.get_undefined_links():
         link_parsed = link.parse_record()

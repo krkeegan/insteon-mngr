@@ -376,6 +376,17 @@ function linksData (data, status, xhr) {
           success: linksData
         })
       })
+      $('.undefinedLinkDelete').click(function () {
+        var row = $(this).parents('tr')
+        var uid = row.data('uid')
+        var path = window.location.pathname.replace(/\/$/, '')
+        $.ajax({
+          url: path + '/links/undefinedLinks/' + uid + '.json',
+          method: 'DELETE',
+          dataType: 'json',
+          success: linksData
+        })
+      })
     }
     if ($('tbody#unknownLinks').length) {
       $('tbody#unknownLinks').html('')
