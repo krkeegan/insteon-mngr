@@ -56,7 +56,7 @@ class ScanDeviceALDBi1(BaseSequence):
 
 class WriteALDBRecordi1(WriteALDBRecord):
     def _perform_write(self):
-        self._bind_to_address()
+        super()._perform_write()
         # TODO we can skip setting the msb if we can find the last msb
         # requested in the sent message queue
         msb = self.address[0]

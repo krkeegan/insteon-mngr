@@ -194,10 +194,6 @@ class WriteALDBRecord(BaseSequence):
     def address(self, address):
         self._address = address
 
-    def _bind_to_address(self):
-        if self._address is None:
-            self.address = self.address
-
     def _compiled_record(self):
         msg_attributes = {
             'msb': self.address[0],
@@ -245,7 +241,10 @@ class WriteALDBRecord(BaseSequence):
             status_sequence.start()
 
     def _perform_write(self):
-        return NotImplemented
+        if self.key is None:
+            self.key = self._device.root.aldb.get_first_empty_addr()
+        record = self._device.root.aldb.get_record(self.key)
+        record.link_sequence = self
 
 
 class AddPLMtoDevice(BaseSequence):

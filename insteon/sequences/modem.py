@@ -4,7 +4,7 @@ from insteon.sequences.common import WriteALDBRecord
 
 class WriteALDBRecordModem(WriteALDBRecord):
     def _perform_write(self):
-        self._bind_to_address()
+        super()._perform_write()
         if self.in_use is True:
             self.data1 = self.linked_device.root.dev_cat
             self.data2 = self.linked_device.root.sub_cat
