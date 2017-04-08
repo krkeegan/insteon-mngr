@@ -200,7 +200,7 @@ function outputDefinedLinkRow (uid, data) {
   return ret
 }
 
-function outputUndefinedLinkRow (data) {
+function outputUndefinedLinkRow (uid, data) {
   var ret = generateLinkRow(data)
   ret.find('.linkRowButtons').append(`
     <button type="button" class="btn btn-default undefinedLinkImport">
@@ -210,6 +210,7 @@ function outputUndefinedLinkRow (data) {
       Delete
     </button>
   `)
+  ret.data('uid', uid)
   return ret
 }
 
@@ -352,8 +353,8 @@ function linksData (data, status, xhr) {
     }
     if ($('tbody#undefinedLinks').length) {
       $('tbody#undefinedLinks').html('')
-      for (var i = 0; i < data['undefinedLinks'].length; i++) {
-        $('tbody#undefinedLinks').append(outputUndefinedLinkRow(data['undefinedLinks'][i]))
+      for (var uid in data['undefinedLinks']) {
+        $('tbody#undefinedLinks').append(outputUndefinedLinkRow(uid, data['undefinedLinks'][uid]))
       }
       if ($('tbody#undefinedLinks').is(':empty')) {
         $('#undefinedLinksContainer').hide()
