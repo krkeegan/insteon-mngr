@@ -216,18 +216,19 @@ def _unknown_link_output(device):
     return ret
 
 def _undefined_link_output(device):
-    ret = []
+    # Three classes of undefined links can exist
+    ret = {}
     for link in device.get_undefined_links():
         link_parsed = link.parse_record()
         link_addr = BYTE_TO_ID(link_parsed['dev_addr_hi'],
                                link_parsed['dev_addr_mid'],
                                link_parsed['dev_addr_low'])
-        # TODO what do we do here if no responder link exists?
-        # Set to some default data_1 and data_2
         if link_parsed['controller'] is True:
-            for responder in link.get_reciprocal_records():
+            responder_records = link.get_reciprocal_records()
+            for responder in responder_records:
                 responder_parsed = responder.parse_record()
-                ret.append({
+                # Class 1 - controller with reciproal responders links
+                ret[link_addr + responder.key + link.key] = {
                     'responder_id': link_addr,
                     'responder_name': responder.device.name,
                     'data_1': responder_parsed['data_1'],
@@ -235,21 +236,29 @@ def _undefined_link_output(device):
                     'data_3': responder_parsed['data_3'],
                     'responder_key': responder.key,
                     'controller_key': link.key
-                })
+                }
+            if len(responder_records) == 0:
+                # Class 2 - controller with no responder links
+                ret[link_addr + '----' + link.key] = {
+                    'responder_id': link_addr,
+                    'responder_name': core.get_device_by_addr(link_addr).name,
+                    'data_1': 0x00,
+                    'data_2': 0x00,
+                    'data_3': 0x00,
+                    'responder_key': None,
+                    'controller_key': link.key
+                }
         else:
-            controller_key = None
-            reciprocal_records = link.get_reciprocal_records()
-            if len(reciprocal_records) > 0:
-                controller_key = reciprocal_records[0].key
-            ret.append({
+            # Class 3 - responder links with no controller link on this device
+            ret[link.device.root.dev_addr_str + link.key + '----'] = {
                 'responder_id': link.device.root.dev_addr_str,
                 'responder_name': link.device.name,
                 'data_1': link_parsed['data_1'],
                 'data_2': link_parsed['data_2'],
                 'data_3': link_parsed['data_3'],
                 'responder_key': link.key,
-                'controller_key': controller_key
-            })
+                'controller_key': None
+            }
     return ret
 
 def _user_link_output(device):
