@@ -247,13 +247,6 @@ class Insteon_Core(object):
             self._modems.append(ret)
         return ret
 
-    def get_modem_by_id(self, dev_id):
-        ret = None
-        for modem in self._modems:
-            if modem.dev_addr_str == dev_id:
-                ret = modem
-        return ret
-
     def get_device_by_addr(self, addr):
         ret = None
         for modem in self._modems:
@@ -273,11 +266,3 @@ class Insteon_Core(object):
         for plm in self._modems:
             ret.append(plm)
         return ret
-
-    def export_all_links(self):
-        '''Convert all links found on devices to User Defined Links.'''
-        for modem in self.get_all_modems():
-            all_devices = modem.get_all_devices()
-            all_devices.append(modem)
-            for device in all_devices:
-                device.export_links()
