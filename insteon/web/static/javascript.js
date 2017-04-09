@@ -610,6 +610,15 @@ function updateDeviceGroupPage (data) {
         success: [updateModemGroupPage, updateNavigation]
       })
     })
+    $('.deleteDevice').click(function () {
+      $.ajax({
+        url: '/modems/' + modemAddress + '/devices/' + deviceAddress + '.json',
+        method: 'DELETE',
+        contentType: 'application/json; charset=utf-8',
+        dataType: 'json',
+        success: null   // TODO something needs to happen here
+      })
+    })
   }
   if ($('tbody#deviceGroups').length) {
     $('tbody#deviceGroups').html(``)
