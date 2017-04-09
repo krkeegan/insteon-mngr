@@ -2,19 +2,14 @@ from insteon.plm_message import PLM_Message
 from insteon.sequences import (ScanDeviceALDBi1, ScanDeviceALDBi2,
     StatusRequest, AddPLMtoDevice, InitializeDevice, WriteALDBRecordi2,
     WriteALDBRecordi1)
+from insteon.devices import Base
 
 
-class GenericSendHandler(object):
+class GenericSendHandler(Base):
     '''Provides the generic command handling that does not conflict with
     any Insteon devices.  Devices with distinct commands and needs should
     create their own message handler class that inherits and overrides the
     necessary elements'''
-    def __init__(self, device):
-        # Be careful storing any attributes, this object may be dropped
-        # and replaced with a new object in a different class at runtime
-        # if the dev_cat changes
-        self._device = device
-        self._last_sent_msg = None
 
     #################################################################
     #

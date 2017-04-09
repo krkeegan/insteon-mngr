@@ -11,6 +11,7 @@ from insteon.plm_schema import PLM_SCHEMA
 from insteon.devices import select_group
 from insteon.modem_rcvd import ModemRcvdHandler
 from insteon.sequences import WriteALDBRecordModem
+from insteon.devices import Base
 
 
 class Modem_ALDB(ALDB):
@@ -52,7 +53,7 @@ class Modem_ALDB(ALDB):
         '''Queries the PLM for a list of the link records saved on
         the PLM and stores them in the cache'''
         self.clear_all_records()
-        self._parent.send_handler.send_command('all_link_first_rec', 'query_aldb')
+        self._parent.send_command('all_link_first_rec', 'query_aldb')
 
 
 class Modem(Root):
@@ -98,7 +99,7 @@ class Modem(Root):
     def _setup(self):
         self.update_device_classes()
         if self.dev_addr_str == '000000':
-            self.send_handler.send_command('plm_info')
+            self.send_command('plm_info')
         if self.aldb.have_aldb_cache() is False:
             self.aldb.query_aldb()
 
@@ -422,13 +423,9 @@ class Modem(Root):
         return
 
 
-class ModemSendHandler(object):
+class ModemSendHandler(Base):
     '''Provides the generic command handling for the Modem.  This is a
     seperate class for consistence with devices.'''
-    def __init__(self, device):
-        self._device = device
-        self._last_sent_msg = None
-
     def send_command(self, command, state='', plm_bytes=None):
         message = self.create_message(command)
         if plm_bytes is not None:

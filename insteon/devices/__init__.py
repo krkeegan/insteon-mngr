@@ -1,3 +1,4 @@
+from insteon.devices.base import Base
 from insteon.devices.generic_rcvd import GenericRcvdHandler
 from insteon.devices.generic_send import GenericSendHandler
 from insteon.devices.generic_functions import GenericFunctions
