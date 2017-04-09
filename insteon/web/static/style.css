@@ -6,3 +6,8 @@
 .label-sm {
   font-size: 11px;
 }
+
+.btn-margin {
+  margin-top: 5px;
+  margin-bottom: 5px
+}

@@ -119,10 +119,16 @@ class Modem(Root):
         device_id = device_id.upper()
         if device_id not in self._devices:
             self._devices[device_id] = InsteonDevice(self.core,
-                                                      self,
-                                                      device_id=device_id,
-                                                      **kwargs)
+                                                     self,
+                                                     device_id=device_id,
+                                                     **kwargs)
         return self._devices[device_id]
+
+    def delete_device(self, device_id):
+        '''Removes a device from the Modems list of devices'''
+        device_id = device_id.upper()
+        if device_id in self._devices:
+            del self._devices[device_id]
 
     def port(self):
         return NotImplemented
