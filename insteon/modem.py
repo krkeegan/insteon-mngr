@@ -96,12 +96,8 @@ class Modem(Root):
         for group_number, attributes in value.items():
             self.create_group(int(group_number), ModemGroup, attributes=attributes)
 
-    def _setup(self):
-        self.update_device_classes()
-        if self.dev_addr_str == '000000':
-            self.send_command('plm_info')
-        if self.aldb.have_aldb_cache() is False:
-            self.aldb.query_aldb()
+    def initialize_device(self):
+        return self.specific.initialize_device()
 
     ##############################################################
     #
@@ -503,6 +499,13 @@ class ModemSendHandler(Base):
         link_sequence.key = key
         link_sequence.in_use = False
         return link_sequence
+
+    def initialize_device(self):
+        self.update_device_classes()
+        if self.dev_addr_str == '000000':
+            self.send_command('plm_info')
+        if self.aldb.have_aldb_cache() is False:
+            self.aldb.query_aldb()
 
 
 class ModemGroup(Group):

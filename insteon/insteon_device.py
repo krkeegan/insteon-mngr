@@ -65,7 +65,7 @@ class InsteonDevice(Root):
         self.send_handler = GenericSendHandler(self)
         self.functions = GenericFunctions(self)
         self.functions.initialize_device(group_class=Group)
-        self.send_handler.initialize_device()
+        self.initialize_device()
 
     def _load_attributes(self, attributes):
         for name, value in attributes.items():
@@ -222,7 +222,15 @@ class InsteonDevice(Root):
             # this is more likely an error in the init_sequence than anything
             # else
             self.attribute('engine_version', version)
-            self.send_handler.initialize_device()
+            self.initialize_device()
+
+    def get_engine_version(self, state_machine=''):
+        '''Sends an engine version request'''
+        return self.specific.get_engine_version(state_machine='')
+
+    def get_device_version(self, state_machine=''):
+        '''Sends a device version request'''
+        return self.specific.get_device_version(state_machine='')
 
     def get_last_rcvd_msg(self):
         return self.last_rcvd_msg

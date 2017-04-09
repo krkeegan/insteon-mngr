@@ -68,7 +68,7 @@ class StatusRequest(BaseSequence):
         trigger.trigger_function = lambda: self._process_status_response()
         trigger.name = self._device.dev_addr_str + 'status_request'
         trigger.queue()
-        self._device.send_handler.send_command('light_status_request')
+        self._device.send_command('light_status_request')
 
     def _process_status_response(self):
         msg = self._device.last_rcvd_msg
@@ -251,7 +251,7 @@ class AddPLMtoDevice(BaseSequence):
     def start(self):
         # Put the PLM in Linking Mode
         # queues a message on the PLM
-        message = self._device.plm.send_handler.create_message('all_link_start')
+        message = self._device.plm.create_message('all_link_start')
         plm_bytes = {
             'link_code': 0x01,
             'group': 0x00,
@@ -264,7 +264,7 @@ class AddPLMtoDevice(BaseSequence):
 
     def _add_plm_to_dev_link_step2(self):
         # Put Device in linking mode
-        message = self._device.send_handler.create_message('enter_link_mode')
+        message = self._device.create_message('enter_link_mode')
         dev_bytes = {
             'cmd_2': 0x00
         }
@@ -296,7 +296,7 @@ class AddPLMtoDevice(BaseSequence):
         self._device.plm.remove_state_machine('link plm->device')
         self._device.remove_state_machine('link plm->device')
         self.on_success()
-        self._device.send_handler.initialize_device()
+        self._device.initialize_device()
 
     def _add_plm_to_dev_link_fail(self):
         print('Error, unable to create plm->device link')
@@ -308,7 +308,7 @@ class AddPLMtoDevice(BaseSequence):
 class InitializeDevice(BaseSequence):
     def start(self):
         if self._device.attribute('engine_version') is None:
-            self._device.send_handler.get_engine_version()
+            self._device.get_engine_version()
         else:
             self._init_step_2()
 
@@ -328,7 +328,7 @@ class InitializeDevice(BaseSequence):
             trigger.trigger_function = lambda: self._device.send_handler.get_status()
             trigger.name = self._device.dev_addr_str + 'init_step_2'
             trigger.queue()
-            self._device.send_handler.get_device_version()
+            self._device.get_device_version()
         else:
             self._device.update_device_classes()
             self._device.send_handler.get_status()

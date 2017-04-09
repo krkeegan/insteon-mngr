@@ -115,38 +115,6 @@ class GenericSendHandler(Base):
         message.state_machine = state_machine
         self._device.queue_device_msg(message)
 
-    def peek_aldb(self, lsb, state_machine=''):
-        '''Sends a peek_one_byte command to the device for the lsb'''
-        message = self.create_message('peek_one_byte')
-        message.insert_bytes_into_raw({'lsb': lsb})
-        message.state_machine = state_machine
-        self._device.queue_device_msg(message)
-
-    def create_responder_link(self, linked_device, is_on=True):
-        if self._device.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(self._device)
-        else:
-            link_sequence = WriteALDBRecordi1(self._device)
-        link_sequence.controller = False
-        link_sequence.linked_device = linked_device
-        on_level = 0x00
-        if is_on:
-            on_level = 0xFF
-        link_sequence.data1 = on_level
-        link_sequence.data2 = 0x00
-        link_sequence.start()
-
-    def create_controller_link(self, linked_device):
-        if self._device.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(self._device)
-        else:
-            link_sequence = WriteALDBRecordi1(self._device)
-        link_sequence.controller = True
-        link_sequence.linked_device = linked_device
-        link_sequence.data1 = 0x03
-        link_sequence.data2 = 0x00
-        link_sequence.start()
-
     def create_controller_link_sequence(self, user_link):
         '''Creates a controller link sequence based on a passed user_link,
         returns the link sequence, which needs to be started'''
@@ -185,12 +153,6 @@ class GenericSendHandler(Base):
         link_sequence.key = key
         link_sequence.in_use = False
         return link_sequence
-
-    def _write_link(self, linked_obj, is_controller):
-        if self._device.attribute('engine_version') == 2:
-            pass  # run i2cs commands
-        else:
-            pass  # run i1 commands
 
     #################################################################
     #

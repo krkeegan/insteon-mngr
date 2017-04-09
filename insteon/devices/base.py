@@ -19,3 +19,8 @@ class Base(object):
         '''Creates and sends a message base don the command name, sets the state
         machine to the value passed in state if set'''
         return NotImplemented
+
+    def initialize_device(self):
+        '''Automatically called whenever a device is added or the core starts.
+        Performs the device specific functions required on initialiation'''
+        return NotImplemented
