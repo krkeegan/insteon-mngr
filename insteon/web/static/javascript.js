@@ -503,7 +503,7 @@ function updateModemSettings (data) {
       'Modem Port', 'port', 'text', data[modemAddress]['port'])
     )
     $('form#modemSettings').append(`
-      <button type="button" id="modemSettingsSubmit" class="btn btn-default btn-block">
+      <button type="button" id="modemSettingsSubmit" class="btn btn-margin btn-default btn-block">
         Save Settings
       </button>
     `)
@@ -562,7 +562,7 @@ function updateModemGroupPage (data) {
       'Scene Name', 'name', 'text', data[modemAddress]['groups'][groupNumber]['name'])
     )
     $('form#modemGroupSettings').append(`
-      <button type="button" id="modemGroupSettingsSubmit" class="btn btn-default btn-block">
+      <button type="button" id="modemGroupSettingsSubmit" class="btn btn-margin btn-default btn-block">
         Save Settings
       </button>
     `)
@@ -594,7 +594,7 @@ function updateDeviceGroupPage (data) {
       'Device Address', 'name', 'text', deviceAddress, true)
     )
     $('form#deviceGroupSettings').append(`
-      <button type="button" id="deviceGroupSettingsSubmit" class="btn btn-default btn-block">
+      <button type="button" id="deviceGroupSettingsSubmit" class="btn btn-margin btn-default btn-block">
         Save Settings
       </button>
     `)
