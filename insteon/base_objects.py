@@ -4,7 +4,7 @@ import pprint
 
 from insteon import ID_STR_TO_BYTES, BYTE_TO_HEX
 from insteon.user_link import UserLink
-from insteon.devices import (GroupSendHandler, GroupFunctions)
+from insteon.devices import (GroupSendHandler, GroupFunctions, BaseSendHandler)
 
 class Group(object):
     '''The base class.  All groups inherit this, the root group gets a lot more
@@ -164,6 +164,7 @@ class Root(Group):
         self._id_bytes = bytearray(3)
         self._groups = []
         self._user_links = {}
+        self.send_handler = BaseSendHandler(self)
         if 'device_id' in kwargs:
             self._id_bytes = ID_STR_TO_BYTES(kwargs['device_id'])
         super().__init__(self, 0x00, **kwargs)
@@ -432,3 +433,9 @@ class Root(Group):
     def update_device_classes(self):
         # pylint: disable=R0201
         return NotImplemented
+
+    def create_message(self, command_name):
+        return self.send_handler.create_message(command_name)
+
+    def send_command(self, command_name, state=''):
+        return self.send_handler.send_command(self, command_name)
