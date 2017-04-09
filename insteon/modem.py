@@ -1,8 +1,9 @@
 import time
 import datetime
 
+from insteon import BYTE_TO_HEX, BYTE_TO_ID
 from insteon.insteon_device import InsteonDevice
-from insteon.base_objects import Root, BYTE_TO_HEX, BYTE_TO_ID, Group
+from insteon.base_objects import Root, Group
 from insteon.aldb import ALDB
 from insteon.trigger import Trigger_Manager
 from insteon.plm_message import PLM_Message

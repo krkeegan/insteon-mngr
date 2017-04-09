@@ -6,7 +6,7 @@ from bottle import (route, run, Bottle, response, get, post, put, delete,
                     request, error, static_file, view, TEMPLATE_PATH,
                     WSGIRefServer, redirect)
 
-from insteon.base_objects import BYTE_TO_ID
+from insteon import BYTE_TO_ID
 from insteon.sequences import DeleteLinkPair
 
 core = ''
