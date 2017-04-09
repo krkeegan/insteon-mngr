@@ -9,9 +9,6 @@ class ALDB(object):
         self._parent = parent
         self.aldb = {}
 
-    def delete_position(self, position):
-        del self.aldb[position]
-
     def get_record(self, position):
         if position not in self.aldb:
             self.aldb[position] = ALDBRecord(self)
@@ -123,7 +120,7 @@ class ALDBRecord(object):
         ret.start()
         self._link_sequence = ret
 
-    def delete_record(self):
+    def remove_record(self):
         '''Removes the record from the cache only'''
         del self._database.aldb[self.key]
 

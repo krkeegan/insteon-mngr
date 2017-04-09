@@ -84,5 +84,5 @@ class ModemSendHandler(BaseSendHandler):
     def query_aldb(self):
         '''Queries the PLM for a list of the link records saved on
         the PLM and stores them in the cache'''
-        self._device.aldb.clear_all_records() #TODO is this needed?
+        self._device.aldb.clear_all_records()
         self.send_command('all_link_first_rec', 'query_aldb')
