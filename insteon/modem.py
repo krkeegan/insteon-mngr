@@ -48,12 +48,6 @@ class Modem_ALDB(ALDB):
             ret = False
         return ret
 
-    def query_aldb(self):
-        '''Queries the PLM for a list of the link records saved on
-        the PLM and stores them in the cache'''
-        self.clear_all_records()
-        self._parent.send_command('all_link_first_rec', 'query_aldb')
-
 
 class Modem(Root):
 
@@ -100,7 +94,7 @@ class Modem(Root):
         if self.dev_addr_str == '000000':
             self.send_command('plm_info')
         if self.aldb.have_aldb_cache() is False:
-            self.aldb.query_aldb()
+            self.query_aldb()
 
     ##############################################################
     #

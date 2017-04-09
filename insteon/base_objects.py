@@ -439,3 +439,6 @@ class Root(Group):
 
     def send_command(self, command_name, state=''):
         return self.send_handler.send_command(command_name, state)
+
+    def query_aldb(self):
+        return self.send_handler.query_aldb()

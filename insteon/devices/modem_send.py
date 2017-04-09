@@ -80,3 +80,9 @@ class ModemSendHandler(BaseSendHandler):
         link_sequence.key = key
         link_sequence.in_use = False
         return link_sequence
+
+    def query_aldb(self):
+        '''Queries the PLM for a list of the link records saved on
+        the PLM and stores them in the cache'''
+        self._device.aldb.clear_all_records() #TODO is this needed?
+        self.send_command('all_link_first_rec', 'query_aldb')

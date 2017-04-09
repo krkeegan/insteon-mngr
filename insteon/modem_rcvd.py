@@ -65,7 +65,7 @@ class ModemRcvdHandler(object):
         print('error writing aldb to PLM, will rescan plm and try again')
         plm = self._device
         self._device._last_sent_msg.failed = True
-        self._device.aldb.query_aldb()
+        self._device.query_aldb()
         trigger_attributes = {
             'plm_cmd': 0x6A,
             'plm_resp': 0x15

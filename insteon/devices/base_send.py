@@ -21,3 +21,7 @@ class BaseSendHandler(object):
         '''Creates a message based on the command_name and queues it to be sent
         to the device using the state_machine of state of defined'''
         return NotImplemented
+
+    def query_aldb(self):
+        '''Initiates the process to query the all link database on the device'''
+        return NotImplemented

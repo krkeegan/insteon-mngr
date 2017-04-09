@@ -76,7 +76,7 @@ class StatusRequest(BaseSequence):
         aldb_delta = msg.get_byte_by_name('cmd_1')
         if self._device.attribute('aldb_delta') != aldb_delta:
             print('aldb has changed, rescanning')
-            self._device.send_handler.query_aldb()
+            self._device.query_aldb()
         self.on_success()
 
 
