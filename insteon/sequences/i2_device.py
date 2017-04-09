@@ -8,7 +8,7 @@ class ScanDeviceALDBi2(BaseSequence):
     def start(self):
         self._device.aldb.clear_all_records()
         dev_bytes = {'msb': 0x00, 'lsb': 0x00}
-        message = self._device.send_handler.create_message('read_aldb')
+        message = self._device.create_message('read_aldb')
         message.insert_bytes_into_raw(dev_bytes)
         message.state_machine = 'query_aldb'
         self._device.queue_device_msg(message)
@@ -66,7 +66,7 @@ class WriteALDBRecordi2(WriteALDBRecord):
         trigger.trigger_function = lambda: self._save_record()
         trigger.name = self._device.dev_addr_str + 'write_aldb'
         trigger.queue()
-        msg = self._device.send_handler.create_message('write_aldb')
+        msg = self._device.create_message('write_aldb')
         msg.insert_bytes_into_raw(msg_attributes)
         self._device.queue_device_msg(msg)
 

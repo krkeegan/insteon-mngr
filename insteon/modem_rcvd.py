@@ -100,7 +100,7 @@ class ModemRcvdHandler(object):
             self._device._last_sent_msg.plm_ack = True
             self._device._last_sent_msg.time_plm_ack = time.time()
             self._device.aldb.add_record(msg.raw_msg[2:])
-            self._device.send_handler.send_command('all_link_next_rec', 'query_aldb')
+            self._device.send_command('all_link_next_rec', 'query_aldb')
         else:
             msg.allow_trigger = False
             print('received spurious plm aldb record')

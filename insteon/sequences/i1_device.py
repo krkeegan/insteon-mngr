@@ -15,7 +15,7 @@ class ScanDeviceALDBi1(BaseSequence):
         trigger.trigger_function = lambda: self._send_peek_request(lsb)
         trigger.name = self._device.dev_addr_str + 'query_aldb'
         trigger.queue()
-        message = self._device.send_handler.create_message('set_address_msb')
+        message = self._device.create_message('set_address_msb')
         message.insert_bytes_into_raw({'msb': msb})
         message.state_machine = 'query_aldb'
         self._device.queue_device_msg(message)
@@ -48,7 +48,7 @@ class ScanDeviceALDBi1(BaseSequence):
         trigger.trigger_function = lambda: self._get_byte_address()
         trigger.name = self._device.dev_addr_str + 'query_aldb'
         trigger.queue()
-        message = self._device.send_handler.create_message('peek_one_byte')
+        message = self._device.create_message('peek_one_byte')
         message.insert_bytes_into_raw({'lsb': lsb})
         message.state_machine = 'query_aldb'
         self._device.queue_device_msg(message)
@@ -68,7 +68,7 @@ class WriteALDBRecordi1(WriteALDBRecord):
         trigger.trigger_function = lambda: self._send_peek_request(lsb)
         trigger.name = self._device.dev_addr_str + 'write_aldb'
         trigger.queue()
-        message = self._device.send_handler.create_message('set_address_msb')
+        message = self._device.create_message('set_address_msb')
         message.insert_bytes_into_raw({'msb': msb})
         message.state_machine = 'write_aldb'
         self._device.queue_device_msg(message)
@@ -94,7 +94,7 @@ class WriteALDBRecordi1(WriteALDBRecord):
             trigger.trigger_function = lambda: self._send_poke_request(lsb)
             trigger.name = self._device.dev_addr_str + 'write_aldb'
             trigger.queue()
-            message = self._device.send_handler.create_message('peek_one_byte')
+            message = self._device.create_message('peek_one_byte')
             message.insert_bytes_into_raw({'lsb': lsb})
             message.state_machine = 'write_aldb'
             self._device.queue_device_msg(message)
@@ -123,7 +123,7 @@ class WriteALDBRecordi1(WriteALDBRecord):
         trigger.trigger_function = callback
         trigger.name = self._device.dev_addr_str + 'write_aldb'
         trigger.queue()
-        message = self._device.send_handler.create_message('poke_one_byte')
+        message = self._device.create_message('poke_one_byte')
         message.insert_bytes_into_raw({'lsb': lsb_byte})
         message.state_machine = 'write_aldb'
         self._device.queue_device_msg(message)

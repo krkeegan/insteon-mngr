@@ -438,4 +438,4 @@ class Root(Group):
         return self.send_handler.create_message(command_name)
 
     def send_command(self, command_name, state=''):
-        return self.send_handler.send_command(self, command_name)
+        return self.send_handler.send_command(command_name, state)

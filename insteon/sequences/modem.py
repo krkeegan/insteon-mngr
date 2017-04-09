@@ -9,7 +9,7 @@ class WriteALDBRecordModem(WriteALDBRecord):
             self.data1 = self.linked_device.root.dev_cat
             self.data2 = self.linked_device.root.sub_cat
             self.data3 = self.linked_device.root.firmware
-        msg = self._device.root.send_handler.create_message('all_link_manage_rec')
+        msg = self._device.root.create_message('all_link_manage_rec')
         msg_attributes = self._compiled_record()
         msg.insert_bytes_into_raw(msg_attributes)
         trigger_attributes = {
