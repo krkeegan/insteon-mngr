@@ -7,7 +7,7 @@ from insteon.aldb import ALDB
 from insteon.trigger import Trigger_Manager
 from insteon.plm_message import PLM_Message
 from insteon.plm_schema import PLM_SCHEMA
-from insteon.devices import select_group
+from insteon.devices import select_group, ModemSendHandler
 from insteon.modem_rcvd import ModemRcvdHandler
 from insteon.sequences import WriteALDBRecordModem
 
@@ -419,92 +419,6 @@ class Modem(Root):
                 'is not active, unable to send message'
             )
         return
-
-
-class ModemSendHandler(object):
-    '''Provides the generic command handling for the Modem.  This is a
-    seperate class for consistence with devices.'''
-    def __init__(self, device):
-        self._device = device
-        self._last_sent_msg = None
-
-    def send_command(self, command, state='', plm_bytes=None):
-        message = self.create_message(command)
-        if plm_bytes is not None:
-            message.insert_bytes_into_raw(plm_bytes)
-        message.state_machine = state
-        self._device.queue_device_msg(message)
-
-    def create_message(self, command):
-        message = PLM_Message(
-            self._device, device=self._device,
-            plm_cmd=command)
-        return message
-
-    # ALDB Functions
-    #######################
-
-    def create_responder_link(self, linked_device):
-        message = self.create_message('all_link_manage_rec')
-        dev_bytes = {
-            'link_flags': 0xA2,
-            'group': linked_device.group,
-            'dev_addr_hi': linked_device.dev_addr_hi,
-            'dev_addr_mid': linked_device.dev_addr_mid,
-            'dev_addr_low': linked_device.dev_addr_low,
-        }
-        records = self._device.aldb.get_matching_records(dev_bytes)
-        ctrl_code = 0x20
-        if (len(records) == 0):
-            ctrl_code = 0x41
-        dev_bytes.update({
-            'ctrl_code': ctrl_code,
-            'data_1': 0x00,  # D1-3 are 0x00 for plm responder
-            'data_2': 0x00,
-            'data_3': 0x00
-        })
-        message.insert_bytes_into_raw(dev_bytes)
-        self._device.queue_device_msg(message)
-
-    def create_controller_link(self, linked_device):
-        message = self.create_message('all_link_manage_rec')
-        dev_bytes = {
-            'link_flags': 0xE2,
-            'group': self._device.group,
-            'dev_addr_hi': linked_device.dev_addr_hi,
-            'dev_addr_mid': linked_device.dev_addr_mid,
-            'dev_addr_low': linked_device.dev_addr_low,
-        }
-        records = self._device.aldb.get_matching_records(dev_bytes)
-        ctrl_code = 0x20
-        if (len(records) == 0):
-            ctrl_code = 0x40
-        dev_bytes.update({
-            'ctrl_code': ctrl_code,
-            'data_1': linked_device.dev_cat,
-            'data_2': linked_device.sub_cat,
-            'data_3': linked_device.firmware
-        })
-        message.insert_bytes_into_raw(dev_bytes)
-        self._device.queue_device_msg(message)
-
-    def create_controller_link_sequence(self, user_link):
-        '''Creates a controller link sequence based on a passed user_link,
-        returns the link sequence, which needs to be started'''
-        link_sequence = WriteALDBRecordModem(self._device)
-        link_sequence.controller = True
-        link_sequence.linked_device = user_link.device
-        return link_sequence
-
-    def create_responder_link_sequence(self, user_link):
-        # TODO Is the modem ever a responder in a way that this would be needed?
-        return NotImplemented
-
-    def delete_record(self, key=None):
-        link_sequence = WriteALDBRecordModem(self._device)
-        link_sequence.key = key
-        link_sequence.in_use = False
-        return link_sequence
 
 
 class ModemGroup(Group):

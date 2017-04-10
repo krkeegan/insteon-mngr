@@ -1,9 +1,11 @@
+from insteon.devices.base_send import BaseSendHandler
 from insteon.devices.generic_rcvd import GenericRcvdHandler
 from insteon.devices.generic_send import GenericSendHandler
 from insteon.devices.generic_functions import GenericFunctions
 from insteon.devices.group import (GroupFunctions, GroupSendHandler,
     PLMGroupSendHandler, PLMGroupFunctions)
 from insteon.devices.dimmer import DimmerSendHandler, DimmerFunctions
+from insteon.devices.modem_send import ModemSendHandler
 
 
 def select_device(device=None, dev_cat=0x00, sub_cat=0x00,
