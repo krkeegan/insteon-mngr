@@ -1,6 +1,7 @@
 class GenericFunctions(object):
     def __init__(self, device):
         self._device = device
+        self._create_groups()
 
     def get_controller_data1(self, responder):
         return 0x03
@@ -15,11 +16,6 @@ class GenericFunctions(object):
         if self._device.state == 0xFF:
             ret = 'ON'
         return ret
-
-    def initialize_device(self, group_class=None):
-        '''Called when the device is first loaded or created.  Calls any
-        initialization functions which are unique to this device.'''
-        self._create_groups(group_class)
 
     def list_data_1_options(self):
         return {'ON': 0xFF,
@@ -46,5 +42,7 @@ class GenericFunctions(object):
         }
         return ret
 
-    def _create_groups(self, group_class):
-        pass
+    def _create_groups(self):
+        # TODO need to delete other base group
+        if self._device.get_object_by_group_num(self._device.base_group_number) is None:
+            self._device.create_group(self._device.base_group_number)

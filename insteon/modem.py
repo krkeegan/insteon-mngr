@@ -8,7 +8,7 @@ from insteon.aldb import ALDB
 from insteon.trigger import Trigger_Manager
 from insteon.plm_message import PLM_Message
 from insteon.plm_schema import PLM_SCHEMA
-from insteon.devices import select_group, ModemSendHandler
+from insteon.devices import select_classes, ModemSendHandler
 from insteon.modem_rcvd import ModemRcvdHandler
 from insteon.sequences import WriteALDBRecordModem
 
@@ -64,9 +64,9 @@ class Modem(Root):
         self._wait_to_send = 0
         self.port_active = True
         self.ack_time = 75
-        for group_number in range(0x02, 0xFF):
+        for group_number in range(0x01, 0xFF):
             if self.get_object_by_group_num(group_number) is None:
-                self.create_group(group_number, ModemGroup)
+                self.create_group(group_number)
 
     def _load_attributes(self, attributes):
         for name, value in attributes.items():
@@ -87,7 +87,7 @@ class Modem(Root):
 
     def _load_groups(self, value):
         for group_number, attributes in value.items():
-            self.create_group(int(group_number), ModemGroup, attributes=attributes)
+            self.create_group(int(group_number), attributes=attributes)
 
     def _setup(self):
         self.update_device_classes()
@@ -157,13 +157,16 @@ class Modem(Root):
         return ret
 
     def update_device_classes(self):
+        classes = select_classes(dev_cat=self.dev_cat,
+                                sub_cat=self.sub_cat,
+                                firmware=self.firmware)
         for group in self.get_all_groups():
-            classes = select_group(device=group, dev_cat=group.root.dev_cat,
-                                    sub_cat=group.root.sub_cat,
-                                    firmware=group.root.firmware,
-                                    engine_version=group.root.engine_version)
-            group.send_handler = classes['send_handler']
-            group.functions = classes['functions']
+            group.send_handler = classes['group']['send_handler'](group)
+            group.functions = classes['group']['functions'](group)
+
+    def create_group(self, group_num, attributes=None):
+        if group_num >= 0x00 and group_num <= 0xFF:
+            self._groups.append(ModemGroup(self, group_num, attributes=attributes))
 
     ##############################################################
     #

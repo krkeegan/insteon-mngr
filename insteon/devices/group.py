@@ -7,34 +7,34 @@ class GroupSendHandler(object):
     '''Provides the basic command handling for group object.  Devices, whose
     group has distinct commands and needs should create their own send handler
     class that inherits and overrides the necessary elements'''
-    def __init__(self, device):
+    def __init__(self, group):
         # Be careful storing any attributes, this object may be dropped
         # and replaced with a new object in a different class at runtime
         # if the dev_cat changes
-        self._device = device
+        self._group = group
 
     def create_controller_link_sequence(self, user_link):
         '''Creates a controller link sequence based on a passed user_link,
         returns the link sequence, which needs to be started'''
-        if self._device.root.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(self._device)
+        if self._group.device.engine_version > 0x00:
+            link_sequence = WriteALDBRecordi2(self)
         else:
-            link_sequence = WriteALDBRecordi1(self._device)
+            link_sequence = WriteALDBRecordi1(self)
         if user_link.controller_key is not None:
             link_sequence.key = user_link.controller_key
         link_sequence.controller = True
         link_sequence.linked_device = user_link.device
-        link_sequence.data1 = self._device.root.functions.get_controller_data1(None)
-        link_sequence.data2 = self._device.root.functions.get_controller_data2(None)
+        link_sequence.data1 = self._group.device.functions.get_controller_data1(None)
+        link_sequence.data2 = self._group.device.functions.get_controller_data2(None)
         return link_sequence
 
     def create_responder_link_sequence(self, user_link):
         '''Creates a responder link sequence based on a passed user_link,
         returns the link sequence, which needs to be started'''
-        if self._device.root.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(self._device)
+        if self._group.device.engine_version > 0x00:
+            link_sequence = WriteALDBRecordi2(self)
         else:
-            link_sequence = WriteALDBRecordi1(self._device)
+            link_sequence = WriteALDBRecordi1(self)
         if user_link.responder_key is not None:
             link_sequence.key = user_link.responder_key
         link_sequence.controller = False
@@ -44,23 +44,48 @@ class GroupSendHandler(object):
         return link_sequence
 
     def delete_record(self, key=None):
-        if self._device.root.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(self._device)
+        if self._group.device.engine_version > 0x00:
+            link_sequence = WriteALDBRecordi2(self)
         else:
-            link_sequence = WriteALDBRecordi1(self._device)
+            link_sequence = WriteALDBRecordi1(self)
         link_sequence.key = key
         link_sequence.in_use = False
         return link_sequence
 
 class GroupFunctions(object):
-    def __init__(self, device):
-        self._device = device
+    def __init__(self, group):
+        self._group = group
+
+    def state_str(self):
+        '''Returns the current state of the device in a human readable form'''
+        # TODO do we want to return an unknown value? trigger status if not?
+        ret = 'OFF'
+        if self.state == 0xFF:
+            ret = 'ON'
+        return ret
+
+    def list_data_1_options(self):
+        return {'ON': 0xFF,
+                'OFF': 0x00}
+
+    def list_data_2_options(self):
+        return {'None': 0x00}
 
     def get_features(self):
         '''Returns the intrinsic parameters of a device, these are not user
         editable so are not saved in the config.json file'''
         ret = {
-            'responder': False
+            'responder': True,
+        }
+        ret['data_1'] = {
+            'name': 'On/Off',
+            'default': 0xFF,
+            'values': self.list_data_1_options()
+        }
+        ret['data_2'] = {
+            'name': 'None',
+            'default': 0x00,
+            'values': self.list_data_2_options()
         }
         return ret
 
@@ -72,7 +97,7 @@ class PLMGroupSendHandler(GroupSendHandler):
 
     def _state_commands(self):
         on_plm_bytes = {
-            'group': self._device.group_number,
+            'group': self.group_number,
             'cmd_1': 0x11,
             'cmd_2': 0x00,
         }
@@ -80,7 +105,7 @@ class PLMGroupSendHandler(GroupSendHandler):
                                  plm_cmd='all_link_send',
                                  plm_bytes=on_plm_bytes)
         off_plm_bytes = {
-            'group': self._device.group_number,
+            'group': self.group_number,
             'cmd_1': 0x13,
             'cmd_2': 0x00,
         }
@@ -96,7 +121,7 @@ class PLMGroupSendHandler(GroupSendHandler):
     def create_controller_link_sequence(self, user_link):
         '''Creates a controller link sequence based on a passed user_link,
         returns the link sequence, which needs to be started'''
-        link_sequence = WriteALDBRecordModem(self._device)
+        link_sequence = WriteALDBRecordModem(self)
         link_sequence.controller = True
         link_sequence.linked_device = user_link.device
         return link_sequence
@@ -106,7 +131,7 @@ class PLMGroupSendHandler(GroupSendHandler):
         return NotImplemented
 
     def delete_record(self, key=None):
-        link_sequence = WriteALDBRecordModem(self._device)
+        link_sequence = WriteALDBRecordModem(self)
         link_sequence.key = key
         link_sequence.in_use = False
         return link_sequence
@@ -121,7 +146,7 @@ class PLMGroupSendHandler(GroupSendHandler):
             message.state_machine = 'all_link_send'
             records = self._device.root.plm.aldb.get_matching_records({
                 'controller': True,
-                'group': self._device.group_number,
+                'group': self.group_number,
                 'in_use': True
             })
             # Until all link status is complete, sending any other cmds to PLM
@@ -142,4 +167,5 @@ class PLMGroupFunctions(GroupFunctions):
         '''Returns the intrinsic parameters of a device, these are not user
         editable so are not saved in the config.json file'''
         ret = super().get_features()
+        ret['responder'] = False
         return ret

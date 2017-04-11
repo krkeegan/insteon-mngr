@@ -2,8 +2,8 @@ from insteon.trigger import InsteonTrigger, PLMTrigger
 
 
 class BaseSequence(object):
-    def __init__(self, device):
-        self._device = device
+    def __init__(self, group):
+        self._group = group
         self._success_callback = None
         self._failure_callback = None
         self._complete = False
@@ -63,20 +63,21 @@ class StatusRequest(BaseSequence):
             'plm_cmd': 0x50,
             'msg_length': 'standard'
         }
-        trigger = InsteonTrigger(device=self._device,
+        trigger = InsteonTrigger(device=self._group.device,
                                  attributes=trigger_attributes)
         trigger.trigger_function = lambda: self._process_status_response()
-        trigger.name = self._device.dev_addr_str + 'status_request'
+        trigger.name = self._group.device.dev_addr_str + 'status_request'
         trigger.queue()
-        self._device.send_command('light_status_request')
+        self._group.device.send_command('light_status_request')
 
     def _process_status_response(self):
-        msg = self._device.last_rcvd_msg
-        self._device.state = msg.get_byte_by_name('cmd_2')
+        msg = self._group.device.last_rcvd_msg
+        base_group = self._group.device.get_object_by_group_num(self._group.device.base_group_number)
+        base_group.state = msg.get_byte_by_name('cmd_2')
         aldb_delta = msg.get_byte_by_name('cmd_1')
-        if self._device.attribute('aldb_delta') != aldb_delta:
+        if self._group.device.attribute('aldb_delta') != aldb_delta:
             print('aldb has changed, rescanning')
-            self._device.query_aldb()
+            self._group.device.query_aldb()
         self.on_success()
 
 
@@ -84,19 +85,19 @@ class SetALDBDelta(StatusRequest):
     '''Used to get and store the tracking value for the ALDB Delta'''
 
     def _process_status_response(self):
-        msg = self._device.last_rcvd_msg
-        self._device.state = msg.get_byte_by_name('cmd_2')
-        self._device.set_aldb_delta(msg.get_byte_by_name('cmd_1'))
+        msg = self._group.device.last_rcvd_msg
+        self._group.state = msg.get_byte_by_name('cmd_2')
+        self._group.device.set_aldb_delta(msg.get_byte_by_name('cmd_1'))
         print ('cached aldb_delta')
         self.on_success()
 
 
 class WriteALDBRecord(BaseSequence):
     '''Sequence to write an aldb record to a device.'''
-    def __init__(self, device):
-        super().__init__(device)
+    def __init__(self, group):
+        super().__init__(group)
         self._controller = False
-        self._linked_device = None
+        self._linked_group = None
         self._d1 = 0x00
         self._d2 = 0x00
         self._d3 = None
@@ -122,13 +123,13 @@ class WriteALDBRecord(BaseSequence):
         self._controller = boolean
 
     @property
-    def linked_device(self):
-        '''Required. The device on the other end of this link.'''
-        return self._linked_device
+    def linked_group(self):
+        '''Required. The group on the other end of this link.'''
+        return self._linked_group
 
-    @linked_device.setter
-    def linked_device(self, device):
-        self._linked_device = device
+    @linked_group.setter
+    def linked_group(self, device):
+        self._linked_group = device
 
     @property
     def data1(self):
@@ -154,7 +155,7 @@ class WriteALDBRecord(BaseSequence):
     def data3(self):
         '''The device specific byte to write to the data3 location defaults
         to the group of the device.'''
-        ret = self._device.group_number
+        ret = self._group.group_number
         if self._d3 is not None:
             ret = self._d3
         return ret
@@ -184,7 +185,7 @@ class WriteALDBRecord(BaseSequence):
         the first empty address.'''
         ret = self._address
         if self._address is None:
-            key = self._device.root.aldb.get_first_empty_addr()
+            key = self._group.device.aldb.get_first_empty_addr()
             msb = int(key[0:2], 16)
             lsb = int(key[2:4], 16)
             ret = bytearray([msb, lsb])
@@ -210,40 +211,40 @@ class WriteALDBRecord(BaseSequence):
             msg_attributes['dev_addr_low'] = 0x00
         elif self.controller:
             msg_attributes['link_flags'] = 0xE2
-            msg_attributes['group'] = self._device.group_number
+            msg_attributes['group'] = self._group.group_number
             msg_attributes['data_1'] = self.data1  # hops I think
             msg_attributes['data_2'] = self.data2  # unkown always 0x00
-            # group of controller device base_group for 0x01, 0x00 issue
+            # group of controller device base_group_numberfor 0x01, 0x00 issue
             msg_attributes['data_3'] = self.data3
-            msg_attributes['dev_addr_hi'] = self._linked_device.root.dev_addr_hi
-            msg_attributes['dev_addr_mid'] = self._linked_device.root.dev_addr_mid
-            msg_attributes['dev_addr_low'] = self._linked_device.root.dev_addr_low
+            msg_attributes['dev_addr_hi'] = self._linked_group.device.dev_addr_hi
+            msg_attributes['dev_addr_mid'] = self._linked_group.device.dev_addr_mid
+            msg_attributes['dev_addr_low'] = self._linked_group.device.dev_addr_low
         else:
             msg_attributes['link_flags'] = 0xA2
-            msg_attributes['group'] = self._linked_device.group_number
+            msg_attributes['group'] = self._linked_group.group_number
             msg_attributes['data_1'] = self.data1  # on level
             msg_attributes['data_2'] = self.data2  # ramp rate
             # group of responder, i1 = 00, i2 = 01
             msg_attributes['data_3'] = self.data3
-            msg_attributes['dev_addr_hi'] = self._linked_device.root.dev_addr_hi
-            msg_attributes['dev_addr_mid'] = self._linked_device.root.dev_addr_mid
-            msg_attributes['dev_addr_low'] = self._linked_device.root.dev_addr_low
+            msg_attributes['dev_addr_hi'] = self._linked_group.device.dev_addr_hi
+            msg_attributes['dev_addr_mid'] = self._linked_group.device.dev_addr_mid
+            msg_attributes['dev_addr_low'] = self._linked_group.device.dev_addr_low
         return msg_attributes
 
     def start(self):
         '''Starts the sequence to write the aldb record'''
-        if self.linked_device is None and self.in_use:
-            print('error no linked_device defined')
+        if self.linked_group is None and self.in_use:
+            print('error no linked_group defined')
         else:
-            status_sequence = StatusRequest(self._device)
+            status_sequence = StatusRequest(self._group)
             callback = lambda: self._perform_write()  # pylint: disable=W0108
             status_sequence.success_callback = callback
             status_sequence.start()
 
     def _perform_write(self):
         if self.key is None:
-            self.key = self._device.root.aldb.get_first_empty_addr()
-        record = self._device.root.aldb.get_record(self.key)
+            self.key = self._group.device.aldb.get_first_empty_addr()
+        record = self._group.device.aldb.get_record(self.key)
         record.link_sequence = self
 
 
@@ -251,7 +252,7 @@ class AddPLMtoDevice(BaseSequence):
     def start(self):
         # Put the PLM in Linking Mode
         # queues a message on the PLM
-        message = self._device.plm.create_message('all_link_start')
+        message = self._group.device.plm.create_message('all_link_start')
         plm_bytes = {
             'link_code': 0x01,
             'group': 0x00,
@@ -260,11 +261,11 @@ class AddPLMtoDevice(BaseSequence):
         message.plm_success_callback = self._add_plm_to_dev_link_step2
         message.msg_failure_callback = self._add_plm_to_dev_link_fail
         message.state_machine = 'link plm->device'
-        self._device.plm.queue_device_msg(message)
+        self._group.device.plm.queue_device_msg(message)
 
     def _add_plm_to_dev_link_step2(self):
         # Put Device in linking mode
-        message = self._device.create_message('enter_link_mode')
+        message = self._group.device.create_message('enter_link_mode')
         dev_bytes = {
             'cmd_2': 0x00
         }
@@ -274,41 +275,45 @@ class AddPLMtoDevice(BaseSequence):
         )
         message.msg_failure_callback = self._add_plm_to_dev_link_fail
         message.state_machine = 'link plm->device'
-        self._device.queue_device_msg(message)
+        self._group.device.queue_device_msg(message)
 
     def _add_plm_to_dev_link_step3(self):
         trigger_attributes = {
-            'from_addr_hi': self._device.dev_addr_hi,
-            'from_addr_mid': self._device.dev_addr_mid,
-            'from_addr_low': self._device.dev_addr_low,
+            'from_addr_hi': self._group.device.dev_addr_hi,
+            'from_addr_mid': self._group.device.dev_addr_mid,
+            'from_addr_low': self._group.device.dev_addr_low,
             'link_code': 0x01,
             'plm_cmd': 0x53
         }
-        trigger = PLMTrigger(plm=self._device.plm,
+        trigger = PLMTrigger(plm=self._group.device.plm,
                              attributes=trigger_attributes)
         trigger.trigger_function = lambda: self._add_plm_to_dev_link_step4()
-        trigger.name = self._device.dev_addr_str + 'add_plm_step_3'
+        trigger.name = self._group.device.dev_addr_str + 'add_plm_step_3'
         trigger.queue()
         print('device in linking mode')
 
     def _add_plm_to_dev_link_step4(self):
         print('plm->device link created')
-        self._device.plm.remove_state_machine('link plm->device')
-        self._device.remove_state_machine('link plm->device')
+        self._group.device.plm.remove_state_machine('link plm->device')
+        self._group.device.remove_state_machine('link plm->device')
         self.on_success()
-        self._device.send_handler.initialize_device()
+        init_sequence = InitializeDevice(self._group)
+        init_sequence.start()
 
     def _add_plm_to_dev_link_fail(self):
         print('Error, unable to create plm->device link')
-        self._device.plm.remove_state_machine('link plm->device')
-        self._device.remove_state_machine('link plm->device')
+        self._group.device.plm.remove_state_machine('link plm->device')
+        self._group.device.remove_state_machine('link plm->device')
         self.on_failure()
 
 
 class InitializeDevice(BaseSequence):
+    '''This sequence performs a series of steps to gather all of the basic
+    information about a device.  It is generic enough to be run on any known
+    insteon device.'''
     def start(self):
-        if self._device.attribute('engine_version') is None:
-            self._device.send_handler.get_engine_version()
+        if self._group.device.attribute('engine_version') is None:
+            self._group.device.send_handler.get_engine_version()
         else:
             self._init_step_2()
 
@@ -316,19 +321,19 @@ class InitializeDevice(BaseSequence):
         # TODO consider whether getting status is always necessary or desired
         # results in get engine version or get dev_cat always causing a status
         # request
-        if (self._device.dev_cat is None or
-                self._device.sub_cat is None or
-                self._device.firmware is None):
+        if (self._group.device.dev_cat is None or
+                self._group.device.sub_cat is None or
+                self._group.device.firmware is None):
             trigger_attributes = {
                 'cmd_1': 0x01,
                 'insteon_msg_type': 'broadcast'
             }
-            trigger = InsteonTrigger(device=self._device,
+            trigger = InsteonTrigger(device=self._group.device,
                                      attributes=trigger_attributes)
-            trigger.trigger_function = lambda: self._device.send_handler.get_status()
-            trigger.name = self._device.dev_addr_str + 'init_step_2'
+            trigger.trigger_function = lambda: self._group.device.send_handler.get_status()
+            trigger.name = self._group.device.dev_addr_str + 'init_step_2'
             trigger.queue()
-            self._device.send_handler.get_device_version()
+            self._group.device.send_handler.get_device_version()
         else:
-            self._device.update_device_classes()
-            self._device.send_handler.get_status()
+            # TODO is this needed self._group.device.update_device_classes()
+            self._group.device.send_handler.get_status()

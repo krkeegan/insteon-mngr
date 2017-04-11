@@ -6,16 +6,47 @@ from insteon import ID_STR_TO_BYTES, BYTE_TO_HEX
 from insteon.user_link import UserLink
 from insteon.devices import (GroupSendHandler, GroupFunctions, BaseSendHandler)
 
-class Group(object):
-    '''The base class.  All groups inherit this, the root group gets a lot more
-    functions.  Specialized groups can modify or add functions in classes that
-    inherit this.'''
-    def __init__(self, root, group_number, **kwargs):
-        self._root = root
-        self._group_number = group_number
+class Common(object):
+    '''The base class inherited by groups and devices, primarily provides
+    functions associated with saving the state.'''
+    def __init__(self, **kwargs):
         self._attributes = {}
         if 'attributes' in kwargs and kwargs['attributes'] is not None:
             self._load_attributes(kwargs['attributes'])
+
+    def _load_attributes(self, attributes):
+        for name, value in attributes.items():
+            self.attribute(name, value)
+
+    def attribute(self, attr, value=None):
+        '''An attribute is a characteristic of an object that is not intrinsic
+        to the nature of device. This includes dev_cat and related items as well
+        as the object state.  Attribute excludes things like whether the object is a
+        responder or is_deaf, these are features.'''
+        if value is not None:
+            self._attributes[attr] = value
+        try:
+            ret = self._attributes[attr]
+        except KeyError:
+            ret = None
+        return ret
+
+    def get_attributes(self):
+        ret = self._attributes.copy()
+        return ret
+
+    def get_features_and_attributes(self):
+        ret = self.get_attributes()
+        return ret
+
+
+class Group(Common):
+    '''The Group class for all groups.  Specialized functions should be done
+    in the send_handler or functions.'''
+    def __init__(self, device, group_number, **kwargs):
+        super().__init__(**kwargs)
+        self._device = device
+        self._group_number = group_number
         self.send_handler = GroupSendHandler(self)
         self.functions = GroupFunctions(self)
 
@@ -24,8 +55,8 @@ class Group(object):
         return self._group_number
 
     @property
-    def root(self):
-        return self._root
+    def device(self):
+        return self._device
 
     @property
     def state(self):
@@ -53,21 +84,17 @@ class Group(object):
     def name(self, value):
         return self.attribute('name', value)
 
-    def _load_attributes(self, attributes):
-        for name, value in attributes.items():
-            self.attribute(name, value)
-
     def _get_undefined_responder(self):
         ret = []
         attributes = {
             'in_use': True,
             'responder': True,
             'group': self.group_number,
-            'dev_addr_hi': self.root.dev_addr_hi,
-            'dev_addr_mid': self.root.dev_addr_mid,
-            'dev_addr_low': self.root.dev_addr_low
+            'dev_addr_hi': self.device.dev_addr_hi,
+            'dev_addr_mid': self.device.dev_addr_mid,
+            'dev_addr_low': self.device.dev_addr_low
         }
-        aldb_responder_links = self.root.core.get_matching_aldb_records(attributes)
+        aldb_responder_links = self.device.core.get_matching_aldb_records(attributes)
         for aldb_link in aldb_responder_links:
             if (len(aldb_link.get_reciprocal_records()) == 0 and
                 aldb_link.is_a_defined_link() is False):
@@ -83,26 +110,13 @@ class Group(object):
             'controller': True,
             'group': self.group_number
         }
-        aldb_controller_links = self.root.aldb.get_matching_records(attributes)
+        aldb_controller_links = self.device.aldb.get_matching_records(attributes)
         for aldb_link in aldb_controller_links:
             if (aldb_link.is_a_defined_link() is False and
                 aldb_link.linked_device is not None and # Unknown Link
-                aldb_link.linked_device is not self._root.plm # plm link
+                aldb_link.linked_device is not self.device.plm # plm link
                 ):
                 ret.append(aldb_link)
-        return ret
-
-    def attribute(self, attr, value=None):
-        '''An attribute is a characteristic of an object that is not intrinsic
-        to the nature of device. This includes dev_cat and related items as well
-        as the object state.  Attribute excludes things like whether the object is a
-        responder or is_deaf, these are features.'''
-        if value is not None:
-            self._attributes[attr] = value
-        try:
-            ret = self._attributes[attr]
-        except KeyError:
-            ret = None
         return ret
 
     def get_undefined_links(self):
@@ -122,7 +136,7 @@ class Group(object):
             'controller': True,
             'group': self.group_number
         }
-        aldb_controller_links = self.root.aldb.get_matching_records(attributes)
+        aldb_controller_links = self.device.aldb.get_matching_records(attributes)
         for aldb_link in aldb_controller_links:
             if aldb_link.linked_device is None:
                 ret.append(aldb_link)
@@ -131,14 +145,10 @@ class Group(object):
             'responder': True,
             'data_3': self.group_number
         }
-        aldb_responder_links = self.root.aldb.get_matching_records(attributes)
+        aldb_responder_links = self.device.aldb.get_matching_records(attributes)
         for aldb_link in aldb_responder_links:
             if aldb_link.linked_device is None:
                 ret.append(aldb_link)
-        return ret
-
-    def get_attributes(self):
-        ret = self._attributes.copy()
         return ret
 
     def get_features_and_attributes(self):
@@ -146,28 +156,38 @@ class Group(object):
         ret.update(self.functions.get_features())
         return ret
 
-    def set_base_group_number(self, number):
-        '''Used to set whether the root device is group 0x00 or 0x01, older
-        i1 devices seem to be 0x00 while i2 devices are 0x01'''
-        self._group_number = number
 
 
-class Root(Group):
+class Root(Common):
     '''The root object of an insteon device, inherited by Devices and Modems'''
     def __init__(self, core, plm, **kwargs):
+        self._groups = []
+        self._user_links = {}
         self._core = core
         self._plm = plm
+        super().__init__(**kwargs)
         self._state_machine = 'default'
         self._state_machine_time = 0
         self._device_msg_queue = {}
         self._out_history = []
         self._id_bytes = bytearray(3)
-        self._groups = []
-        self._user_links = {}
         self.send_handler = BaseSendHandler(self)
         if 'device_id' in kwargs:
             self._id_bytes = ID_STR_TO_BYTES(kwargs['device_id'])
-        super().__init__(self, 0x00, **kwargs)
+        if self.attribute('base_group_number') is None:
+            self.set_base_group_number(0x00)
+
+    @property
+    def root(self):
+        return self
+
+    @property
+    def base_group_number(self):
+        return self.attribute('base_group_number')
+
+    @property
+    def base_group(self):
+        return self.get_object_by_group_num(self.base_group_number)
 
     @property
     def dev_addr_hi(self):
@@ -295,9 +315,9 @@ class Root(Group):
         for user_link in self._user_links.values():
             if user_link.controller_id not in ret:
                 ret[user_link.controller_id] = {}
-            if user_link.group not in ret[user_link.controller_id]:
-                ret[user_link.controller_id][user_link.group] = []
-            ret[user_link.controller_id][user_link.group].append(user_link.data)
+            if user_link.controller_group_number not in ret[user_link.controller_id]:
+                ret[user_link.controller_id][user_link.controller_group_number] = []
+            ret[user_link.controller_id][user_link.controller_group_number].append(user_link.data)
         return ret
 
 
@@ -306,9 +326,9 @@ class Root(Group):
     # Public functions
     ##################################
 
-    def add_user_link(self, controller_device, data, uid):
-        controller_id = controller_device.root.dev_addr_str
-        group_number = controller_device.group_number
+    def add_user_link(self, controller_group, data, uid):
+        controller_id = controller_group.device.dev_addr_str
+        group_number = controller_group.group_number
         found = False
         for user_link in self._user_links.values():
             if (controller_id == user_link.controller_id and
@@ -401,19 +421,19 @@ class Root(Group):
                     break
         return ret
 
-    def create_group(self, group_num, group, attributes=None):
-        if group_num > 0x01 and group_num <= 0xFF:
-            self._groups.append(group(self, group_num, attributes=attributes))
+    def create_group(self, group_num, attributes=None):
+        if group_num >= 0x00 and group_num <= 0xFF:
+            self._groups.append(Group(self, group_num, attributes=attributes))
 
     def get_object_by_group_num(self, search_num):
         ret = None
+        # TODO is this the best way to handle this??
         if search_num == 0x00 or search_num == 0x01:
-            ret = self
-        else:
-            for group_obj in self._groups:
-                if group_obj.group_number == search_num:
-                    ret = group_obj
-                    break
+            search_num = self.base_group_number
+        for group_obj in self._groups:
+            if group_obj.group_number == search_num:
+                ret = group_obj
+                break
         return ret
 
     def get_all_groups(self):
@@ -433,6 +453,11 @@ class Root(Group):
     def update_device_classes(self):
         # pylint: disable=R0201
         return NotImplemented
+
+    def set_base_group_number(self, number):
+        '''Used to set whether the root device is group 0x00 or 0x01, older
+        i1 devices seem to be 0x00 while i2 devices are 0x01'''
+        self.attribute('base_group_number', number)
 
     def create_message(self, command_name):
         return self.send_handler.create_message(command_name)

@@ -46,11 +46,11 @@ class Insteon_Core(object):
             rand = random.randint(100000,999999)
         return rand
 
-    def get_user_links_for_this_controller(self, device):
+    def get_user_links_for_this_controller(self, controller_group):
         all_links = self._get_all_user_links()
         ret = {}
         for uid, link in all_links.items():
-            if device == link.controller_device:
+            if controller_group == link.controller_group:
                 ret[uid] = link
         return ret
 

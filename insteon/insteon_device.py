@@ -5,7 +5,8 @@ from insteon import BYTE_TO_HEX
 from insteon.aldb import ALDB
 from insteon.base_objects import Root, Group
 from insteon.devices import (GenericRcvdHandler, GenericSendHandler,
-                             GenericFunctions, select_device, select_group)
+                             GenericFunctions, select_classes)
+from insteon.sequences import InitializeDevice
 
 
 class Device_ALDB(ALDB):
@@ -61,11 +62,16 @@ class InsteonDevice(Root):
         self.last_sent_msg = None
         self._recent_inc_msgs = {}
         self._last_rcvd_msg = None
-        self._rcvd_handler = GenericRcvdHandler(self)
-        self.send_handler = GenericSendHandler(self)
-        self.functions = GenericFunctions(self)
-        self.functions.initialize_device(group_class=Group)
-        self.send_handler.initialize_device()
+        if (self.dev_cat is not None and
+                self.sub_cat is not None and
+                self.firmware is not None):
+            self.update_device_classes()
+        else:
+            self._rcvd_handler = GenericRcvdHandler(self)
+            self.send_handler = GenericSendHandler(self)
+            self.functions = GenericFunctions(self)
+        init_sequence = InitializeDevice(self.base_group)
+        init_sequence.start()
 
     def _load_attributes(self, attributes):
         for name, value in attributes.items():
@@ -80,7 +86,7 @@ class InsteonDevice(Root):
 
     def _load_groups(self, value):
         for group_number, attributes in value.items():
-            self.create_group(int(group_number), Group, attributes=attributes)
+            self.create_group(int(group_number), attributes=attributes)
 
     @property
     def smart_hops(self):
@@ -222,7 +228,8 @@ class InsteonDevice(Root):
             # this is more likely an error in the init_sequence than anything
             # else
             self.attribute('engine_version', version)
-            self.send_handler.initialize_device()
+            if version > 0:
+                self.set_base_group_number(0x01)
 
     def get_last_rcvd_msg(self):
         return self.last_rcvd_msg
@@ -234,16 +241,17 @@ class InsteonDevice(Root):
         return self.functions.get_responder_data2()
 
     def update_device_classes(self):
-        classes = select_device(device=self, dev_cat=self.dev_cat,
-                                sub_cat=self.sub_cat, firmware=self.firmware,
-                                engine_version=self.engine_version)
-        self._rcvd_handler = classes['rcvd_handler']
-        self.send_handler = classes['send_handler']
-        self.functions = classes['functions']
+        '''Called whenever the dev_cat changes or on startup'''
+        classes = select_classes(dev_cat=self.dev_cat,
+                                sub_cat=self.sub_cat, firmware=self.firmware)
+        self._rcvd_handler = classes['device']['rcvd_handler'](self)
+        self.send_handler = classes['device']['send_handler'](self)
+        self.functions = classes['device']['functions'](self)
         for group in self.get_all_groups():
-            classes = select_group(device=group, dev_cat=group.dev_cat,
-                                   sub_cat=group.sub_cat,
-                                   firmware=group.firmware,
-                                   engine_version=group.engine_version)
-            group.send_handler = classes['send_handler']
-            group.functions = classes['functions']
+            group.send_handler = classes['group']['send_handler'](group)
+            group.functions = classes['group']['functions'](group)
+
+    def get_features_and_attributes(self):
+        ret = self.get_attributes()
+        ret.update(self.functions.get_features())
+        return ret

@@ -10,6 +10,9 @@ class GenericSendHandler(BaseSendHandler):
     any Insteon devices.  Devices with distinct commands and needs should
     create their own message handler class that inherits and overrides the
     necessary elements'''
+    def __init__(self, device):
+        super().__init__(device)
+
     #################################################################
     #
     # Outgoing Message Construction
@@ -45,7 +48,7 @@ class GenericSendHandler(BaseSendHandler):
     #################################################################
 
     def get_status(self, state_machine=''):
-        status_sequence = StatusRequest(self._device)
+        status_sequence = StatusRequest(self._device.base_group)
         status_sequence.start()
 
     def get_engine_version(self, state_machine=''):
@@ -95,15 +98,6 @@ class GenericSendHandler(BaseSendHandler):
         link_object = AddPLMtoDevice(self._device)
         link_object.start()
 
-    def initialize_device(self):
-        '''Automatically called whenever a device is added or the core starts.
-        Checks the engine version, whether the device responds to the modem,
-        and the device version if they have not previously been requested.
-        Always checks the status of the device and sets the proper rcvd, send
-        and function handlers.'''
-        init_sequence = InitializeDevice(self._device)
-        init_sequence.start()
-
 
     # ALDB commands
     ######################
@@ -150,13 +144,13 @@ class GenericSendHandler(BaseSendHandler):
         '''Creates a controller link sequence based on a passed user_link,
         returns the link sequence, which needs to be started'''
         if self._device.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(self._device)
+            link_sequence = WriteALDBRecordi2(user_link.controller_group)
         else:
-            link_sequence = WriteALDBRecordi1(self._device)
+            link_sequence = WriteALDBRecordi1(user_link.controller_group)
         if user_link.controller_key is not None:
             link_sequence.key = user_link.controller_key
         link_sequence.controller = True
-        link_sequence.linked_device = user_link.device
+        link_sequence.linked_group = user_link.responder_group
         link_sequence.data1 = self._device.functions.get_controller_data1(None)
         link_sequence.data2 = self._device.functions.get_controller_data2(None)
         return link_sequence
@@ -165,22 +159,22 @@ class GenericSendHandler(BaseSendHandler):
         '''Creates a responder link sequence based on a passed user_link,
         returns the link sequence, which needs to be started'''
         if self._device.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(self._device)
+            link_sequence = WriteALDBRecordi2(user_link.responder_group)
         else:
-            link_sequence = WriteALDBRecordi1(self._device)
+            link_sequence = WriteALDBRecordi1(user_link.responder_group)
         if user_link.responder_key is not None:
             link_sequence.key = user_link.responder_key
         link_sequence.controller = False
-        link_sequence.linked_device = user_link.controller_device
+        link_sequence.linked_group = user_link.controller_group
         link_sequence.data1 = user_link.data_1
         link_sequence.data2 = user_link.data_2
         return link_sequence
 
     def delete_record(self, key=None):
         if self._device.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(self._device)
+            link_sequence = WriteALDBRecordi2(self._device.base_group)
         else:
-            link_sequence = WriteALDBRecordi1(self._device)
+            link_sequence = WriteALDBRecordi1(self._device.base_group)
         link_sequence.key = key
         link_sequence.in_use = False
         return link_sequence
