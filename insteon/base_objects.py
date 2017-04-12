@@ -97,7 +97,7 @@ class Group(Common):
         aldb_responder_links = self.device.core.get_matching_aldb_records(attributes)
         for aldb_link in aldb_responder_links:
             if (len(aldb_link.get_reciprocal_records()) == 0 and
-                aldb_link.is_a_defined_link() is False):
+                    aldb_link.is_a_defined_link() is False):
                 # A responder link exists on the device, this will be listed
                 # in the undefined controller function already
                 ret.append(aldb_link)
@@ -113,9 +113,9 @@ class Group(Common):
         aldb_controller_links = self.device.aldb.get_matching_records(attributes)
         for aldb_link in aldb_controller_links:
             if (aldb_link.is_a_defined_link() is False and
-                aldb_link.linked_device is not None and # Unknown Link
-                aldb_link.linked_device is not self.device.plm # plm link
-                ):
+                    aldb_link.linked_device is not None and # Unknown Link
+                    aldb_link.linked_device is not self.device.plm # plm link
+               ):
                 ret.append(aldb_link)
         return ret
 
@@ -332,10 +332,10 @@ class Root(Common):
         found = False
         for user_link in self._user_links.values():
             if (controller_id == user_link.controller_id and
-                group_number == user_link.group and
-                data['data_1'] == user_link.data_1 and
-                data['data_2'] == user_link.data_2 and
-                data['data_3'] == user_link.data_3):
+                    group_number == user_link.controller_group_number and
+                    data['data_1'] == user_link.data_1 and
+                    data['data_2'] == user_link.data_2 and
+                    data['data_3'] == user_link.data_3):
                 found = True
                 break
         if not found:

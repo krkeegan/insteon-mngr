@@ -255,11 +255,11 @@ def _unknown_link_output(device):
                          'status': status}
     return ret
 
-def _undefined_link_output(device):
+def _undefined_link_output(controller_group):
     # Three classes of undefined links can exist
     # TODO need to add status items to this
     ret = {}
-    for link in device.get_undefined_links():
+    for link in controller_group.get_undefined_links():
         link_parsed = link.parse_record()
         link_addr = BYTE_TO_ID(link_parsed['dev_addr_hi'],
                                link_parsed['dev_addr_mid'],
@@ -269,7 +269,8 @@ def _undefined_link_output(device):
             for responder in responder_records:
                 responder_parsed = responder.parse_record()
                 # Class 1 - controller with reciproal responders links
-                responder_group = responder.device.get_object_by_group_num(responder_parsed['data_3'])
+                responder_group = responder.device.get_object_by_group_num(
+                    responder_parsed['data_3'])
                 # TODO this will cause an error if the group doesn't exist
                 ret[link_addr + responder.key + link.key] = {
                     'responder_id': link_addr,

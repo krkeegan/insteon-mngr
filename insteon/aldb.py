@@ -96,6 +96,19 @@ class ALDBRecord(object):
         return self._device
 
     @property
+    def group_obj(self):
+        '''Returns the group object to which this record belongs'''
+        ret = None
+        parsed_record = self.parse_record()
+        if self.is_controller():
+            ret = self.device.get_object_by_group_num(parsed_record['group'])
+        else:
+            # Be careful, relying on data_3 as the responder group is something
+            # divined from practical use, not stated in the spec
+            ret = self.device.get_object_by_group_num(parsed_record['data_3'])
+        return ret
+
+    @property
     def key(self):
         ret = None
         for key, record in self._database.aldb.items():
@@ -182,7 +195,7 @@ class ALDBRecord(object):
     def is_a_defined_link(self):
         ret = False
         if self.is_controller():
-            user_links = self._core.get_user_links_for_this_controller(self.device)
+            user_links = self._core.get_user_links_for_this_controller(self.group_obj)
             for user_link in user_links.values():
                 if user_link.controller_key == self.key:
                     ret = True
