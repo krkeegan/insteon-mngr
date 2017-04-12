@@ -70,7 +70,7 @@ class InsteonDevice(Root):
             self._rcvd_handler = GenericRcvdHandler(self)
             self.send_handler = GenericSendHandler(self)
             self.functions = GenericFunctions(self)
-        init_sequence = InitializeDevice(self.base_group)
+        init_sequence = InitializeDevice(device=self)
         init_sequence.start()
 
     def _load_attributes(self, attributes):

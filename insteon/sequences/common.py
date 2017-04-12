@@ -2,8 +2,7 @@ from insteon.trigger import InsteonTrigger, PLMTrigger
 
 
 class BaseSequence(object):
-    def __init__(self, group):
-        self._group = group
+    def __init__(self):
         self._success_callback = None
         self._failure_callback = None
         self._complete = False
@@ -56,6 +55,9 @@ class StatusRequest(BaseSequence):
     # TODO what would happen if this message was never acked?  Would this
     # trigger remain in waiting and fire the next time we received an ack?
     # should add a maximum timer to the BaseSequence that triggers failure
+    def __init__(self, group=None):
+        super().__init__()
+        self._group = group
 
     def start(self):
         trigger_attributes = {
@@ -83,6 +85,9 @@ class StatusRequest(BaseSequence):
 
 class SetALDBDelta(StatusRequest):
     '''Used to get and store the tracking value for the ALDB Delta'''
+    def __init__(self, group=None):
+        super().__init__()
+        self._group = group
 
     def _process_status_response(self):
         msg = self._group.device.last_rcvd_msg
@@ -94,8 +99,9 @@ class SetALDBDelta(StatusRequest):
 
 class WriteALDBRecord(BaseSequence):
     '''Sequence to write an aldb record to a device.'''
-    def __init__(self, group):
-        super().__init__(group)
+    def __init__(self, group=None):
+        super().__init__()
+        self._group = group
         self._controller = False
         self._linked_group = None
         self._d1 = 0x00
@@ -236,7 +242,7 @@ class WriteALDBRecord(BaseSequence):
         if self.linked_group is None and self.in_use:
             print('error no linked_group defined')
         else:
-            status_sequence = StatusRequest(self._group)
+            status_sequence = StatusRequest(group=self._group)
             callback = lambda: self._perform_write()  # pylint: disable=W0108
             status_sequence.success_callback = callback
             status_sequence.start()
@@ -249,10 +255,14 @@ class WriteALDBRecord(BaseSequence):
 
 
 class AddPLMtoDevice(BaseSequence):
+    def __init__(self, device=None):
+        super().__init__()
+        self._device = device
+
     def start(self):
         # Put the PLM in Linking Mode
         # queues a message on the PLM
-        message = self._group.device.plm.create_message('all_link_start')
+        message = self._device.plm.create_message('all_link_start')
         plm_bytes = {
             'link_code': 0x01,
             'group': 0x00,
@@ -261,11 +271,11 @@ class AddPLMtoDevice(BaseSequence):
         message.plm_success_callback = self._add_plm_to_dev_link_step2
         message.msg_failure_callback = self._add_plm_to_dev_link_fail
         message.state_machine = 'link plm->device'
-        self._group.device.plm.queue_device_msg(message)
+        self._device.plm.queue_device_msg(message)
 
     def _add_plm_to_dev_link_step2(self):
         # Put Device in linking mode
-        message = self._group.device.create_message('enter_link_mode')
+        message = self._device.create_message('enter_link_mode')
         dev_bytes = {
             'cmd_2': 0x00
         }
@@ -275,35 +285,35 @@ class AddPLMtoDevice(BaseSequence):
         )
         message.msg_failure_callback = self._add_plm_to_dev_link_fail
         message.state_machine = 'link plm->device'
-        self._group.device.queue_device_msg(message)
+        self._device.queue_device_msg(message)
 
     def _add_plm_to_dev_link_step3(self):
         trigger_attributes = {
-            'from_addr_hi': self._group.device.dev_addr_hi,
-            'from_addr_mid': self._group.device.dev_addr_mid,
-            'from_addr_low': self._group.device.dev_addr_low,
+            'from_addr_hi': self._device.dev_addr_hi,
+            'from_addr_mid': self._device.dev_addr_mid,
+            'from_addr_low': self._device.dev_addr_low,
             'link_code': 0x01,
             'plm_cmd': 0x53
         }
-        trigger = PLMTrigger(plm=self._group.device.plm,
+        trigger = PLMTrigger(plm=self._device.plm,
                              attributes=trigger_attributes)
         trigger.trigger_function = lambda: self._add_plm_to_dev_link_step4()
-        trigger.name = self._group.device.dev_addr_str + 'add_plm_step_3'
+        trigger.name = self._device.dev_addr_str + 'add_plm_step_3'
         trigger.queue()
         print('device in linking mode')
 
     def _add_plm_to_dev_link_step4(self):
         print('plm->device link created')
-        self._group.device.plm.remove_state_machine('link plm->device')
-        self._group.device.remove_state_machine('link plm->device')
+        self._device.plm.remove_state_machine('link plm->device')
+        self._device.remove_state_machine('link plm->device')
         self.on_success()
-        init_sequence = InitializeDevice(self._group)
+        init_sequence = InitializeDevice(device=self._device)
         init_sequence.start()
 
     def _add_plm_to_dev_link_fail(self):
         print('Error, unable to create plm->device link')
-        self._group.device.plm.remove_state_machine('link plm->device')
-        self._group.device.remove_state_machine('link plm->device')
+        self._device.plm.remove_state_machine('link plm->device')
+        self._device.remove_state_machine('link plm->device')
         self.on_failure()
 
 
@@ -311,9 +321,13 @@ class InitializeDevice(BaseSequence):
     '''This sequence performs a series of steps to gather all of the basic
     information about a device.  It is generic enough to be run on any known
     insteon device.'''
+    def __init__(self, device=None):
+        super().__init__()
+        self._device = device
+
     def start(self):
-        if self._group.device.attribute('engine_version') is None:
-            self._group.device.send_handler.get_engine_version()
+        if self._device.attribute('engine_version') is None:
+            self._device.send_handler.get_engine_version()
         else:
             self._init_step_2()
 
@@ -321,19 +335,19 @@ class InitializeDevice(BaseSequence):
         # TODO consider whether getting status is always necessary or desired
         # results in get engine version or get dev_cat always causing a status
         # request
-        if (self._group.device.dev_cat is None or
-                self._group.device.sub_cat is None or
-                self._group.device.firmware is None):
+        if (self._device.dev_cat is None or
+                self._device.sub_cat is None or
+                self._device.firmware is None):
             trigger_attributes = {
                 'cmd_1': 0x01,
                 'insteon_msg_type': 'broadcast'
             }
-            trigger = InsteonTrigger(device=self._group.device,
+            trigger = InsteonTrigger(device=self._device,
                                      attributes=trigger_attributes)
-            trigger.trigger_function = lambda: self._group.device.send_handler.get_status()
-            trigger.name = self._group.device.dev_addr_str + 'init_step_2'
+            trigger.trigger_function = lambda: self._device.send_handler.get_status()
+            trigger.name = self._device.dev_addr_str + 'init_step_2'
             trigger.queue()
-            self._group.device.send_handler.get_device_version()
+            self._device.send_handler.get_device_version()
         else:
             # TODO is this needed self._group.device.update_device_classes()
-            self._group.device.send_handler.get_status()
+            self._device.send_handler.get_status()

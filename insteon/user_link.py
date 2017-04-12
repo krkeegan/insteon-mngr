@@ -169,7 +169,7 @@ class UserLink(object):
     def delete(self):
         '''Deletes this user link and wipes the associated links on the
         devices'''
-        delete_sequence = DeleteLinkPair(self._device)
+        delete_sequence = DeleteLinkPair()
         delete_sequence.set_controller_device_with_key(self.controller_device,
                                                        self.controller_key)
         delete_sequence.set_responder_device_with_key(self._device,

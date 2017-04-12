@@ -3,39 +3,43 @@ from insteon.sequences.common import SetALDBDelta, BaseSequence, WriteALDBRecord
 
 
 class ScanDeviceALDBi1(BaseSequence):
+    def __init__(self, device=None):
+        super().__init__()
+        self._device = device
+
     def start(self):
-        self._group.device.aldb.clear_all_records()
+        self._device.aldb.clear_all_records()
         self._i1_start_aldb_entry_query(0x0F, 0xF8)
 
     def _i1_start_aldb_entry_query(self, msb, lsb):
         trigger_attributes = {'cmd_2': msb}
-        trigger = InsteonTrigger(device=self._group.device,
+        trigger = InsteonTrigger(device=self._device,
                                  command_name='set_address_msb',
                                  attributes=trigger_attributes)
         trigger.trigger_function = lambda: self._send_peek_request(lsb)
-        trigger.name = self._group.device.dev_addr_str + 'query_aldb'
+        trigger.name = self._device.dev_addr_str + 'query_aldb'
         trigger.queue()
-        message = self._group.device.create_message('set_address_msb')
+        message = self._device.create_message('set_address_msb')
         message.insert_bytes_into_raw({'msb': msb})
         message.state_machine = 'query_aldb'
-        self._group.device.queue_device_msg(message)
+        self._device.queue_device_msg(message)
 
     def _get_byte_address(self):
-        lsb = self._group.device.last_sent_msg.get_byte_by_name('cmd_2')
-        msb_msg = self._group.device.search_last_sent_msg(
+        lsb = self._device.last_sent_msg.get_byte_by_name('cmd_2')
+        msb_msg = self._device.search_last_sent_msg(
             insteon_cmd='set_address_msb')
         msb = msb_msg.get_byte_by_name('cmd_2')
-        aldb_key = self._group.device.aldb.get_aldb_key(msb, lsb)
-        if self._group.device.aldb.get_record(aldb_key).is_last_aldb():
-            self._group.device.aldb.print_records()
-            self._group.device.remove_state_machine('query_aldb')
-            aldb_sequence = SetALDBDelta(self._group.device.base_group)
+        aldb_key = self._device.aldb.get_aldb_key(msb, lsb)
+        if self._device.aldb.get_record(aldb_key).is_last_aldb():
+            self._device.aldb.print_records()
+            self._device.remove_state_machine('query_aldb')
+            aldb_sequence = SetALDBDelta(group=self._device.base_group)
             aldb_sequence.success_callback = lambda: self.on_success()
             aldb_sequence.failure_callback = lambda: self.on_failure()
             aldb_sequence.start()
         else:
-            dev_bytes = self._group.device.aldb.get_next_aldb_address(msb, lsb)
-            send_handler = self._group.device.send_handler
+            dev_bytes = self._device.aldb.get_next_aldb_address(msb, lsb)
+            send_handler = self._device.send_handler
             if msb != dev_bytes['msb']:
                 send_handler.i1_start_aldb_entry_query(dev_bytes['msb'],
                                                        dev_bytes['lsb'])
@@ -43,15 +47,15 @@ class ScanDeviceALDBi1(BaseSequence):
                 self._send_peek_request(dev_bytes['lsb'])
 
     def _send_peek_request(self, lsb):
-        trigger = InsteonTrigger(device=self._group.device,
+        trigger = InsteonTrigger(device=self._device,
                                  command_name='peek_one_byte')
         trigger.trigger_function = lambda: self._get_byte_address()
-        trigger.name = self._group.device.dev_addr_str + 'query_aldb'
+        trigger.name = self._device.dev_addr_str + 'query_aldb'
         trigger.queue()
-        message = self._group.device.create_message('peek_one_byte')
+        message = self._device.create_message('peek_one_byte')
         message.insert_bytes_into_raw({'lsb': lsb})
         message.state_machine = 'query_aldb'
-        self._group.device.queue_device_msg(message)
+        self._device.queue_device_msg(message)
 
 
 class WriteALDBRecordi1(WriteALDBRecord):
@@ -150,7 +154,7 @@ class WriteALDBRecordi1(WriteALDBRecord):
             )
         )
         record.edit_record(aldb_entry)
-        aldb_sequence = SetALDBDelta(self._group.device.base_group)
+        aldb_sequence = SetALDBDelta(group=self._group.device.base_group)
         aldb_sequence.success_callback = lambda: self.on_success()
         aldb_sequence.failure_callback = lambda: self.on_failure()
         aldb_sequence.start()
