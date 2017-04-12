@@ -298,9 +298,13 @@ def _undefined_link_output(controller_group):
                 }
         else:
             # Class 3 - responder links with no controller link on this device
-            ret[link.device.root.dev_addr_str + link.key + '----'] = {
-                'responder_id': link.device.root.dev_addr_str,
-                'responder_name': link.device.name,
+            responder_device = core.get_device_by_addr(link_addr)
+            responder_group = responder_device.get_object_by_group_num(
+                link_parsed['data_3']
+            )
+            ret[link.device.dev_addr_str + link.key + '----'] = {
+                'responder_id': link.device.dev_addr_str,
+                'responder_name': responder_group.name,
                 'data_1': link_parsed['data_1'],
                 'data_2': link_parsed['data_2'],
                 'data_3': link_parsed['data_3'],
