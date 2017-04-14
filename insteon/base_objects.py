@@ -43,16 +43,18 @@ class Common(object):
 class Group(Common):
     '''The Group class for all groups.  Specialized functions should be done
     in the send_handler or functions.'''
-    def __init__(self, device, group_number, **kwargs):
+    def __init__(self, device, **kwargs):
         super().__init__(**kwargs)
         self._device = device
-        self._group_number = group_number
         self.send_handler = GroupSendHandler(self)
         self.functions = GroupFunctions(self)
 
     @property
     def group_number(self):
-        return self._group_number
+        ret = self._device.get_group_number_by_object(self)
+        if ret is not None:
+            ret = int(ret)
+        return ret
 
     @property
     def device(self):
@@ -157,11 +159,10 @@ class Group(Common):
         return ret
 
 
-
 class Root(Common):
     '''The root object of an insteon device, inherited by Devices and Modems'''
     def __init__(self, core, plm, **kwargs):
-        self._groups = []
+        self._groups = {}
         self._user_links = {}
         self._core = core
         self._plm = plm
@@ -175,7 +176,9 @@ class Root(Common):
         if 'device_id' in kwargs:
             self._id_bytes = ID_STR_TO_BYTES(kwargs['device_id'])
         if self.attribute('base_group_number') is None:
-            self.set_base_group_number(0x00)
+            self.attribute('base_group_number', 0x00)
+        # This won't do anything if the base group was loaded from config.json
+        self.create_group(self.base_group_number)
 
     @property
     def root(self):
@@ -422,22 +425,38 @@ class Root(Common):
         return ret
 
     def create_group(self, group_num, attributes=None):
-        if group_num >= 0x00 and group_num <= 0xFF:
-            self._groups.append(Group(self, group_num, attributes=attributes))
+        if self.get_object_by_group_num(group_num) is None:
+            if group_num == 0x00 or group_num == 0x01:
+                # For base groups we only have 1 or the other and copy from
+                # one to the other on changes
+                old_group = 0x00
+                if group_num == 0x00:
+                    old_group = 0x01
+                if self.get_object_by_group_num(old_group) is not None:
+                    # there is a potential for overwriting if both somehow
+                    # exist
+                    self._groups[group_num] = self._groups[old_group]
+                    del self._groups[old_group]
+                else:
+                    self._groups[group_num] = Group(self, attributes=attributes)
+            elif group_num >= 0x02 and group_num <= 0xFF:
+                self._groups[group_num] = Group(self, attributes=attributes)
 
     def get_object_by_group_num(self, search_num):
         ret = None
-        # TODO is this the best way to handle this??
-        if search_num == 0x00 or search_num == 0x01:
-            search_num = self.base_group_number
-        for group_obj in self._groups:
-            if group_obj.group_number == search_num:
-                ret = group_obj
-                break
+        if search_num in self._groups:
+            ret = self._groups[search_num]
+        return ret
+
+    def get_group_number_by_object(self, search_object):
+        ret = None
+        for key, value in self._groups.items():
+            if value == search_object:
+                ret = key
         return ret
 
     def get_all_groups(self):
-        return self._groups.copy()
+        return self._groups.values()
 
     def set_dev_addr(self, addr):
         self._id_bytes = ID_STR_TO_BYTES(addr)
@@ -453,11 +472,6 @@ class Root(Common):
     def update_device_classes(self):
         # pylint: disable=R0201
         return NotImplemented
-
-    def set_base_group_number(self, number):
-        '''Used to set whether the root device is group 0x00 or 0x01, older
-        i1 devices seem to be 0x00 while i2 devices are 0x01'''
-        self.attribute('base_group_number', number)
 
     def create_message(self, command_name):
         return self.send_handler.create_message(command_name)

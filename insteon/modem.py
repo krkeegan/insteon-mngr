@@ -166,7 +166,8 @@ class Modem(Root):
 
     def create_group(self, group_num, attributes=None):
         if group_num >= 0x00 and group_num <= 0xFF:
-            self._groups.append(ModemGroup(self, group_num, attributes=attributes))
+            self._groups[group_num] = ModemGroup(
+                self, attributes=attributes)
 
     ##############################################################
     #
@@ -342,7 +343,7 @@ class Modem(Root):
             else:
                 print("error, I don't know this prefix",
                       format(cmd_prefix, 'x'))
-                index = self._read_buffer.find(bytes.fromhex('02'))
+                index = self._read_buffer.find(bytes.fromhex('02'),1)
                 del self._read_buffer[0:index]
         return ret
 
@@ -420,8 +421,8 @@ class Modem(Root):
 
 
 class ModemGroup(Group):
-    def __init__(self, root, group_number, **kwargs):
-        super().__init__(root, group_number, **kwargs)
+    def __init__(self, root, **kwargs):
+        super().__init__(root, **kwargs)
 
     def get_unknown_device_links(self):
         '''Returns all links on the device which do not associated with a

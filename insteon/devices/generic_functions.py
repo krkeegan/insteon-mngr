@@ -1,7 +1,6 @@
 class GenericFunctions(object):
     def __init__(self, device):
         self._device = device
-        self._create_groups()
 
     def get_controller_data1(self, responder):
         return 0x03
@@ -41,8 +40,3 @@ class GenericFunctions(object):
             'values': self.list_data_2_options()
         }
         return ret
-
-    def _create_groups(self):
-        # TODO need to delete other base group
-        if self._device.get_object_by_group_num(self._device.base_group_number) is None:
-            self._device.create_group(self._device.base_group_number)

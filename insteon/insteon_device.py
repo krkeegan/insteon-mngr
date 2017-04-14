@@ -22,7 +22,7 @@ class Device_ALDB(ALDB):
 
     def get_next_aldb_address(self, msb, lsb):
         ret = {}
-        if self._parent.attribute('engine_version') == 0x00:
+        if self._device.attribute('engine_version') == 0x00:
             ret['msb'] = msb
             aldb_key = self.get_aldb_key(msb, lsb)
             if self.aldb[aldb_key].is_empty_aldb():
@@ -229,7 +229,8 @@ class InsteonDevice(Root):
             # else
             self.attribute('engine_version', version)
             if version > 0:
-                self.set_base_group_number(0x01)
+                self.attribute('base_group_number', 0x01)
+                self.create_group(self.base_group_number)
 
     def get_last_rcvd_msg(self):
         return self.last_rcvd_msg

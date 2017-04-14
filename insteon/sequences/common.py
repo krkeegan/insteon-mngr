@@ -327,14 +327,16 @@ class InitializeDevice(BaseSequence):
 
     def start(self):
         if self._device.attribute('engine_version') is None:
+            trigger = InsteonTrigger(device=self._device,
+                                     command_name='engine_version')
+            trigger.trigger_function = lambda: self._init_step_2()
+            trigger.name = self._device.dev_addr_str + 'init_step_1'
+            trigger.queue()
             self._device.send_handler.get_engine_version()
         else:
             self._init_step_2()
 
     def _init_step_2(self):
-        # TODO consider whether getting status is always necessary or desired
-        # results in get engine version or get dev_cat always causing a status
-        # request
         if (self._device.dev_cat is None or
                 self._device.sub_cat is None or
                 self._device.firmware is None):
