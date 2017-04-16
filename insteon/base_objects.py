@@ -177,8 +177,6 @@ class Root(Common):
             self._id_bytes = ID_STR_TO_BYTES(kwargs['device_id'])
         if self.attribute('base_group_number') is None:
             self.attribute('base_group_number', 0x00)
-        # This won't do anything if the base group was loaded from config.json
-        self.create_group(self.base_group_number)
 
     @property
     def root(self):

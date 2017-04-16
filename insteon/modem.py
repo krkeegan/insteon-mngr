@@ -64,6 +64,7 @@ class Modem(Root):
         self._wait_to_send = 0
         self.port_active = True
         self.ack_time = 75
+        self.attribute('base_group_number', 0x01)
         for group_number in range(0x01, 0xFF):
             if self.get_object_by_group_num(group_number) is None:
                 self.create_group(group_number)

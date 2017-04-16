@@ -62,6 +62,8 @@ class InsteonDevice(Root):
         self.last_sent_msg = None
         self._recent_inc_msgs = {}
         self._last_rcvd_msg = None
+        # This won't do anything if the base group was loaded from config.json
+        self.create_group(self.base_group_number)
         if (self.dev_cat is not None and
                 self.sub_cat is not None and
                 self.firmware is not None):
