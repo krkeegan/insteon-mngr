@@ -54,6 +54,14 @@ class Insteon_Core(object):
                 ret[uid] = link
         return ret
 
+    def get_user_links_for_this_controller_device(self, controller_device):
+        all_links = self._get_all_user_links()
+        ret = {}
+        for uid, link in all_links.items():
+            if controller_device == link.controller_device:
+                ret[uid] = link
+        return ret
+
     def find_user_link(self, search_uid):
         ret = None
         all_links = self._get_all_user_links()

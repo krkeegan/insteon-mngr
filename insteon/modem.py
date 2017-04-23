@@ -24,9 +24,9 @@ class Modem_ALDB(ALDB):
         # dev_cat sub_cat and firmware of this device, although they may
         # not be accurate.  Should we do something with this just in case
         # we are unable to reach the device such as motion sensors, remotes...
-        self._parent.add_device(BYTE_TO_ID(parsed_record['dev_addr_hi'],
-                                parsed_record['dev_addr_mid'],
-                                parsed_record['dev_addr_low']))
+        self._device.add_device(BYTE_TO_ID(parsed_record['dev_addr_hi'],
+                                           parsed_record['dev_addr_mid'],
+                                           parsed_record['dev_addr_low']))
 
     def get_first_empty_addr(self):
         return self._get_next_position()
@@ -185,14 +185,14 @@ class Modem(Root):
             'controller': True,
             'group': self.group_number
         }
-        aldb_controller_links = self.root.aldb.get_matching_records(attributes)
+        aldb_controller_links = self.aldb.get_matching_records(attributes)
         for aldb_link in aldb_controller_links:
             if aldb_link.linked_device is None:
                 ret.append(aldb_link)
         attributes = {
             'responder': True
         }
-        aldb_responder_links = self.root.aldb.get_matching_records(attributes)
+        aldb_responder_links = self.aldb.get_matching_records(attributes)
         for aldb_link in aldb_responder_links:
             if aldb_link.linked_device is None:
                 ret.append(aldb_link)
@@ -434,7 +434,7 @@ class ModemGroup(Group):
             'controller': True,
             'group': self.group_number
         }
-        aldb_controller_links = self.root.aldb.get_matching_records(attributes)
+        aldb_controller_links = self.device.aldb.get_matching_records(attributes)
         for aldb_link in aldb_controller_links:
             if aldb_link.linked_device is None:
                 ret.append(aldb_link)
@@ -442,7 +442,7 @@ class ModemGroup(Group):
             attributes = {
                 'responder': True
             }
-            aldb_responder_links = self.root.aldb.get_matching_records(attributes)
+            aldb_responder_links = self.device.aldb.get_matching_records(attributes)
             for aldb_link in aldb_responder_links:
                 if aldb_link.linked_device is None:
                     ret.append(aldb_link)
