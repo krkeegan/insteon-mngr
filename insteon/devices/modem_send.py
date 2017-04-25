@@ -19,50 +19,6 @@ class ModemSendHandler(BaseSendHandler):
     # ALDB Functions
     #######################
 
-    def create_responder_link(self, linked_device):
-        message = self.create_message('all_link_manage_rec')
-        dev_bytes = {
-            'link_flags': 0xA2,
-            'group': linked_device.group,
-            'dev_addr_hi': linked_device.dev_addr_hi,
-            'dev_addr_mid': linked_device.dev_addr_mid,
-            'dev_addr_low': linked_device.dev_addr_low,
-        }
-        records = self._device.aldb.get_matching_records(dev_bytes)
-        ctrl_code = 0x20
-        if (len(records) == 0):
-            ctrl_code = 0x41
-        dev_bytes.update({
-            'ctrl_code': ctrl_code,
-            'data_1': 0x00,  # D1-3 are 0x00 for plm responder
-            'data_2': 0x00,
-            'data_3': 0x00
-        })
-        message.insert_bytes_into_raw(dev_bytes)
-        self._device.queue_device_msg(message)
-
-    def create_controller_link(self, linked_device):
-        message = self.create_message('all_link_manage_rec')
-        dev_bytes = {
-            'link_flags': 0xE2,
-            'group': self._device.group,
-            'dev_addr_hi': linked_device.dev_addr_hi,
-            'dev_addr_mid': linked_device.dev_addr_mid,
-            'dev_addr_low': linked_device.dev_addr_low,
-        }
-        records = self._device.aldb.get_matching_records(dev_bytes)
-        ctrl_code = 0x20
-        if (len(records) == 0):
-            ctrl_code = 0x40
-        dev_bytes.update({
-            'ctrl_code': ctrl_code,
-            'data_1': linked_device.dev_cat,
-            'data_2': linked_device.sub_cat,
-            'data_3': linked_device.firmware
-        })
-        message.insert_bytes_into_raw(dev_bytes)
-        self._device.queue_device_msg(message)
-
     def create_controller_link_sequence(self, user_link):
         '''Creates a controller link sequence based on a passed user_link,
         returns the link sequence, which needs to be started'''

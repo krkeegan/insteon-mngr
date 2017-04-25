@@ -115,31 +115,6 @@ class GenericSendHandler(BaseSendHandler):
         message.state_machine = state_machine
         self._device.queue_device_msg(message)
 
-    def create_responder_link(self, linked_device, is_on=True):
-        if self._device.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(group=self._device)
-        else:
-            link_sequence = WriteALDBRecordi1(group=self._device)
-        link_sequence.controller = False
-        link_sequence.linked_device = linked_device
-        on_level = 0x00
-        if is_on:
-            on_level = 0xFF
-        link_sequence.data1 = on_level
-        link_sequence.data2 = 0x00
-        link_sequence.start()
-
-    def create_controller_link(self, linked_device):
-        if self._device.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(group=self._device)
-        else:
-            link_sequence = WriteALDBRecordi1(group=self._device)
-        link_sequence.controller = True
-        link_sequence.linked_device = linked_device
-        link_sequence.data1 = 0x03
-        link_sequence.data2 = 0x00
-        link_sequence.start()
-
     def create_controller_link_sequence(self, user_link):
         '''Creates a controller link sequence based on a passed user_link,
         returns the link sequence, which needs to be started'''
