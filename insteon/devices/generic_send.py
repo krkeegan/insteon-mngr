@@ -154,12 +154,6 @@ class GenericSendHandler(BaseSendHandler):
         link_sequence.in_use = False
         return link_sequence
 
-    def _write_link(self, linked_obj, is_controller):
-        if self._device.attribute('engine_version') == 2:
-            pass  # run i2cs commands
-        else:
-            pass  # run i1 commands
-
     #################################################################
     #
     # Message Schema
