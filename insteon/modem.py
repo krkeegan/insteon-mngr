@@ -447,3 +447,15 @@ class ModemGroup(Group):
                 if aldb_link.linked_device is None:
                     ret.append(aldb_link)
         return ret
+
+    def create_controller_link_sequence(self, user_link):
+        '''Creates a controller link sequence based on a passed user_link,
+        returns the link sequence, which needs to be started'''
+        link_sequence = WriteALDBRecordModem(group=self)
+        link_sequence.controller = True
+        link_sequence.linked_group = user_link.responder_group
+        return link_sequence
+
+    def create_responder_link_sequence(self, user_link):
+        # TODO Is the modem ever a responder in a way that this would be needed?
+        return NotImplemented

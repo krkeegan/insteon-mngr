@@ -5,6 +5,7 @@ import pprint
 from insteon import ID_STR_TO_BYTES, BYTE_TO_HEX
 from insteon.user_link import UserLink
 from insteon.devices import (GroupSendHandler, GroupFunctions, BaseSendHandler)
+from insteon.sequences import (WriteALDBRecordi2, WriteALDBRecordi1)
 
 class Common(object):
     '''The base class inherited by groups and devices, primarily provides
@@ -157,6 +158,36 @@ class Group(Common):
         ret = self.get_attributes()
         ret.update(self.functions.get_features())
         return ret
+
+    def create_controller_link_sequence(self, user_link):
+        '''Creates a controller link sequence based on a passed user_link,
+        returns the link sequence, which needs to be started'''
+        if self.device.engine_version > 0x00:
+            link_sequence = WriteALDBRecordi2(group=self)
+        else:
+            link_sequence = WriteALDBRecordi1(group=self)
+        if user_link.controller_key is not None:
+            link_sequence.key = user_link.controller_key
+        link_sequence.controller = True
+        link_sequence.linked_group = user_link.responder_group
+        link_sequence.data1 = self.device.functions.get_controller_data1(None)
+        link_sequence.data2 = self.device.functions.get_controller_data2(None)
+        return link_sequence
+
+    def create_responder_link_sequence(self, user_link):
+        '''Creates a responder link sequence based on a passed user_link,
+        returns the link sequence, which needs to be started'''
+        if self.device.engine_version > 0x00:
+            link_sequence = WriteALDBRecordi2(group=self)
+        else:
+            link_sequence = WriteALDBRecordi1(group=self)
+        if user_link.responder_key is not None:
+            link_sequence.key = user_link.responder_key
+        link_sequence.controller = False
+        link_sequence.linked_group = user_link.controller_group
+        link_sequence.data1 = user_link.data_1
+        link_sequence.data2 = user_link.data_2
+        return link_sequence
 
 
 class Root(Common):

@@ -115,36 +115,6 @@ class GenericSendHandler(BaseSendHandler):
         message.state_machine = state_machine
         self._device.queue_device_msg(message)
 
-    def create_controller_link_sequence(self, user_link):
-        '''Creates a controller link sequence based on a passed user_link,
-        returns the link sequence, which needs to be started'''
-        if self._device.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(group=user_link.controller_group)
-        else:
-            link_sequence = WriteALDBRecordi1(group=user_link.controller_group)
-        if user_link.controller_key is not None:
-            link_sequence.key = user_link.controller_key
-        link_sequence.controller = True
-        link_sequence.linked_group = user_link.responder_group
-        link_sequence.data1 = self._device.functions.get_controller_data1(None)
-        link_sequence.data2 = self._device.functions.get_controller_data2(None)
-        return link_sequence
-
-    def create_responder_link_sequence(self, user_link):
-        '''Creates a responder link sequence based on a passed user_link,
-        returns the link sequence, which needs to be started'''
-        if self._device.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(group=user_link.responder_group)
-        else:
-            link_sequence = WriteALDBRecordi1(group=user_link.responder_group)
-        if user_link.responder_key is not None:
-            link_sequence.key = user_link.responder_key
-        link_sequence.controller = False
-        link_sequence.linked_group = user_link.controller_group
-        link_sequence.data1 = user_link.data_1
-        link_sequence.data2 = user_link.data_2
-        return link_sequence
-
     def delete_record(self, key=None):
         if self._device.engine_version > 0x00:
             link_sequence = WriteALDBRecordi2(group=self._device.base_group)

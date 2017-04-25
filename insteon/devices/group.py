@@ -13,36 +13,6 @@ class GroupSendHandler(object):
         # if the dev_cat changes
         self._group = group
 
-    def create_controller_link_sequence(self, user_link):
-        '''Creates a controller link sequence based on a passed user_link,
-        returns the link sequence, which needs to be started'''
-        if self._group.device.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(self)
-        else:
-            link_sequence = WriteALDBRecordi1(self)
-        if user_link.controller_key is not None:
-            link_sequence.key = user_link.controller_key
-        link_sequence.controller = True
-        link_sequence.linked_device = user_link.device
-        link_sequence.data1 = self._group.device.functions.get_controller_data1(None)
-        link_sequence.data2 = self._group.device.functions.get_controller_data2(None)
-        return link_sequence
-
-    def create_responder_link_sequence(self, user_link):
-        '''Creates a responder link sequence based on a passed user_link,
-        returns the link sequence, which needs to be started'''
-        if self._group.device.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(self)
-        else:
-            link_sequence = WriteALDBRecordi1(self)
-        if user_link.responder_key is not None:
-            link_sequence.key = user_link.responder_key
-        link_sequence.controller = False
-        link_sequence.linked_device = user_link.controller_device
-        link_sequence.data1 = user_link.data_1
-        link_sequence.data2 = user_link.data_2
-        return link_sequence
-
     def delete_record(self, key=None):
         if self._group.device.engine_version > 0x00:
             link_sequence = WriteALDBRecordi2(self)
@@ -60,7 +30,7 @@ class GroupFunctions(object):
         '''Returns the current state of the device in a human readable form'''
         # TODO do we want to return an unknown value? trigger status if not?
         ret = 'OFF'
-        if self.state == 0xFF:
+        if self._group.state == 0xFF:
             ret = 'ON'
         return ret
 
@@ -92,24 +62,24 @@ class GroupFunctions(object):
 
 class PLMGroupSendHandler(GroupSendHandler):
     '''Provides the basic command handling for plm group object.'''
-    def __init__(self, device):
-        super().__init__(device)
+    def __init__(self, group):
+        super().__init__(group)
 
     def _state_commands(self):
         on_plm_bytes = {
-            'group': self.group_number,
+            'group': self._group.group_number,
             'cmd_1': 0x11,
             'cmd_2': 0x00,
         }
-        on_message = PLM_Message(self._device.root.plm,
+        on_message = PLM_Message(self._group.device.plm,
                                  plm_cmd='all_link_send',
                                  plm_bytes=on_plm_bytes)
         off_plm_bytes = {
-            'group': self.group_number,
+            'group': self._group.group_number,
             'cmd_1': 0x13,
             'cmd_2': 0x00,
         }
-        off_message = PLM_Message(self._device.root.plm,
+        off_message = PLM_Message(self._group.device.plm,
                                   plm_cmd='all_link_send',
                                   plm_bytes=off_plm_bytes)
         ret = {
@@ -118,20 +88,8 @@ class PLMGroupSendHandler(GroupSendHandler):
         }
         return ret
 
-    def create_controller_link_sequence(self, user_link):
-        '''Creates a controller link sequence based on a passed user_link,
-        returns the link sequence, which needs to be started'''
-        link_sequence = WriteALDBRecordModem(self)
-        link_sequence.controller = True
-        link_sequence.linked_device = user_link.device
-        return link_sequence
-
-    def create_responder_link_sequence(self, user_link):
-        # TODO Is the modem ever a responder in a way that this would be needed?
-        return NotImplemented
-
     def delete_record(self, key=None):
-        link_sequence = WriteALDBRecordModem(self)
+        link_sequence = WriteALDBRecordModem(group=self._group)
         link_sequence.key = key
         link_sequence.in_use = False
         return link_sequence
@@ -144,9 +102,9 @@ class PLMGroupSendHandler(GroupSendHandler):
             print('This device doesn\'t know the state', state)
         else:
             message.state_machine = 'all_link_send'
-            records = self._device.root.plm.aldb.get_matching_records({
+            records = self._group.device.plm.aldb.get_matching_records({
                 'controller': True,
-                'group': self.group_number,
+                'group': self._group.group_number,
                 'in_use': True
             })
             # Until all link status is complete, sending any other cmds to PLM
@@ -157,11 +115,11 @@ class PLMGroupSendHandler(GroupSendHandler):
             wait_time = (len(records) + 1) * (87 / 1000 * 18)
             message.seq_time = wait_time
             message.extra_ack_time = wait_time
-            self._device.root.plm.queue_device_msg(message)
+            self._group.device.plm.queue_device_msg(message)
 
 class PLMGroupFunctions(GroupFunctions):
-    def __init__(self, device):
-        super().__init__(device)
+    def __init__(self, group):
+        super().__init__(group)
 
     def get_features(self):
         '''Returns the intrinsic parameters of a device, these are not user

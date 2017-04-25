@@ -88,6 +88,6 @@ class WriteALDBRecordModem(WriteALDBRecord):
     def start(self):
         '''Starts the sequence to write the aldb record'''
         if self.linked_group is None and self.in_use:
-            print('error no linked_device defined')
+            print('error no linked_group defined')
         else:
             self._perform_write()

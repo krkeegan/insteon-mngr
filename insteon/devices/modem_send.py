@@ -19,18 +19,6 @@ class ModemSendHandler(BaseSendHandler):
     # ALDB Functions
     #######################
 
-    def create_controller_link_sequence(self, user_link):
-        '''Creates a controller link sequence based on a passed user_link,
-        returns the link sequence, which needs to be started'''
-        link_sequence = WriteALDBRecordModem(group=user_link.controller_group)
-        link_sequence.controller = True
-        link_sequence.linked_group = user_link.responder_group
-        return link_sequence
-
-    def create_responder_link_sequence(self, user_link):
-        # TODO Is the modem ever a responder in a way that this would be needed?
-        return NotImplemented
-
     def delete_record(self, key=None):
         link_sequence = WriteALDBRecordModem(group=self._device.base_group)
         link_sequence.key = key
