@@ -1,4 +1,11 @@
-from insteon.devices import GenericSendHandler, GroupFunctions
+from insteon.devices import GenericSendHandler, GenericFunctions
+from insteon.base_objects import Group
+
+
+class DimmerFunctions(GenericFunctions):
+    '''Provides the specific functions unique to dimmer devices'''
+    def __init__(self, device):
+        super().__init__(device)
 
 
 class DimmerSendHandler(GenericSendHandler):
@@ -23,12 +30,7 @@ class DimmerSendHandler(GenericSendHandler):
         return schema
 
 
-class DimmerGroupFunctions(GroupFunctions):
-    '''Provides the specific command handling for the dimmer category of
-    devices'''
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
+class DimmerGroup(Group):
     def list_data_1_options(self):
         ret = {}
         for value in range(0x00, 0xFF+1):

@@ -158,11 +158,7 @@ class Modem(Root):
         return ret
 
     def update_device_classes(self):
-        classes = select_classes(dev_cat=self.dev_cat,
-                                 sub_cat=self.sub_cat,
-                                 firmware=self.firmware)
-        for group in self.get_all_groups():
-            group.functions = classes['group']['functions'](group)
+        pass
 
     def create_group(self, group_num, attributes=None):
         if group_num >= 0x00 and group_num <= 0xFF:
@@ -182,7 +178,7 @@ class Modem(Root):
         ret = []
         attributes = {
             'controller': True,
-            'group': self.group_number
+            'group': self.base_group
         }
         aldb_controller_links = self.aldb.get_matching_records(attributes)
         for aldb_link in aldb_controller_links:
@@ -504,3 +500,10 @@ class ModemGroup(Group):
             message.seq_time = wait_time
             message.extra_ack_time = wait_time
             self.device.plm.queue_device_msg(message)
+
+    def get_features(self):
+        '''Returns the intrinsic parameters of a device, these are not user
+        editable so are not saved in the config.json file'''
+        ret = super().get_features()
+        ret['responder'] = False
+        return ret

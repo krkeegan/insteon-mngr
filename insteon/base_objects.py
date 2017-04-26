@@ -4,7 +4,7 @@ import pprint
 
 from insteon import ID_STR_TO_BYTES, BYTE_TO_HEX
 from insteon.user_link import UserLink
-from insteon.devices import (GroupFunctions, BaseSendHandler)
+from insteon.devices import (BaseSendHandler)
 from insteon.sequences import (WriteALDBRecordi2, WriteALDBRecordi1)
 
 class Common(object):
@@ -47,7 +47,6 @@ class Group(Common):
     def __init__(self, device, **kwargs):
         super().__init__(**kwargs)
         self._device = device
-        self.functions = GroupFunctions(self)
 
     @property
     def group_number(self):
@@ -172,7 +171,7 @@ class Group(Common):
 
     def get_features_and_attributes(self):
         ret = self.get_attributes()
-        ret.update(self.functions.get_features())
+        ret.update(self.get_features())
         return ret
 
     def create_controller_link_sequence(self, user_link):
@@ -186,8 +185,8 @@ class Group(Common):
             link_sequence.key = user_link.controller_key
         link_sequence.controller = True
         link_sequence.linked_group = user_link.responder_group
-        link_sequence.data1 = self.device.functions.get_controller_data1(None)
-        link_sequence.data2 = self.device.functions.get_controller_data2(None)
+        link_sequence.data1 = self.device.get_controller_data1(None)
+        link_sequence.data2 = self.device.get_controller_data2(None)
         return link_sequence
 
     def create_responder_link_sequence(self, user_link):
@@ -205,6 +204,38 @@ class Group(Common):
         link_sequence.data2 = user_link.data_2
         return link_sequence
 
+    def state_str(self):
+        '''Returns the current state of the device in a human readable form'''
+        # TODO do we want to return an unknown value? trigger status if not?
+        ret = 'OFF'
+        if self.state == 0xFF:
+            ret = 'ON'
+        return ret
+
+    def list_data_1_options(self):
+        return {'ON': 0xFF,
+                'OFF': 0x00}
+
+    def list_data_2_options(self):
+        return {'None': 0x00}
+
+    def get_features(self):
+        '''Returns the intrinsic parameters of a device, these are not user
+        editable so are not saved in the config.json file'''
+        ret = {
+            'responder': True,
+        }
+        ret['data_1'] = {
+            'name': 'On/Off',
+            'default': 0xFF,
+            'values': self.list_data_1_options()
+        }
+        ret['data_2'] = {
+            'name': 'None',
+            'default': 0x00,
+            'values': self.list_data_2_options()
+        }
+        return ret
 
 class Root(Common):
     '''The root object of an insteon device, inherited by Devices and Modems'''

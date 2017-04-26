@@ -250,8 +250,6 @@ class InsteonDevice(Root):
         self._rcvd_handler = classes['device']['rcvd_handler'](self)
         self.send_handler = classes['device']['send_handler'](self)
         self.functions = classes['device']['functions'](self)
-        for group in self.get_all_groups():
-            group.functions = classes['group']['functions'](group)
 
     def get_features_and_attributes(self):
         ret = self.get_attributes()
