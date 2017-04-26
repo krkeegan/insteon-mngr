@@ -159,10 +159,9 @@ class Modem(Root):
 
     def update_device_classes(self):
         classes = select_classes(dev_cat=self.dev_cat,
-                                sub_cat=self.sub_cat,
-                                firmware=self.firmware)
+                                 sub_cat=self.sub_cat,
+                                 firmware=self.firmware)
         for group in self.get_all_groups():
-            group.send_handler = classes['group']['send_handler'](group)
             group.functions = classes['group']['functions'](group)
 
     def create_group(self, group_num, attributes=None):
@@ -459,3 +458,49 @@ class ModemGroup(Group):
     def create_responder_link_sequence(self, user_link):
         # TODO Is the modem ever a responder in a way that this would be needed?
         return NotImplemented
+
+    def _state_commands(self):
+        on_plm_bytes = {
+            'group': self.group_number,
+            'cmd_1': 0x11,
+            'cmd_2': 0x00,
+        }
+        on_message = PLM_Message(self.device.plm,
+                                 plm_cmd='all_link_send',
+                                 plm_bytes=on_plm_bytes)
+        off_plm_bytes = {
+            'group': self.group_number,
+            'cmd_1': 0x13,
+            'cmd_2': 0x00,
+        }
+        off_message = PLM_Message(self.device.plm,
+                                  plm_cmd='all_link_send',
+                                  plm_bytes=off_plm_bytes)
+        ret = {
+            'ON': on_message,
+            'OFF': off_message
+        }
+        return ret
+
+    def set_state(self, state):
+        commands = self._state_commands()
+        try:
+            message = commands[state.upper()]
+        except KeyError:
+            print('This group doesn\'t know the state', state)
+        else:
+            message.state_machine = 'all_link_send'
+            records = self.device.plm.aldb.get_matching_records({
+                'controller': True,
+                'group': self.group_number,
+                'in_use': True
+            })
+            # Until all link status is complete, sending any other cmds to PLM
+            # will cause it to abandon all link process
+            message.seq_lock = True
+            # Time with retries for failed objects, plus we actively end it on
+            # success
+            wait_time = (len(records) + 1) * (87 / 1000 * 18)
+            message.seq_time = wait_time
+            message.extra_ack_time = wait_time
+            self.device.plm.queue_device_msg(message)

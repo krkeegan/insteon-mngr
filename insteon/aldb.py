@@ -139,10 +139,6 @@ class ALDBRecord(object):
         ret.start()
         self._link_sequence = ret
 
-    def remove_record(self):
-        '''Removes the record from the cache only'''
-        del self._database.aldb[self.key]
-
     def parse_record(self):
         parsed = {
             'link_flags': self.raw[0],

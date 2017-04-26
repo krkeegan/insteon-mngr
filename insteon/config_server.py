@@ -120,6 +120,7 @@ def delete_undefined_device_link(device_id, group_number, responder_id,
     device_root = core.get_device_by_addr(device_id)
     device_group = device_root.get_object_by_group_num(int(group_number))
     delete_sequence = DeleteLinkPair()
+    # TODO this may be an issue, if both links exist the sequence will be started twice
     if controller_key != '----':
         controller_device = core.get_device_by_addr(device_id)
         delete_sequence.set_controller_device_with_key(controller_device,

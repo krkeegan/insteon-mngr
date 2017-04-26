@@ -75,7 +75,7 @@ class StatusRequest(BaseSequence):
     def _process_status_response(self):
         msg = self._group.device.last_rcvd_msg
         base_group = self._group.device.get_object_by_group_num(self._group.device.base_group_number)
-        base_group.state = msg.get_byte_by_name('cmd_2')
+        base_group.set_cached_state(msg.get_byte_by_name('cmd_2'))
         aldb_delta = msg.get_byte_by_name('cmd_1')
         if self._group.device.attribute('aldb_delta') != aldb_delta:
             print('aldb has changed, rescanning')
@@ -91,9 +91,9 @@ class SetALDBDelta(StatusRequest):
 
     def _process_status_response(self):
         msg = self._group.device.last_rcvd_msg
-        self._group.state = msg.get_byte_by_name('cmd_2')
+        self._group.set_cached_state(msg.get_byte_by_name('cmd_2'))
         self._group.device.set_aldb_delta(msg.get_byte_by_name('cmd_1'))
-        print ('cached aldb_delta')
+        print('cached aldb_delta')
         self.on_success()
 
 

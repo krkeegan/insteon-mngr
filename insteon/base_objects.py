@@ -4,7 +4,7 @@ import pprint
 
 from insteon import ID_STR_TO_BYTES, BYTE_TO_HEX
 from insteon.user_link import UserLink
-from insteon.devices import (GroupSendHandler, GroupFunctions, BaseSendHandler)
+from insteon.devices import (GroupFunctions, BaseSendHandler)
 from insteon.sequences import (WriteALDBRecordi2, WriteALDBRecordi1)
 
 class Common(object):
@@ -47,7 +47,6 @@ class Group(Common):
     def __init__(self, device, **kwargs):
         super().__init__(**kwargs)
         self._device = device
-        self.send_handler = GroupSendHandler(self)
         self.functions = GroupFunctions(self)
 
     @property
@@ -66,10 +65,27 @@ class Group(Common):
         '''Returns the cached state of the device.'''
         return self.attribute('state')
 
-    @state.setter
-    def state(self, value):
+    def set_cached_state(self, value):
+        '''Update the internal tracking state of the device, likely you don't
+        want to call this'''
         self.attribute(attr='state', value=value)
         self.attribute(attr='state_time', value=time.time())
+
+    def _state_commands(self):
+        ret = {
+            'ON': self.device.create_message('on'),
+            'OFF': self.device.create_message('off')
+        }
+        return ret
+
+    def set_state(self, state):
+        commands = self._state_commands()
+        try:
+            msg = commands[state.upper()]
+        except KeyError:
+            print('This group doesn\'t know the state', state)
+        else:
+            self.device.queue_device_msg(msg)
 
     @property
     def state_age(self):

@@ -251,7 +251,6 @@ class InsteonDevice(Root):
         self.send_handler = classes['device']['send_handler'](self)
         self.functions = classes['device']['functions'](self)
         for group in self.get_all_groups():
-            group.send_handler = classes['group']['send_handler'](group)
             group.functions = classes['group']['functions'](group)
 
     def get_features_and_attributes(self):
