@@ -5,8 +5,7 @@ from insteon.base_objects import Group
 class DimmerFunctions(GenericFunctions):
     '''Provides the specific functions unique to dimmer devices'''
     def __init__(self, device):
-        super().__init__(device)
-
+        super().__init__(device, group_class=DimmerGroup)
 
 class DimmerSendHandler(GenericSendHandler):
     '''Provides the specific command handling for the dimmer category of

@@ -1,4 +1,4 @@
-from insteon.devices import BaseSendHandler
+from insteon.base_objects import BaseSendHandler
 from insteon.plm_message import PLM_Message
 from insteon.sequences import WriteALDBRecordModem
 

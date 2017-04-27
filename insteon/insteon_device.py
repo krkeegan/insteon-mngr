@@ -62,8 +62,6 @@ class InsteonDevice(Root):
         self.last_sent_msg = None
         self._recent_inc_msgs = {}
         self._last_rcvd_msg = None
-        # This won't do anything if the base group was loaded from config.json
-        self.create_group(self.base_group_number)
         if (self.dev_cat is not None and
                 self.sub_cat is not None and
                 self.firmware is not None):
@@ -85,10 +83,6 @@ class InsteonDevice(Root):
                 self._load_user_links(value)
             else:
                 self.attribute(name, value)
-
-    def _load_groups(self, value):
-        for group_number, attributes in value.items():
-            self.create_group(int(group_number), attributes=attributes)
 
     @property
     def smart_hops(self):
@@ -232,7 +226,7 @@ class InsteonDevice(Root):
             self.attribute('engine_version', version)
             if version > 0:
                 self.attribute('base_group_number', 0x01)
-                self.create_group(self.base_group_number)
+                self.functions.refresh_groups()
 
     def get_last_rcvd_msg(self):
         return self.last_rcvd_msg

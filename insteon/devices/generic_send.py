@@ -1,5 +1,5 @@
 from insteon.plm_message import PLM_Message
-from insteon.devices import BaseSendHandler
+from insteon.base_objects import BaseSendHandler
 from insteon.sequences import (ScanDeviceALDBi1, ScanDeviceALDBi2,
     StatusRequest, AddPLMtoDevice, InitializeDevice, WriteALDBRecordi2,
     WriteALDBRecordi1)

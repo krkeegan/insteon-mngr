@@ -94,16 +94,10 @@ class Insteon_Core(object):
             modem.process_queue()
         self._save_state()
 
-    def _save_groups(self, device):
-        ret = {}
-        for group in device.get_all_groups():
-            ret[group.group_number] = group._attributes.copy()
-        return ret
-
     def _save_device(self, device):
         ret = device._attributes.copy()
         ret['aldb'] = device.aldb.get_all_records_str()
-        ret['groups'] = self._save_groups(device)
+        ret['groups'] = device.save_groups()
         ret['user_links'] = device.save_user_links()
         return ret
 

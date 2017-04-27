@@ -8,7 +8,7 @@ from insteon.aldb import ALDB
 from insteon.trigger import Trigger_Manager
 from insteon.plm_message import PLM_Message
 from insteon.plm_schema import PLM_SCHEMA
-from insteon.devices import select_classes, ModemSendHandler
+from insteon.devices import ModemSendHandler
 from insteon.modem_rcvd import ModemRcvdHandler
 from insteon.sequences import WriteALDBRecordModem
 
@@ -58,6 +58,9 @@ class Modem(Root):
         super().__init__(core, self, **kwargs)
         self._rcvd_handler = ModemRcvdHandler(self)
         self.send_handler = ModemSendHandler(self)
+        for group_number in range(0x01, 0xFF):
+            if self.get_object_by_group_num(group_number) is None:
+                self.create_group(group_number, ModemGroup)
         self._read_buffer = bytearray()
         self._last_sent_msg = None
         self._msg_queue = []
@@ -65,9 +68,6 @@ class Modem(Root):
         self.port_active = True
         self.ack_time = 75
         self.attribute('base_group_number', 0x01)
-        for group_number in range(0x01, 0xFF):
-            if self.get_object_by_group_num(group_number) is None:
-                self.create_group(group_number)
 
     def _load_attributes(self, attributes):
         for name, value in attributes.items():
@@ -85,10 +85,6 @@ class Modem(Root):
     def _load_devices(self, devices):
         for dev_id, attributes in devices.items():
             self.add_device(dev_id, attributes=attributes)
-
-    def _load_groups(self, value):
-        for group_number, attributes in value.items():
-            self.create_group(int(group_number), attributes=attributes)
 
     def _setup(self):
         self.update_device_classes()
@@ -160,9 +156,12 @@ class Modem(Root):
     def update_device_classes(self):
         pass
 
-    def create_group(self, group_num, attributes=None):
+    def create_group(self, group_num, group_class):
+        attributes = {}
+        if group_num in self._groups_config:
+            attributes = self._groups_config[group_num]
         if group_num >= 0x00 and group_num <= 0xFF:
-            self._groups[group_num] = ModemGroup(
+            self._groups[group_num] = group_class(
                 self, attributes=attributes)
 
     ##############################################################

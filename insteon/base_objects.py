@@ -4,7 +4,6 @@ import pprint
 
 from insteon import ID_STR_TO_BYTES, BYTE_TO_HEX
 from insteon.user_link import UserLink
-from insteon.devices import (BaseSendHandler)
 from insteon.sequences import (WriteALDBRecordi2, WriteALDBRecordi1)
 
 class Common(object):
@@ -237,10 +236,33 @@ class Group(Common):
         }
         return ret
 
+
+class BaseSendHandler(object):
+    '''Provides a shell of the functions that all send handlers must support'''
+
+    def __init__(self, device):
+        '''The base send handler object inherited by all send handlers'''
+        self._device = device
+
+    def create_message(self, command_name):
+        '''Creates a message object based on the command_name passed'''
+        return NotImplemented
+
+    def send_command(self, command_name, state=''):
+        '''Creates a message based on the command_name and queues it to be sent
+        to the device using the state_machine of state of defined'''
+        return NotImplemented
+
+    def query_aldb(self):
+        '''Initiates the process to query the all link database on the device'''
+        return NotImplemented
+
+
 class Root(Common):
     '''The root object of an insteon device, inherited by Devices and Modems'''
     def __init__(self, core, plm, **kwargs):
         self._groups = {}
+        self._groups_config = {}
         self._user_links = {}
         self._core = core
         self._plm = plm
@@ -374,6 +396,10 @@ class Root(Common):
         # Add this message onto the end
         self._out_history.append(msg)
 
+    def _load_groups(self, value):
+        for group_number, attributes in value.items():
+            self._groups_config[int(group_number)] = attributes
+
     def _load_user_links(self, links):
         for controller_id, groups in links.items():
             for group_number, all_data in groups.items():
@@ -399,7 +425,14 @@ class Root(Common):
             ret[user_link.controller_id][user_link.controller_group_number].append(user_link.data)
         return ret
 
-
+    def save_groups(self):
+        '''Constructs a dictionary of the group attributes for saving to the
+        config file
+        Returns:None'''
+        ret = self._groups_config
+        for group in self.get_all_groups():
+            ret[group.group_number] = group._attributes.copy()
+        return ret
 
     ##################################
     # Public functions
@@ -500,23 +533,39 @@ class Root(Common):
                     break
         return ret
 
-    def create_group(self, group_num, attributes=None):
+
+    # TODO this whole create_group seems like it needs a bit of a rework
+    def create_group(self, group_num, group_class):
+        attributes = {}
+        if group_num in self._groups_config:
+            attributes = self._groups_config[group_num]
         if self.get_object_by_group_num(group_num) is None:
             if group_num == 0x00 or group_num == 0x01:
-                # For base groups we only have 1 or the other and copy from
-                # one to the other on changes
-                old_group = 0x00
-                if group_num == 0x00:
-                    old_group = 0x01
-                if self.get_object_by_group_num(old_group) is not None:
-                    # there is a potential for overwriting if both somehow
-                    # exist
-                    self._groups[group_num] = self._groups[old_group]
-                    del self._groups[old_group]
-                else:
-                    self._groups[group_num] = Group(self, attributes=attributes)
+                self._change_base_group_number(group_num, group_class, attributes)
             elif group_num >= 0x02 and group_num <= 0xFF:
-                self._groups[group_num] = Group(self, attributes=attributes)
+                self._groups[group_num] = group_class(self, attributes=attributes)
+        elif type(self.get_object_by_group_num(group_num)) is not group_class:
+            self._promote_group(group_num, group_class, attributes)
+
+    def _promote_group(self, group_num, group_class, attributes):
+        attributes.update(self.get_object_by_group_num(group_num).get_attributes())
+        self._groups[group_num] = group_class(self, attributes=attributes)
+
+    def _change_base_group_number(self, group_num, group_class, attributes):
+        # For base groups we only have 1 or the other and copy from
+        # one to the other on changes
+        old_group = 0x00
+        if group_num == 0x00:
+            old_group = 0x01
+        if self.get_object_by_group_num(old_group) is not None:
+            # there is a potential for overwriting if both somehow
+            # exist
+            self._groups[group_num] = self._groups[old_group]
+            del self._groups[old_group]
+            #TODO should we delete the old_group from the _groups_config as well\
+            #TODO Do we need to be loading the data from _groups_config
+        else:
+            self._groups[group_num] = group_class(self, attributes=attributes)
 
     def get_object_by_group_num(self, search_num):
         ret = None
