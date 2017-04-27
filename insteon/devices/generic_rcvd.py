@@ -211,7 +211,7 @@ class GenericRcvdHandler(object):
                 state = parsed_record['data_1']
             obj = self._device.get_object_by_group_num(parsed_record['data_3'])
             if obj is not None:
-                obj.state = state
+                obj.set_cached_state(state)
 
     def _was_alllink_cleanup_requested(self, msg):
         ret = False
@@ -336,18 +336,18 @@ class GenericRcvdHandler(object):
         cmd_byte = msg.get_byte_by_name('cmd_1')
         state = msg.get_byte_by_name('cmd_2')  # pylint: disable=W0612
         if cmd_byte == 0X11:
-            self._device.state = 0xFF
+            self._device.base_group.set_cached_state(0xFF)
         elif cmd_byte == 0x13:
-            self._device.state = 0x00
+            self._device.base_group.state.set_cached_state(0x00)
 
     def _shared_updated_state(self, group, is_on, msg):
         obj = self._device.get_object_by_group_num(group)
         # TODO set on level to local on_level not just ON
         if obj is not None:
             if is_on:
-                obj.state = 0xFF
+                obj.set_cached_state(0xFF)
             else:
-                obj.state = 0x00
+                obj.set_cached_state(0x00)
         self._update_linked(group, is_on)
 
     def _update_linked(self, group, is_on):
@@ -362,4 +362,4 @@ class GenericRcvdHandler(object):
                 state = 0x00  # Off always results in an off state???
                 if is_on:
                     state = responder.parse_record()['data_1']
-                responder.device.state = state
+                responder.device.set_cached_state(state)

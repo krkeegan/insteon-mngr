@@ -2,8 +2,8 @@ from insteon.sequences.common import BaseSequence
 
 class DeleteLinkPair(BaseSequence):
     '''Deletes the link pair from the devices'''
-    def __init__(self, device):
-        super().__init__(device)
+    def __init__(self):
+        super().__init__()
         self._controller_device = None
         self._responder_device = None
         self._controller_key = None

@@ -1,63 +1,89 @@
 import time
 import datetime
 import pprint
-import binascii
+
+from insteon import ID_STR_TO_BYTES, BYTE_TO_HEX
 from insteon.user_link import UserLink
+from insteon.sequences import (WriteALDBRecordi2, WriteALDBRecordi1)
 
-
-def BYTE_TO_HEX(data):
-    '''Takes a bytearray or a byte and returns a string
-    representation of the hex value'''
-    return binascii.hexlify(data).decode().upper()
-
-def BYTE_TO_ID(high, mid, low):
-    # pylint: disable=E1305
-    ret = ('{:02x}'.format(high, 'x').upper() +
-           '{:02x}'.format(mid, 'x').upper() +
-           '{:02x}'.format(low, 'x').upper())
-    return ret
-
-def ID_STR_TO_BYTES(dev_id_str):
-    ret = bytearray(3)
-    ret[0] = (int(dev_id_str[0:2], 16))
-    ret[1] = (int(dev_id_str[2:4], 16))
-    ret[2] = (int(dev_id_str[4:6], 16))
-    return ret
-
-# This is here because the above functions are imported in these
-# consider some other structure to avoid what is clearly a bad import
-from insteon.devices import (GroupSendHandler, GroupFunctions)
-
-class Group(object):
-    '''The base class.  All groups inherit this, the root group gets a lot more
-    functions.  Specialized groups can modify or add functions in classes that
-    inherit this.'''
-    def __init__(self, root, group_number, **kwargs):
-        self._root = root
-        self._group_number = group_number
+class Common(object):
+    '''The base class inherited by groups and devices, primarily provides
+    functions associated with saving the state.'''
+    def __init__(self, **kwargs):
         self._attributes = {}
         if 'attributes' in kwargs and kwargs['attributes'] is not None:
             self._load_attributes(kwargs['attributes'])
-        self.send_handler = GroupSendHandler(self)
-        self.functions = GroupFunctions(self)
+
+    def _load_attributes(self, attributes):
+        for name, value in attributes.items():
+            self.attribute(name, value)
+
+    def attribute(self, attr, value=None):
+        '''An attribute is a characteristic of an object that is not intrinsic
+        to the nature of device. This includes dev_cat and related items as well
+        as the object state.  Attribute excludes things like whether the object is a
+        responder or is_deaf, these are features.'''
+        if value is not None:
+            self._attributes[attr] = value
+        try:
+            ret = self._attributes[attr]
+        except KeyError:
+            ret = None
+        return ret
+
+    def get_attributes(self):
+        ret = self._attributes.copy()
+        return ret
+
+    def get_features_and_attributes(self):
+        ret = self.get_attributes()
+        return ret
+
+
+class Group(Common):
+    '''The Group class for all groups.  Specialized functions should be done
+    in the send_handler or functions.'''
+    def __init__(self, device, **kwargs):
+        super().__init__(**kwargs)
+        self._device = device
 
     @property
     def group_number(self):
-        return self._group_number
+        ret = self._device.get_group_number_by_object(self)
+        if ret is not None:
+            ret = int(ret)
+        return ret
 
     @property
-    def root(self):
-        return self._root
+    def device(self):
+        return self._device
 
     @property
     def state(self):
         '''Returns the cached state of the device.'''
         return self.attribute('state')
 
-    @state.setter
-    def state(self, value):
+    def set_cached_state(self, value):
+        '''Update the internal tracking state of the device, likely you don't
+        want to call this'''
         self.attribute(attr='state', value=value)
         self.attribute(attr='state_time', value=time.time())
+
+    def _state_commands(self):
+        ret = {
+            'ON': self.device.create_message('on'),
+            'OFF': self.device.create_message('off')
+        }
+        return ret
+
+    def set_state(self, state):
+        commands = self._state_commands()
+        try:
+            msg = commands[state.upper()]
+        except KeyError:
+            print('This group doesn\'t know the state', state)
+        else:
+            self.device.queue_device_msg(msg)
 
     @property
     def state_age(self):
@@ -75,24 +101,20 @@ class Group(object):
     def name(self, value):
         return self.attribute('name', value)
 
-    def _load_attributes(self, attributes):
-        for name, value in attributes.items():
-            self.attribute(name, value)
-
     def _get_undefined_responder(self):
         ret = []
         attributes = {
             'in_use': True,
             'responder': True,
             'group': self.group_number,
-            'dev_addr_hi': self.root.dev_addr_hi,
-            'dev_addr_mid': self.root.dev_addr_mid,
-            'dev_addr_low': self.root.dev_addr_low
+            'dev_addr_hi': self.device.dev_addr_hi,
+            'dev_addr_mid': self.device.dev_addr_mid,
+            'dev_addr_low': self.device.dev_addr_low
         }
-        aldb_responder_links = self.root.core.get_matching_aldb_records(attributes)
+        aldb_responder_links = self.device.core.get_matching_aldb_records(attributes)
         for aldb_link in aldb_responder_links:
             if (len(aldb_link.get_reciprocal_records()) == 0 and
-                aldb_link.is_a_defined_link() is False):
+                    aldb_link.is_a_defined_link() is False):
                 # A responder link exists on the device, this will be listed
                 # in the undefined controller function already
                 ret.append(aldb_link)
@@ -105,26 +127,13 @@ class Group(object):
             'controller': True,
             'group': self.group_number
         }
-        aldb_controller_links = self.root.aldb.get_matching_records(attributes)
+        aldb_controller_links = self.device.aldb.get_matching_records(attributes)
         for aldb_link in aldb_controller_links:
             if (aldb_link.is_a_defined_link() is False and
-                aldb_link.linked_device is not None and # Unknown Link
-                aldb_link.linked_device is not self._root.plm # plm link
-                ):
+                    aldb_link.linked_device is not None and # Unknown Link
+                    aldb_link.linked_device is not self.device.plm # plm link
+               ):
                 ret.append(aldb_link)
-        return ret
-
-    def attribute(self, attr, value=None):
-        '''An attribute is a characteristic of an object that is not intrinsic
-        to the nature of device. This includes dev_cat and related items as well
-        as the object state.  Attribute excludes things like whether the object is a
-        responder or is_deaf, these are features.'''
-        if value is not None:
-            self._attributes[attr] = value
-        try:
-            ret = self._attributes[attr]
-        except KeyError:
-            ret = None
         return ret
 
     def get_undefined_links(self):
@@ -144,7 +153,7 @@ class Group(object):
             'controller': True,
             'group': self.group_number
         }
-        aldb_controller_links = self.root.aldb.get_matching_records(attributes)
+        aldb_controller_links = self.device.aldb.get_matching_records(attributes)
         for aldb_link in aldb_controller_links:
             if aldb_link.linked_device is None:
                 ret.append(aldb_link)
@@ -153,42 +162,133 @@ class Group(object):
             'responder': True,
             'data_3': self.group_number
         }
-        aldb_responder_links = self.root.aldb.get_matching_records(attributes)
+        aldb_responder_links = self.device.aldb.get_matching_records(attributes)
         for aldb_link in aldb_responder_links:
             if aldb_link.linked_device is None:
                 ret.append(aldb_link)
         return ret
 
-    def get_attributes(self):
-        ret = self._attributes.copy()
-        return ret
-
     def get_features_and_attributes(self):
         ret = self.get_attributes()
-        ret.update(self.functions.get_features())
+        ret.update(self.get_features())
         return ret
 
-    def set_base_group_number(self, number):
-        '''Used to set whether the root device is group 0x00 or 0x01, older
-        i1 devices seem to be 0x00 while i2 devices are 0x01'''
-        self._group_number = number
+    def create_controller_link_sequence(self, user_link):
+        '''Creates a controller link sequence based on a passed user_link,
+        returns the link sequence, which needs to be started'''
+        if self.device.engine_version > 0x00:
+            link_sequence = WriteALDBRecordi2(group=self)
+        else:
+            link_sequence = WriteALDBRecordi1(group=self)
+        if user_link.controller_key is not None:
+            link_sequence.key = user_link.controller_key
+        link_sequence.controller = True
+        link_sequence.linked_group = user_link.responder_group
+        link_sequence.data1 = self.device.get_controller_data1(None)
+        link_sequence.data2 = self.device.get_controller_data2(None)
+        return link_sequence
+
+    def create_responder_link_sequence(self, user_link):
+        '''Creates a responder link sequence based on a passed user_link,
+        returns the link sequence, which needs to be started'''
+        if self.device.engine_version > 0x00:
+            link_sequence = WriteALDBRecordi2(group=self)
+        else:
+            link_sequence = WriteALDBRecordi1(group=self)
+        if user_link.responder_key is not None:
+            link_sequence.key = user_link.responder_key
+        link_sequence.controller = False
+        link_sequence.linked_group = user_link.controller_group
+        link_sequence.data1 = user_link.data_1
+        link_sequence.data2 = user_link.data_2
+        return link_sequence
+
+    def state_str(self):
+        '''Returns the current state of the device in a human readable form'''
+        # TODO do we want to return an unknown value? trigger status if not?
+        ret = 'OFF'
+        if self.state == 0xFF:
+            ret = 'ON'
+        return ret
+
+    def list_data_1_options(self):
+        return {'ON': 0xFF,
+                'OFF': 0x00}
+
+    def list_data_2_options(self):
+        return {'None': 0x00}
+
+    def get_features(self):
+        '''Returns the intrinsic parameters of a device, these are not user
+        editable so are not saved in the config.json file'''
+        ret = {
+            'responder': True,
+        }
+        ret['data_1'] = {
+            'name': 'On/Off',
+            'default': 0xFF,
+            'values': self.list_data_1_options()
+        }
+        ret['data_2'] = {
+            'name': 'None',
+            'default': 0x00,
+            'values': self.list_data_2_options()
+        }
+        return ret
 
 
-class Root(Group):
+class BaseSendHandler(object):
+    '''Provides a shell of the functions that all send handlers must support'''
+
+    def __init__(self, device):
+        '''The base send handler object inherited by all send handlers'''
+        self._device = device
+
+    def create_message(self, command_name):
+        '''Creates a message object based on the command_name passed'''
+        return NotImplemented
+
+    def send_command(self, command_name, state=''):
+        '''Creates a message based on the command_name and queues it to be sent
+        to the device using the state_machine of state of defined'''
+        return NotImplemented
+
+    def query_aldb(self):
+        '''Initiates the process to query the all link database on the device'''
+        return NotImplemented
+
+
+class Root(Common):
     '''The root object of an insteon device, inherited by Devices and Modems'''
     def __init__(self, core, plm, **kwargs):
+        self._groups = {}
+        self._groups_config = {}
+        self._user_links = {}
         self._core = core
         self._plm = plm
+        super().__init__(**kwargs)
         self._state_machine = 'default'
         self._state_machine_time = 0
         self._device_msg_queue = {}
         self._out_history = []
         self._id_bytes = bytearray(3)
-        self._groups = []
-        self._user_links = {}
+        self.send_handler = BaseSendHandler(self)
         if 'device_id' in kwargs:
             self._id_bytes = ID_STR_TO_BYTES(kwargs['device_id'])
-        super().__init__(self, 0x00, **kwargs)
+        if self.attribute('base_group_number') is None:
+            self.attribute('base_group_number', 0x00)
+
+    @property
+    def root(self):
+        return self
+
+    @property
+    def base_group_number(self):
+        return self.attribute('base_group_number')
+
+    @property
+    def base_group(self):
+        return self.get_object_by_group_num(self.base_group_number)
 
     @property
     def dev_addr_hi(self):
@@ -296,6 +396,10 @@ class Root(Group):
         # Add this message onto the end
         self._out_history.append(msg)
 
+    def _load_groups(self, value):
+        for group_number, attributes in value.items():
+            self._groups_config[int(group_number)] = attributes
+
     def _load_user_links(self, links):
         for controller_id, groups in links.items():
             for group_number, all_data in groups.items():
@@ -316,27 +420,34 @@ class Root(Group):
         for user_link in self._user_links.values():
             if user_link.controller_id not in ret:
                 ret[user_link.controller_id] = {}
-            if user_link.group not in ret[user_link.controller_id]:
-                ret[user_link.controller_id][user_link.group] = []
-            ret[user_link.controller_id][user_link.group].append(user_link.data)
+            if user_link.controller_group_number not in ret[user_link.controller_id]:
+                ret[user_link.controller_id][user_link.controller_group_number] = []
+            ret[user_link.controller_id][user_link.controller_group_number].append(user_link.data)
         return ret
 
-
+    def save_groups(self):
+        '''Constructs a dictionary of the group attributes for saving to the
+        config file
+        Returns:None'''
+        ret = self._groups_config
+        for group in self.get_all_groups():
+            ret[group.group_number] = group._attributes.copy()
+        return ret
 
     ##################################
     # Public functions
     ##################################
 
-    def add_user_link(self, controller_device, data, uid):
-        controller_id = controller_device.root.dev_addr_str
-        group_number = controller_device.group_number
+    def add_user_link(self, controller_group, data, uid):
+        controller_id = controller_group.device.dev_addr_str
+        group_number = controller_group.group_number
         found = False
         for user_link in self._user_links.values():
             if (controller_id == user_link.controller_id and
-                group_number == user_link.group and
-                data['data_1'] == user_link.data_1 and
-                data['data_2'] == user_link.data_2 and
-                data['data_3'] == user_link.data_3):
+                    group_number == user_link.controller_group_number and
+                    data['data_1'] == user_link.data_1 and
+                    data['data_2'] == user_link.data_2 and
+                    data['data_3'] == user_link.data_3):
                 found = True
                 break
         if not found:
@@ -422,23 +533,55 @@ class Root(Group):
                     break
         return ret
 
-    def create_group(self, group_num, group, attributes=None):
-        if group_num > 0x01 and group_num <= 0xFF:
-            self._groups.append(group(self, group_num, attributes=attributes))
+
+    # TODO this whole create_group seems like it needs a bit of a rework
+    def create_group(self, group_num, group_class):
+        attributes = {}
+        if group_num in self._groups_config:
+            attributes = self._groups_config[group_num]
+        if self.get_object_by_group_num(group_num) is None:
+            if group_num == 0x00 or group_num == 0x01:
+                self._change_base_group_number(group_num, group_class, attributes)
+            elif group_num >= 0x02 and group_num <= 0xFF:
+                self._groups[group_num] = group_class(self, attributes=attributes)
+        elif type(self.get_object_by_group_num(group_num)) is not group_class:
+            self._promote_group(group_num, group_class, attributes)
+
+    def _promote_group(self, group_num, group_class, attributes):
+        attributes.update(self.get_object_by_group_num(group_num).get_attributes())
+        self._groups[group_num] = group_class(self, attributes=attributes)
+
+    def _change_base_group_number(self, group_num, group_class, attributes):
+        # For base groups we only have 1 or the other and copy from
+        # one to the other on changes
+        old_group = 0x00
+        if group_num == 0x00:
+            old_group = 0x01
+        if self.get_object_by_group_num(old_group) is not None:
+            # there is a potential for overwriting if both somehow
+            # exist
+            self._groups[group_num] = self._groups[old_group]
+            del self._groups[old_group]
+            #TODO should we delete the old_group from the _groups_config as well\
+            #TODO Do we need to be loading the data from _groups_config
+        else:
+            self._groups[group_num] = group_class(self, attributes=attributes)
 
     def get_object_by_group_num(self, search_num):
         ret = None
-        if search_num == 0x00 or search_num == 0x01:
-            ret = self
-        else:
-            for group_obj in self._groups:
-                if group_obj.group_number == search_num:
-                    ret = group_obj
-                    break
+        if search_num in self._groups:
+            ret = self._groups[search_num]
+        return ret
+
+    def get_group_number_by_object(self, search_object):
+        ret = None
+        for key, value in self._groups.items():
+            if value == search_object:
+                ret = key
         return ret
 
     def get_all_groups(self):
-        return self._groups.copy()
+        return self._groups.values()
 
     def set_dev_addr(self, addr):
         self._id_bytes = ID_STR_TO_BYTES(addr)
@@ -454,3 +597,12 @@ class Root(Group):
     def update_device_classes(self):
         # pylint: disable=R0201
         return NotImplemented
+
+    def create_message(self, command_name):
+        return self.send_handler.create_message(command_name)
+
+    def send_command(self, command_name, state=''):
+        return self.send_handler.send_command(command_name, state)
+
+    def query_aldb(self):
+        return self.send_handler.query_aldb()

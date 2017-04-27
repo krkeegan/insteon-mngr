@@ -1,13 +1,14 @@
 import time
 import datetime
 
+from insteon import BYTE_TO_HEX, BYTE_TO_ID
 from insteon.insteon_device import InsteonDevice
-from insteon.base_objects import Root, BYTE_TO_HEX, BYTE_TO_ID, Group
+from insteon.base_objects import Root, Group
 from insteon.aldb import ALDB
 from insteon.trigger import Trigger_Manager
 from insteon.plm_message import PLM_Message
 from insteon.plm_schema import PLM_SCHEMA
-from insteon.devices import select_group
+from insteon.devices import ModemSendHandler
 from insteon.modem_rcvd import ModemRcvdHandler
 from insteon.sequences import WriteALDBRecordModem
 
@@ -23,9 +24,9 @@ class Modem_ALDB(ALDB):
         # dev_cat sub_cat and firmware of this device, although they may
         # not be accurate.  Should we do something with this just in case
         # we are unable to reach the device such as motion sensors, remotes...
-        self._parent.add_device(BYTE_TO_ID(parsed_record['dev_addr_hi'],
-                                parsed_record['dev_addr_mid'],
-                                parsed_record['dev_addr_low']))
+        self._device.add_device(BYTE_TO_ID(parsed_record['dev_addr_hi'],
+                                           parsed_record['dev_addr_mid'],
+                                           parsed_record['dev_addr_low']))
 
     def get_first_empty_addr(self):
         return self._get_next_position()
@@ -47,12 +48,6 @@ class Modem_ALDB(ALDB):
             ret = False
         return ret
 
-    def query_aldb(self):
-        '''Queries the PLM for a list of the link records saved on
-        the PLM and stores them in the cache'''
-        self.clear_all_records()
-        self._parent.send_handler.send_command('all_link_first_rec', 'query_aldb')
-
 
 class Modem(Root):
 
@@ -63,15 +58,16 @@ class Modem(Root):
         super().__init__(core, self, **kwargs)
         self._rcvd_handler = ModemRcvdHandler(self)
         self.send_handler = ModemSendHandler(self)
+        for group_number in range(0x01, 0xFF):
+            if self.get_object_by_group_num(group_number) is None:
+                self.create_group(group_number, ModemGroup)
         self._read_buffer = bytearray()
         self._last_sent_msg = None
         self._msg_queue = []
         self._wait_to_send = 0
         self.port_active = True
         self.ack_time = 75
-        for group_number in range(0x02, 0xFF):
-            if self.get_object_by_group_num(group_number) is None:
-                self.create_group(group_number, ModemGroup)
+        self.attribute('base_group_number', 0x01)
 
     def _load_attributes(self, attributes):
         for name, value in attributes.items():
@@ -90,16 +86,12 @@ class Modem(Root):
         for dev_id, attributes in devices.items():
             self.add_device(dev_id, attributes=attributes)
 
-    def _load_groups(self, value):
-        for group_number, attributes in value.items():
-            self.create_group(int(group_number), ModemGroup, attributes=attributes)
-
     def _setup(self):
         self.update_device_classes()
         if self.dev_addr_str == '000000':
-            self.send_handler.send_command('plm_info')
+            self.send_command('plm_info')
         if self.aldb.have_aldb_cache() is False:
-            self.aldb.query_aldb()
+            self.query_aldb()
 
     ##############################################################
     #
@@ -162,13 +154,15 @@ class Modem(Root):
         return ret
 
     def update_device_classes(self):
-        for group in self.get_all_groups():
-            classes = select_group(device=group, dev_cat=group.root.dev_cat,
-                                    sub_cat=group.root.sub_cat,
-                                    firmware=group.root.firmware,
-                                    engine_version=group.root.engine_version)
-            group.send_handler = classes['send_handler']
-            group.functions = classes['functions']
+        pass
+
+    def create_group(self, group_num, group_class):
+        attributes = {}
+        if group_num in self._groups_config:
+            attributes = self._groups_config[group_num]
+        if group_num >= 0x00 and group_num <= 0xFF:
+            self._groups[group_num] = group_class(
+                self, attributes=attributes)
 
     ##############################################################
     #
@@ -183,16 +177,16 @@ class Modem(Root):
         ret = []
         attributes = {
             'controller': True,
-            'group': self.group_number
+            'group': self.base_group
         }
-        aldb_controller_links = self.root.aldb.get_matching_records(attributes)
+        aldb_controller_links = self.aldb.get_matching_records(attributes)
         for aldb_link in aldb_controller_links:
             if aldb_link.linked_device is None:
                 ret.append(aldb_link)
         attributes = {
             'responder': True
         }
-        aldb_responder_links = self.root.aldb.get_matching_records(attributes)
+        aldb_responder_links = self.aldb.get_matching_records(attributes)
         for aldb_link in aldb_responder_links:
             if aldb_link.linked_device is None:
                 ret.append(aldb_link)
@@ -344,7 +338,7 @@ class Modem(Root):
             else:
                 print("error, I don't know this prefix",
                       format(cmd_prefix, 'x'))
-                index = self._read_buffer.find(bytes.fromhex('02'))
+                index = self._read_buffer.find(bytes.fromhex('02'),1)
                 del self._read_buffer[0:index]
         return ret
 
@@ -421,95 +415,9 @@ class Modem(Root):
         return
 
 
-class ModemSendHandler(object):
-    '''Provides the generic command handling for the Modem.  This is a
-    seperate class for consistence with devices.'''
-    def __init__(self, device):
-        self._device = device
-        self._last_sent_msg = None
-
-    def send_command(self, command, state='', plm_bytes=None):
-        message = self.create_message(command)
-        if plm_bytes is not None:
-            message.insert_bytes_into_raw(plm_bytes)
-        message.state_machine = state
-        self._device.queue_device_msg(message)
-
-    def create_message(self, command):
-        message = PLM_Message(
-            self._device, device=self._device,
-            plm_cmd=command)
-        return message
-
-    # ALDB Functions
-    #######################
-
-    def create_responder_link(self, linked_device):
-        message = self.create_message('all_link_manage_rec')
-        dev_bytes = {
-            'link_flags': 0xA2,
-            'group': linked_device.group,
-            'dev_addr_hi': linked_device.dev_addr_hi,
-            'dev_addr_mid': linked_device.dev_addr_mid,
-            'dev_addr_low': linked_device.dev_addr_low,
-        }
-        records = self._device.aldb.get_matching_records(dev_bytes)
-        ctrl_code = 0x20
-        if (len(records) == 0):
-            ctrl_code = 0x41
-        dev_bytes.update({
-            'ctrl_code': ctrl_code,
-            'data_1': 0x00,  # D1-3 are 0x00 for plm responder
-            'data_2': 0x00,
-            'data_3': 0x00
-        })
-        message.insert_bytes_into_raw(dev_bytes)
-        self._device.queue_device_msg(message)
-
-    def create_controller_link(self, linked_device):
-        message = self.create_message('all_link_manage_rec')
-        dev_bytes = {
-            'link_flags': 0xE2,
-            'group': self._device.group,
-            'dev_addr_hi': linked_device.dev_addr_hi,
-            'dev_addr_mid': linked_device.dev_addr_mid,
-            'dev_addr_low': linked_device.dev_addr_low,
-        }
-        records = self._device.aldb.get_matching_records(dev_bytes)
-        ctrl_code = 0x20
-        if (len(records) == 0):
-            ctrl_code = 0x40
-        dev_bytes.update({
-            'ctrl_code': ctrl_code,
-            'data_1': linked_device.dev_cat,
-            'data_2': linked_device.sub_cat,
-            'data_3': linked_device.firmware
-        })
-        message.insert_bytes_into_raw(dev_bytes)
-        self._device.queue_device_msg(message)
-
-    def create_controller_link_sequence(self, user_link):
-        '''Creates a controller link sequence based on a passed user_link,
-        returns the link sequence, which needs to be started'''
-        link_sequence = WriteALDBRecordModem(self._device)
-        link_sequence.controller = True
-        link_sequence.linked_device = user_link.device
-        return link_sequence
-
-    def create_responder_link_sequence(self, user_link):
-        # TODO Is the modem ever a responder in a way that this would be needed?
-        return NotImplemented
-
-    def delete_record(self, key=None):
-        link_sequence = WriteALDBRecordModem(self._device)
-        link_sequence.key = key
-        link_sequence.in_use = False
-        return link_sequence
-
-
 class ModemGroup(Group):
-    def __init__(self, root, group_number, **kwargs):
-        super().__init__(root, group_number, **kwargs)
+    def __init__(self, root, **kwargs):
+        super().__init__(root, **kwargs)
 
     def get_unknown_device_links(self):
         '''Returns all links on the device which do not associated with a
@@ -520,7 +428,7 @@ class ModemGroup(Group):
             'controller': True,
             'group': self.group_number
         }
-        aldb_controller_links = self.root.aldb.get_matching_records(attributes)
+        aldb_controller_links = self.device.aldb.get_matching_records(attributes)
         for aldb_link in aldb_controller_links:
             if aldb_link.linked_device is None:
                 ret.append(aldb_link)
@@ -528,8 +436,73 @@ class ModemGroup(Group):
             attributes = {
                 'responder': True
             }
-            aldb_responder_links = self.root.aldb.get_matching_records(attributes)
+            aldb_responder_links = self.device.aldb.get_matching_records(attributes)
             for aldb_link in aldb_responder_links:
                 if aldb_link.linked_device is None:
                     ret.append(aldb_link)
+        return ret
+
+    def create_controller_link_sequence(self, user_link):
+        '''Creates a controller link sequence based on a passed user_link,
+        returns the link sequence, which needs to be started'''
+        link_sequence = WriteALDBRecordModem(group=self)
+        link_sequence.controller = True
+        link_sequence.linked_group = user_link.responder_group
+        return link_sequence
+
+    def create_responder_link_sequence(self, user_link):
+        # TODO Is the modem ever a responder in a way that this would be needed?
+        return NotImplemented
+
+    def _state_commands(self):
+        on_plm_bytes = {
+            'group': self.group_number,
+            'cmd_1': 0x11,
+            'cmd_2': 0x00,
+        }
+        on_message = PLM_Message(self.device.plm,
+                                 plm_cmd='all_link_send',
+                                 plm_bytes=on_plm_bytes)
+        off_plm_bytes = {
+            'group': self.group_number,
+            'cmd_1': 0x13,
+            'cmd_2': 0x00,
+        }
+        off_message = PLM_Message(self.device.plm,
+                                  plm_cmd='all_link_send',
+                                  plm_bytes=off_plm_bytes)
+        ret = {
+            'ON': on_message,
+            'OFF': off_message
+        }
+        return ret
+
+    def set_state(self, state):
+        commands = self._state_commands()
+        try:
+            message = commands[state.upper()]
+        except KeyError:
+            print('This group doesn\'t know the state', state)
+        else:
+            message.state_machine = 'all_link_send'
+            records = self.device.plm.aldb.get_matching_records({
+                'controller': True,
+                'group': self.group_number,
+                'in_use': True
+            })
+            # Until all link status is complete, sending any other cmds to PLM
+            # will cause it to abandon all link process
+            message.seq_lock = True
+            # Time with retries for failed objects, plus we actively end it on
+            # success
+            wait_time = (len(records) + 1) * (87 / 1000 * 18)
+            message.seq_time = wait_time
+            message.extra_ack_time = wait_time
+            self.device.plm.queue_device_msg(message)
+
+    def get_features(self):
+        '''Returns the intrinsic parameters of a device, these are not user
+        editable so are not saved in the config.json file'''
+        ret = super().get_features()
+        ret['responder'] = False
         return ret

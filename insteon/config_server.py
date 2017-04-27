@@ -6,7 +6,7 @@ from bottle import (route, run, Bottle, response, get, post, put, delete,
                     request, error, static_file, view, TEMPLATE_PATH,
                     WSGIRefServer, redirect)
 
-from insteon.base_objects import BYTE_TO_ID
+from insteon import BYTE_TO_ID
 from insteon.sequences import DeleteLinkPair
 
 core = ''
@@ -45,7 +45,7 @@ def api():
 @get('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links.json')
 def modem_links(device_id, group_number):
     response.headers['Content-Type'] = 'application/json'
-    return jsonify(json_links(device_id, group_number))
+    return jsonify(json_links(device_id, int(group_number)))
 
 # patch
 @route('/modems/<modem_id:re:[A-Fa-f0-9]{6}>/groups.json', method='PATCH')
@@ -74,13 +74,13 @@ def _delete_device(modem_id, device_id):
 @post('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks.json')
 def add_defined_device_link(device_id, group_number):
     root = core.get_device_by_addr(device_id)
-    controller_device = root.get_object_by_group_num(int(group_number))
+    controller_group = root.get_object_by_group_num(int(group_number))
     # Be careful, no documentation guarantees that data_3 is always the group
     responder_id = request.json['responder_id']
-    responder_root = core.get_device_by_addr(responder_id)
-    responder_root.add_user_link(controller_device, request.json, None)
+    responder_device = core.get_device_by_addr(responder_id)
+    responder_device.add_user_link(controller_group, request.json, None)
     response.headers['Content-Type'] = 'application/json'
-    return jsonify(json_links(device_id, group_number))
+    return jsonify(json_links(device_id, int(group_number)))
 
 # patch
 @route('/modems/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks/<uid:re:[0-9]{6}>.json', method='PATCH')
@@ -89,9 +89,12 @@ def edit_defined_device_link(device_id, group_number, uid):
     controller_root = core.get_device_by_addr(device_id)
     controller = controller_root.get_object_by_group_num(int(group_number))
     user_link = core.find_user_link(int(uid))
-    user_link.edit(controller, request.json)
+    if user_link is not None:
+        user_link.edit(controller, request.json)
+    else:
+        print('expired definedLink uid, try refreshing page')
     response.headers['Content-Type'] = 'application/json'
-    return jsonify(json_links(device_id, group_number))
+    return jsonify(json_links(device_id, int(group_number)))
 
 @delete('/modems/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks/<uid:re:[0-9]{6}>.json')
 @delete('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/definedLinks/<uid:re:[0-9]{6}>.json')
@@ -99,7 +102,7 @@ def delete_defined_device_link(device_id, group_number, uid):
     user_link = core.find_user_link(int(uid))
     user_link.delete()
     response.headers['Content-Type'] = 'application/json'
-    return jsonify(json_links(device_id, group_number))
+    return jsonify(json_links(device_id, int(group_number)))
 
 @delete('/modems/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/unknownLinks/<key:re:[A-Fa-f0-9]{4}>.json')
 @delete('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/unknownLinks/<key:re:[A-Fa-f0-9]{4}>.json')
@@ -108,14 +111,16 @@ def delete_unknown_link(device_id, group_number, key):
     aldb_record = device_root.aldb.get_record(key)
     aldb_record.delete()
     response.headers['Content-Type'] = 'application/json'
-    return jsonify(json_links(device_id, group_number))
+    return jsonify(json_links(device_id, int(group_number)))
 
 @delete('/modems/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/undefinedLinks/<responder_id:re:[A-Fa-f0-9]{6}><responder_key:re:[A-Fa-f0-9\-]{4}><controller_key:re:[A-Fa-f0-9\-]{4}>.json')
 @delete('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/undefinedLinks/<responder_id:re:[A-Fa-f0-9]{6}><responder_key:re:[A-Fa-f0-9\-]{4}><controller_key:re:[A-Fa-f0-9\-]{4}>.json')
 def delete_undefined_device_link(device_id, group_number, responder_id,
                                  responder_key, controller_key):
     device_root = core.get_device_by_addr(device_id)
-    delete_sequence = DeleteLinkPair(device_root)
+    device_group = device_root.get_object_by_group_num(int(group_number))
+    delete_sequence = DeleteLinkPair()
+    # TODO this may be an issue, if both links exist the sequence will be started twice
     if controller_key != '----':
         controller_device = core.get_device_by_addr(device_id)
         delete_sequence.set_controller_device_with_key(controller_device,
@@ -131,7 +136,7 @@ def delete_undefined_device_link(device_id, group_number, responder_id,
         link.link_sequence = delete_sequence
         delete_sequence.start()
     response.headers['Content-Type'] = 'application/json'
-    return jsonify(json_links(device_id, group_number))
+    return jsonify(json_links(device_id, int(group_number)))
 
 # patch
 @route('/modems/<:re:[A-Fa-f0-9]{6}>/devices.json', method='PATCH')
@@ -170,7 +175,7 @@ def modem_group_page():
 
 @get('/modems/<modem_id:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}/?>')
 def device_page(modem_id, device_id):
-    group_number = core.get_device_by_addr(device_id).group_number
+    group_number = core.get_device_by_addr(device_id).base_group_number
     redirect('/modems/' + modem_id + '/devices/' + device_id +'/groups/' + str(group_number))
 
 @get('/modems/<:re:[A-Fa-f0-9]{6}/devices/[A-Fa-f0-9]{6}/groups/[0-9]{1,3}/?>')
@@ -216,7 +221,7 @@ def json_core():
             ret[modem.dev_addr_str]['devices'][device.dev_addr_str] = \
                 device.get_features_and_attributes()
             ret[modem.dev_addr_str]['devices'][device.dev_addr_str]['groups'] = {}
-            for group in [device] + device.get_all_groups():
+            for group in device.get_all_groups():
                 ret[modem.dev_addr_str]['devices'][device.dev_addr_str]['groups'][group.group_number] = \
                     group.get_features_and_attributes()
         ret[modem.dev_addr_str]['groups'] = {}
@@ -227,11 +232,11 @@ def json_core():
 
 def json_links(device_id, group_number):
     ret = {}
-    root = core.get_device_by_addr(device_id)
-    device = root.get_object_by_group_num(int(group_number))
-    ret['definedLinks'] = _user_link_output(device)
-    ret['undefinedLinks'] = _undefined_link_output(device)
-    ret['unknownLinks'] = _unknown_link_output(device)
+    controller_device = core.get_device_by_addr(device_id)
+    controller_group = controller_device.get_object_by_group_num(group_number)
+    ret['definedLinks'] = _user_link_output(controller_group)
+    ret['undefinedLinks'] = _undefined_link_output(controller_group)
+    ret['unknownLinks'] = _unknown_link_output(controller_group)
     return ret
 
 def _unknown_link_output(device):
@@ -251,11 +256,11 @@ def _unknown_link_output(device):
                          'status': status}
     return ret
 
-def _undefined_link_output(device):
+def _undefined_link_output(controller_group):
     # Three classes of undefined links can exist
     # TODO need to add status items to this
     ret = {}
-    for link in device.get_undefined_links():
+    for link in controller_group.get_undefined_links():
         link_parsed = link.parse_record()
         link_addr = BYTE_TO_ID(link_parsed['dev_addr_hi'],
                                link_parsed['dev_addr_mid'],
@@ -265,9 +270,12 @@ def _undefined_link_output(device):
             for responder in responder_records:
                 responder_parsed = responder.parse_record()
                 # Class 1 - controller with reciproal responders links
+                responder_group = responder.device.get_object_by_group_num(
+                    responder_parsed['data_3'])
+                # TODO this will cause an error if the group doesn't exist
                 ret[link_addr + responder.key + link.key] = {
                     'responder_id': link_addr,
-                    'responder_name': responder.device.name,
+                    'responder_name': responder_group.name,
                     'data_1': responder_parsed['data_1'],
                     'data_2': responder_parsed['data_2'],
                     'data_3': responder_parsed['data_3'],
@@ -276,9 +284,13 @@ def _undefined_link_output(device):
                 }
             if len(responder_records) == 0:
                 # Class 2 - controller with no responder links
+                responder_device = core.get_device_by_addr(link_addr)
+                responder_group = responder_device.get_object_by_group_num(
+                    responder_device.base_group_number
+                )
                 ret[link_addr + '----' + link.key] = {
                     'responder_id': link_addr,
-                    'responder_name': core.get_device_by_addr(link_addr).name,
+                    'responder_name': responder_group.name,
                     'data_1': 0x00,
                     'data_2': 0x00,
                     'data_3': 0x00,
@@ -287,9 +299,13 @@ def _undefined_link_output(device):
                 }
         else:
             # Class 3 - responder links with no controller link on this device
-            ret[link.device.root.dev_addr_str + link.key + '----'] = {
-                'responder_id': link.device.root.dev_addr_str,
-                'responder_name': link.device.name,
+            responder_device = core.get_device_by_addr(link_addr)
+            responder_group = responder_device.get_object_by_group_num(
+                link_parsed['data_3']
+            )
+            ret[link.device.dev_addr_str + link.key + '----'] = {
+                'responder_id': link.device.dev_addr_str,
+                'responder_name': responder_group.name,
                 'data_1': link_parsed['data_1'],
                 'data_2': link_parsed['data_2'],
                 'data_3': link_parsed['data_3'],
@@ -298,9 +314,9 @@ def _undefined_link_output(device):
             }
     return ret
 
-def _user_link_output(device):
+def _user_link_output(controller_group):
     ret = {}
-    user_links = core.get_user_links_for_this_controller(device)
+    user_links = core.get_user_links_for_this_controller(controller_group)
     for link in user_links.values():
         status = 'Broken'
         if link.are_aldb_records_correct() is True:
@@ -311,9 +327,9 @@ def _user_link_output(device):
             elif link.link_sequence.is_success is False:
                 status = 'Failed'
         ret[link.uid] = {
-            'responder_id': link.device.root.dev_addr_str,
-            'responder_name': link.device.name,
-            'responder_group': link.device.group_number,
+            'responder_id': link.responder_device.dev_addr_str,
+            'responder_name': link.responder_group.name,
+            'responder_group': link.data_3,
             'responder_key': link.responder_key,
             'controller_key': link.controller_key,
             'data_1': link.data_1,

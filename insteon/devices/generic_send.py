@@ -1,20 +1,17 @@
 from insteon.plm_message import PLM_Message
+from insteon.base_objects import BaseSendHandler
 from insteon.sequences import (ScanDeviceALDBi1, ScanDeviceALDBi2,
     StatusRequest, AddPLMtoDevice, InitializeDevice, WriteALDBRecordi2,
     WriteALDBRecordi1)
 
 
-class GenericSendHandler(object):
+class GenericSendHandler(BaseSendHandler):
     '''Provides the generic command handling that does not conflict with
     any Insteon devices.  Devices with distinct commands and needs should
     create their own message handler class that inherits and overrides the
     necessary elements'''
     def __init__(self, device):
-        # Be careful storing any attributes, this object may be dropped
-        # and replaced with a new object in a different class at runtime
-        # if the dev_cat changes
-        self._device = device
-        self._last_sent_msg = None
+        super().__init__(device)
 
     #################################################################
     #
@@ -51,7 +48,7 @@ class GenericSendHandler(object):
     #################################################################
 
     def get_status(self, state_machine=''):
-        status_sequence = StatusRequest(self._device)
+        status_sequence = StatusRequest(group=self._device.base_group)
         status_sequence.start()
 
     def get_engine_version(self, state_machine=''):
@@ -62,9 +59,9 @@ class GenericSendHandler(object):
 
     def query_aldb(self, success=None, failure=None):
         if self._device.attribute('engine_version') == 0:
-            scan_object = ScanDeviceALDBi1(self._device)
+            scan_object = ScanDeviceALDBi1(device=self._device)
         else:
-            scan_object = ScanDeviceALDBi2(self._device)
+            scan_object = ScanDeviceALDBi2(device=self._device)
         scan_object.success_callback = success
         scan_object.failure_callback = failure
         scan_object.start()
@@ -78,37 +75,12 @@ class GenericSendHandler(object):
         message.insert_bytes_into_raw(dev_bytes)
         self._device.queue_device_msg(message)
 
-    def _state_commands(self):
-        ret = {
-            'ON': self.create_message('on'),
-            'OFF': self.create_message('off')
-        }
-        return ret
-
-    def state(self, state):
-        commands = self._state_commands()
-        try:
-            msg = commands[state.upper()]
-        except KeyError:
-            print('This device doesn\'t know the state', state)
-        else:
-            self._device.queue_device_msg(msg)
-
     def add_plm_to_dev_link(self):
         '''Create a plm->device link using the manual method, rather than
         inserting the ALDB record into the device.  Generally this needs
         to be used for i2 devices before the modem can talk to them'''
-        link_object = AddPLMtoDevice(self._device)
+        link_object = AddPLMtoDevice(device=self._device)
         link_object.start()
-
-    def initialize_device(self):
-        '''Automatically called whenever a device is added or the core starts.
-        Checks the engine version, whether the device responds to the modem,
-        and the device version if they have not previously been requested.
-        Always checks the status of the device and sets the proper rcvd, send
-        and function handlers.'''
-        init_sequence = InitializeDevice(self._device)
-        init_sequence.start()
 
 
     # ALDB commands
@@ -127,75 +99,14 @@ class GenericSendHandler(object):
         message.state_machine = state_machine
         self._device.queue_device_msg(message)
 
-    def create_responder_link(self, linked_device, is_on=True):
-        if self._device.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(self._device)
-        else:
-            link_sequence = WriteALDBRecordi1(self._device)
-        link_sequence.controller = False
-        link_sequence.linked_device = linked_device
-        on_level = 0x00
-        if is_on:
-            on_level = 0xFF
-        link_sequence.data1 = on_level
-        link_sequence.data2 = 0x00
-        link_sequence.start()
-
-    def create_controller_link(self, linked_device):
-        if self._device.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(self._device)
-        else:
-            link_sequence = WriteALDBRecordi1(self._device)
-        link_sequence.controller = True
-        link_sequence.linked_device = linked_device
-        link_sequence.data1 = 0x03
-        link_sequence.data2 = 0x00
-        link_sequence.start()
-
-    def create_controller_link_sequence(self, user_link):
-        '''Creates a controller link sequence based on a passed user_link,
-        returns the link sequence, which needs to be started'''
-        if self._device.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(self._device)
-        else:
-            link_sequence = WriteALDBRecordi1(self._device)
-        if user_link.controller_key is not None:
-            link_sequence.key = user_link.controller_key
-        link_sequence.controller = True
-        link_sequence.linked_device = user_link.device
-        link_sequence.data1 = self._device.functions.get_controller_data1(None)
-        link_sequence.data2 = self._device.functions.get_controller_data2(None)
-        return link_sequence
-
-    def create_responder_link_sequence(self, user_link):
-        '''Creates a responder link sequence based on a passed user_link,
-        returns the link sequence, which needs to be started'''
-        if self._device.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(self._device)
-        else:
-            link_sequence = WriteALDBRecordi1(self._device)
-        if user_link.responder_key is not None:
-            link_sequence.key = user_link.responder_key
-        link_sequence.controller = False
-        link_sequence.linked_device = user_link.controller_device
-        link_sequence.data1 = user_link.data_1
-        link_sequence.data2 = user_link.data_2
-        return link_sequence
-
     def delete_record(self, key=None):
         if self._device.engine_version > 0x00:
-            link_sequence = WriteALDBRecordi2(self._device)
+            link_sequence = WriteALDBRecordi2(group=self._device.base_group)
         else:
-            link_sequence = WriteALDBRecordi1(self._device)
+            link_sequence = WriteALDBRecordi1(group=self._device.base_group)
         link_sequence.key = key
         link_sequence.in_use = False
         return link_sequence
-
-    def _write_link(self, linked_obj, is_controller):
-        if self._device.attribute('engine_version') == 2:
-            pass  # run i2cs commands
-        else:
-            pass  # run i1 commands
 
     #################################################################
     #

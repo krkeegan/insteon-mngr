@@ -1,16 +1,21 @@
 '''The base ALDB Objects'''
-from insteon.base_objects import BYTE_TO_HEX, BYTE_TO_ID
+from insteon import BYTE_TO_HEX, BYTE_TO_ID
 
 
 class ALDB(object):
     '''The base ALDB class which is inherited by both the Device and PLM
     ALDB classes'''
-    def __init__(self, parent):
-        self._parent = parent
+    def __init__(self, device):
+        self._device = device
         self.aldb = {}
 
-    def delete_position(self, position):
-        del self.aldb[position]
+    @property
+    def core(self):
+        return self._device.core
+
+    @property
+    def device(self):
+        return self._device
 
     def get_record(self, position):
         if position not in self.aldb:
@@ -81,16 +86,27 @@ class ALDBRecord(object):
     def __init__(self, database, raw=bytearray(8)):
         self._raw = raw
         self._database = database
-        self._core = self._database._parent.core
+        self._core = self._database.core
+        self._device = self._database.device
         self._link_sequence = None
 
     @property
     def device(self):
         '''Returns the device to which this record belongs'''
-        group = self.parse_record()['group']
-        if self.is_controller() is False:
-            group = self.parse_record()['data_3']
-        return self._database._parent.get_object_by_group_num(group)
+        return self._device
+
+    @property
+    def group_obj(self):
+        '''Returns the group object to which this record belongs'''
+        ret = None
+        parsed_record = self.parse_record()
+        if self.is_controller():
+            ret = self.device.get_object_by_group_num(parsed_record['group'])
+        else:
+            # Be careful, relying on data_3 as the responder group is something
+            # divined from practical use, not stated in the spec
+            ret = self.device.get_object_by_group_num(parsed_record['data_3'])
+        return ret
 
     @property
     def key(self):
@@ -119,13 +135,9 @@ class ALDBRecord(object):
 
     def delete(self):
         '''Removes the record from the device and the cache'''
-        ret = self._database._parent.send_handler.delete_record(key=self.key)
+        ret = self._database.device.send_handler.delete_record(key=self.key)
         ret.start()
         self._link_sequence = ret
-
-    def delete_record(self):
-        '''Removes the record from the cache only'''
-        del self._database.aldb[self.key]
 
     def parse_record(self):
         parsed = {
@@ -148,24 +160,14 @@ class ALDBRecord(object):
 
     @property
     def linked_device(self):
-        '''If this is a responder link it returns the controller object.
-        If this is a controller link, it returns the root of the responder
-        object, as multiple group responders could exist.'''
+        '''Returns the device linked to this entry which will be either the
+        controller or responder device.'''
         device = None
         parsed_record = self.parse_record()
         high = parsed_record['dev_addr_hi']
         mid = parsed_record['dev_addr_mid']
         low = parsed_record['dev_addr_low']
-        root = self._core.get_device_by_addr(BYTE_TO_ID(high, mid, low))
-        group = 0x01
-        # TODO we should really consider if multiple responders on a single
-        # device is realistic. And secondly, how we should handle such in this
-        # case.  Returning the root seems like it will work, until it doesn't
-        # and then finding this bug will be tedious
-        if self.is_controller is False:
-            group = parsed_record['group']
-        if root is not None:
-            device = root.get_object_by_group_num(group)
+        device = self._core.get_device_by_addr(BYTE_TO_ID(high, mid, low))
         return device
 
     def is_last_aldb(self):
@@ -189,7 +191,7 @@ class ALDBRecord(object):
     def is_a_defined_link(self):
         ret = False
         if self.is_controller():
-            user_links = self._core.get_user_links_for_this_controller(self.device)
+            user_links = self._core.get_user_links_for_this_controller(self.group_obj)
             for user_link in user_links.values():
                 if user_link.controller_key == self.key:
                     ret = True
@@ -211,9 +213,7 @@ class ALDBRecord(object):
         return string
 
     def get_reciprocal_records(self):
-        linked_root = None
-        if self.linked_device is not None:
-            linked_root = self.linked_device.root
+        linked_root = self.linked_device
         parsed = self.parse_record()
         controller = True
         records = []
@@ -223,9 +223,9 @@ class ALDBRecord(object):
             search = {
                 'controller': controller,
                 'group': parsed['group'],
-                'dev_addr_hi': self._database._parent.dev_addr_hi,
-                'dev_addr_mid': self._database._parent.dev_addr_mid,
-                'dev_addr_low': self._database._parent.dev_addr_low,
+                'dev_addr_hi': self._database.device.dev_addr_hi,
+                'dev_addr_mid': self._database.device.dev_addr_mid,
+                'dev_addr_low': self._database.device.dev_addr_low,
                 'in_use': True
             }
             records = linked_root.aldb.get_matching_records(search)

@@ -1,7 +1,7 @@
 import time
 
 from insteon.trigger import PLMTrigger
-from insteon.base_objects import BYTE_TO_ID, BYTE_TO_HEX
+from insteon import BYTE_TO_ID, BYTE_TO_HEX
 
 
 class ModemRcvdHandler(object):
@@ -45,27 +45,13 @@ class ModemRcvdHandler(object):
             'dev_addr_mid': msg.get_byte_by_name('dev_addr_mid'),
             'dev_addr_low': msg.get_byte_by_name('dev_addr_low'),
         }
-        if ctrl_code == 0x40 or ctrl_code == 0x41:
-            self._device.aldb.add_record(aldb)
-        elif ctrl_code == 0x20:
-            records = self._device.aldb.get_matching_records(search_attributes)
-            try:
-                records[0].edit_record(aldb)
-            except:
-                print('error trying to edit plm aldb cache')
-        elif ctrl_code == 0x80:
-            records = self._device.aldb.get_matching_records(search_attributes)
-            if len(records) > 0:
-                records[0].delete_record()
-            else:
-                print('error trying to delete plm aldb cache')
         self._rcvd_plm_ack(msg)
 
     def _rcvd_all_link_manage_nack(self, msg):
         print('error writing aldb to PLM, will rescan plm and try again')
         plm = self._device
         self._device._last_sent_msg.failed = True
-        self._device.aldb.query_aldb()
+        self._device.query_aldb()
         trigger_attributes = {
             'plm_cmd': 0x6A,
             'plm_resp': 0x15
@@ -76,6 +62,7 @@ class ModemRcvdHandler(object):
         dev_addr_low = msg.get_byte_by_name('dev_addr_low')
         device_id = BYTE_TO_ID(dev_addr_hi, dev_addr_mid, dev_addr_low)
         device = self._device.get_device_by_addr(device_id)
+        # TODO these are broken
         if msg.get_byte_by_name('link_flags') == 0xE2:
             plm = self._device.get_object_by_group_num(msg.get_byte_by_name('group'))
             trigger.trigger_function = lambda: plm.send_handler.create_controller_link(device)
@@ -100,7 +87,7 @@ class ModemRcvdHandler(object):
             self._device._last_sent_msg.plm_ack = True
             self._device._last_sent_msg.time_plm_ack = time.time()
             self._device.aldb.add_record(msg.raw_msg[2:])
-            self._device.send_handler.send_command('all_link_next_rec', 'query_aldb')
+            self._device.send_command('all_link_next_rec', 'query_aldb')
         else:
             msg.allow_trigger = False
             print('received spurious plm aldb record')
@@ -110,6 +97,13 @@ class ModemRcvdHandler(object):
         self._device._last_sent_msg.plm_ack = True
         self._device.remove_state_machine('query_aldb')
         print('reached the end of the PLMs ALDB')
+        # Reassign the PLM ALDB keys, they are not permanent
+        for link in self._device.get_all_user_links().values():
+            if link._adoptable_responder_key() is not None:
+                link.set_responder_key(link._adoptable_responder_key())
+        for link in self._device.core.get_user_links_for_this_controller_device(self._device).values():
+            if link._adoptable_controller_key() is not None:
+                link.set_controller_key(link._adoptable_controller_key())
         records = self._device.aldb.get_all_records()
         for key in sorted(records):
             print(key, ":", BYTE_TO_HEX(records[key]))

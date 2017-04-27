@@ -540,9 +540,10 @@ function updateModemPage (data) {
   }
   if ($('tbody#modemDevices').length) {
     for (var deviceAddress in data[modemAddress]['devices']) {
+      var baseGroup = data[modemAddress]['devices'][deviceAddress]['base_group_number']
       $('tbody#modemDevices').append(`
         <tr>
-          <th scope='row'>${data[modemAddress]['devices'][deviceAddress]['name']}</th>
+          <th scope='row'>${data[modemAddress]['devices'][deviceAddress]['groups'][baseGroup]['name']}</th>
           <td>${deviceAddress}</td>
           <td>status</td>
           <td><a href='/modems/${modemAddress}/devices/${deviceAddress}'>View</a></td>

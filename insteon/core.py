@@ -46,11 +46,19 @@ class Insteon_Core(object):
             rand = random.randint(100000,999999)
         return rand
 
-    def get_user_links_for_this_controller(self, device):
+    def get_user_links_for_this_controller(self, controller_group):
         all_links = self._get_all_user_links()
         ret = {}
         for uid, link in all_links.items():
-            if device == link.controller_device:
+            if controller_group == link.controller_group:
+                ret[uid] = link
+        return ret
+
+    def get_user_links_for_this_controller_device(self, controller_device):
+        all_links = self._get_all_user_links()
+        ret = {}
+        for uid, link in all_links.items():
+            if controller_device == link.controller_device:
                 ret[uid] = link
         return ret
 
@@ -86,16 +94,10 @@ class Insteon_Core(object):
             modem.process_queue()
         self._save_state()
 
-    def _save_groups(self, device):
-        ret = {}
-        for group in device.get_all_groups():
-            ret[group.group_number] = group._attributes.copy()
-        return ret
-
     def _save_device(self, device):
         ret = device._attributes.copy()
         ret['aldb'] = device.aldb.get_all_records_str()
-        ret['groups'] = self._save_groups(device)
+        ret['groups'] = device.save_groups()
         ret['user_links'] = device.save_user_links()
         return ret
 
@@ -247,13 +249,6 @@ class Insteon_Core(object):
             self._modems.append(ret)
         return ret
 
-    def get_modem_by_id(self, dev_id):
-        ret = None
-        for modem in self._modems:
-            if modem.dev_addr_str == dev_id:
-                ret = modem
-        return ret
-
     def get_device_by_addr(self, addr):
         ret = None
         for modem in self._modems:
@@ -273,11 +268,3 @@ class Insteon_Core(object):
         for plm in self._modems:
             ret.append(plm)
         return ret
-
-    def export_all_links(self):
-        '''Convert all links found on devices to User Defined Links.'''
-        for modem in self.get_all_modems():
-            all_devices = modem.get_all_devices()
-            all_devices.append(modem)
-            for device in all_devices:
-                device.export_links()

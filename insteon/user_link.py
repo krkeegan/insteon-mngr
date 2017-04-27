@@ -7,10 +7,10 @@ class UserLink(object):
     '''The base class for user_links'''
 
     def __init__(self, device, reciprocal_id, group_number, data, uid):
-        self._root_device = device.root
-        self._core = device.root.core
+        self._device = device
+        self._core = device.core
         self._address = reciprocal_id.upper()
-        self._group = int(group_number)
+        self._group_number = int(group_number)
         self._data_1 = data['data_1']
         self._data_2 = data['data_2']
         self._data_3 = data['data_3']
@@ -26,17 +26,16 @@ class UserLink(object):
             self._responder_key = data['responder_key']
 
     @property
-    def device(self):
-        device = self._root_device.get_object_by_group_num(self.data_3)
-        return device
+    def responder_device(self):
+        return self._device
+
+    @property
+    def responder_group(self):
+        return self._device.get_object_by_group_num(self._data_3)
 
     @property
     def controller_id(self):
         return self._address
-
-    @property
-    def group(self):
-        return self._group
 
     @property
     def data(self):
@@ -73,11 +72,19 @@ class UserLink(object):
     def controller_device(self):
         '''Returns the controller device of this link or None if it does not
         exist'''
-        root = self._core.get_device_by_addr(self._address)
+        return self._core.get_device_by_addr(self._address)
+
+    @property
+    def controller_group(self):
         ret = None
+        root = self.controller_device
         if root is not None:
-            ret = root.get_object_by_group_num(self._group)
+            ret = root.get_object_by_group_num(self._group_number)
         return ret
+
+    @property
+    def controller_group_number(self):
+        return self._group_number
 
     @property
     def uid(self):
@@ -112,11 +119,11 @@ class UserLink(object):
 
     def edit(self, controller, data):
         '''Edits the user link'''
-        if data['responder_id'] != self._root_device.dev_addr_str:
+        if data['responder_id'] != self._device.dev_addr_str:
             device = self._core.get_device_by_addr(data['responder_id'])
             data['controller_key'] = self.controller_key
             device.add_user_link(controller, data, self.uid)
-            self._root_device.delete_user_link(self.uid)
+            self._device.delete_user_link(self.uid)
         else:
             self._data_1 = data['data_1']
             self._data_2 = data['data_2']
@@ -135,12 +142,12 @@ class UserLink(object):
             if self._adoptable_controller_key() is not None:
                 self._controller_key = self._adoptable_controller_key()
             else:
-                controller_sequence = self.controller_device.send_handler.create_controller_link_sequence(self)
+                controller_sequence = self.controller_group.create_controller_link_sequence(self)
         if self._is_responder_correct() is False:
             if self._adoptable_responder_key() is not None:
                 self._responder_key = self._adoptable_responder_key()
             else:
-                responder_sequence = self.device.send_handler.create_responder_link_sequence(self)
+                responder_sequence = self.responder_group.create_responder_link_sequence(self)
         if responder_sequence is not None and controller_sequence is not None:
             responder_sequence.success_callback = lambda: (
                 self.set_controller_key(controller_sequence.key),
@@ -162,12 +169,12 @@ class UserLink(object):
     def delete(self):
         '''Deletes this user link and wipes the associated links on the
         devices'''
-        delete_sequence = DeleteLinkPair(self._root_device)
+        delete_sequence = DeleteLinkPair()
         delete_sequence.set_controller_device_with_key(self.controller_device,
                                                        self.controller_key)
-        delete_sequence.set_responder_device_with_key(self.device,
+        delete_sequence.set_responder_device_with_key(self._device,
                                                       self.responder_key)
-        delete_sequence.success_callback = lambda: self._root_device.delete_user_link(self.uid)
+        delete_sequence.success_callback = lambda: self._device.delete_user_link(self.uid)
         delete_sequence.start()
         self._link_sequence = delete_sequence
 
@@ -178,7 +185,7 @@ class UserLink(object):
         attributes = {
             'in_use':  True,
             'responder': True,
-            'group': self.group,
+            'group': self._group_number,
             'dev_addr_hi': self.dev_addr_hi,
             'dev_addr_mid': self.dev_addr_mid,
             'dev_addr_low': self.dev_addr_low,
@@ -186,7 +193,7 @@ class UserLink(object):
             'data_2': self.data_2,
             'data_3': self.data_3,
         }
-        links = self.device.root.aldb.get_matching_records(attributes)
+        links = self._device.aldb.get_matching_records(attributes)
         if len(links) > 0:
             ret = links[0].key
         return ret
@@ -198,10 +205,10 @@ class UserLink(object):
         attributes = {
             'in_use':  True,
             'controller': True,
-            'group': self.group,
-            'dev_addr_hi': self.device.root.dev_addr_hi,
-            'dev_addr_mid': self.device.root.dev_addr_mid,
-            'dev_addr_low': self.device.root.dev_addr_low
+            'group': self._group_number,
+            'dev_addr_hi': self._device.dev_addr_hi,
+            'dev_addr_mid': self._device.dev_addr_mid,
+            'dev_addr_low': self._device.dev_addr_low
             # Not checking data_1-3 at the moment
         }
         links = self.controller_device.root.aldb.get_matching_records(attributes)
@@ -212,10 +219,10 @@ class UserLink(object):
     def _is_responder_correct(self):
         ret = False
         if (self._responder_key is not None):
-            responder = self.device.root.aldb.get_record(self._responder_key).parse_record()
+            responder = self._device.aldb.get_record(self._responder_key).parse_record()
             if (responder['in_use'] == True and
                     responder['responder'] == True and
-                    responder['group'] == self.group and
+                    responder['group'] == self._group_number and
                     responder['dev_addr_hi'] == self.dev_addr_hi and
                     responder['dev_addr_mid'] == self.dev_addr_mid and
                     responder['dev_addr_low'] == self.dev_addr_low and
@@ -232,10 +239,10 @@ class UserLink(object):
             controller = self.controller_device.root.aldb.get_record(self._controller_key).parse_record()
             if (controller['in_use'] == True and
                     controller['controller'] == True and
-                    controller['group'] == self.group and
-                    controller['dev_addr_hi'] == self.device.root.dev_addr_hi and
-                    controller['dev_addr_mid'] == self.device.root.dev_addr_mid and
-                    controller['dev_addr_low'] == self.device.root.dev_addr_low
+                    controller['group'] == self._group_number and
+                    controller['dev_addr_hi'] == self._device.dev_addr_hi and
+                    controller['dev_addr_mid'] == self._device.dev_addr_mid and
+                    controller['dev_addr_low'] == self._device.dev_addr_low
                ):
                 ret = True
         return ret
