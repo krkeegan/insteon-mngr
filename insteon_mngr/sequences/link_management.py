@@ -1,4 +1,4 @@
-from insteon.sequences.common import BaseSequence
+from insteon_mngr.sequences.common import BaseSequence
 
 class DeleteLinkPair(BaseSequence):
     '''Deletes the link pair from the devices'''

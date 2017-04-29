@@ -1,6 +1,6 @@
-from insteon.base_objects import BaseSendHandler
-from insteon.plm_message import PLM_Message
-from insteon.sequences import WriteALDBRecordModem
+from insteon_mngr.base_objects import BaseSendHandler
+from insteon_mngr.plm_message import PLM_Message
+from insteon_mngr.sequences import WriteALDBRecordModem
 
 class ModemSendHandler(BaseSendHandler):
     '''Provides the generic command handling for the Modem.  This is a

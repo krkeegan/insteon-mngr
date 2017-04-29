@@ -1,6 +1,6 @@
-from insteon.plm_message import PLM_Message
-from insteon.base_objects import BaseSendHandler
-from insteon.sequences import (ScanDeviceALDBi1, ScanDeviceALDBi2,
+from insteon_mngr.plm_message import PLM_Message
+from insteon_mngr.base_objects import BaseSendHandler
+from insteon_mngr.sequences import (ScanDeviceALDBi1, ScanDeviceALDBi2,
     StatusRequest, AddPLMtoDevice, InitializeDevice, WriteALDBRecordi2,
     WriteALDBRecordi1)
 

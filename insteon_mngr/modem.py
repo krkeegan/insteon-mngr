@@ -1,16 +1,16 @@
 import time
 import datetime
 
-from insteon import BYTE_TO_HEX, BYTE_TO_ID
-from insteon.insteon_device import InsteonDevice
-from insteon.base_objects import Root, Group
-from insteon.aldb import ALDB
-from insteon.trigger import Trigger_Manager
-from insteon.plm_message import PLM_Message
-from insteon.plm_schema import PLM_SCHEMA
-from insteon.devices import ModemSendHandler
-from insteon.modem_rcvd import ModemRcvdHandler
-from insteon.sequences import WriteALDBRecordModem
+from insteon_mngr import BYTE_TO_HEX, BYTE_TO_ID
+from insteon_mngr.insteon_device import InsteonDevice
+from insteon_mngr.base_objects import Root, Group
+from insteon_mngr.aldb import ALDB
+from insteon_mngr.trigger import Trigger_Manager
+from insteon_mngr.plm_message import PLM_Message
+from insteon_mngr.plm_schema import PLM_SCHEMA
+from insteon_mngr.devices import ModemSendHandler
+from insteon_mngr.modem_rcvd import ModemRcvdHandler
+from insteon_mngr.sequences import WriteALDBRecordModem
 
 
 class Modem_ALDB(ALDB):

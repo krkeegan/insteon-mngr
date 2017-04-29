@@ -5,8 +5,8 @@ import queue
 
 import requests
 
-from insteon import BYTE_TO_HEX
-from insteon.plm import Modem
+from insteon_mngr import BYTE_TO_HEX
+from insteon_mngr.plm import Modem
 
 
 def hub_thread(hub):

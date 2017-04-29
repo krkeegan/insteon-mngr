@@ -1,6 +1,6 @@
 import time
-from insteon.plm_schema import PLM_SCHEMA
-from insteon.insteon_message import Insteon_Message
+from insteon_mngr.plm_schema import PLM_SCHEMA
+from insteon_mngr.insteon_message import Insteon_Message
 
 
 class PLM_Message(object):

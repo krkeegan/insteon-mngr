@@ -1,6 +1,6 @@
 import serial
 
-from insteon.modem import Modem
+from insteon_mngr.modem import Modem
 
 
 class PLM(Modem):

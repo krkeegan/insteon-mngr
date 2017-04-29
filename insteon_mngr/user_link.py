@@ -1,7 +1,7 @@
 '''The user_link classes'''
 
-from insteon import ID_STR_TO_BYTES
-from insteon.sequences import DeleteLinkPair
+from insteon_mngr import ID_STR_TO_BYTES
+from insteon_mngr.sequences import DeleteLinkPair
 
 class UserLink(object):
     '''The base class for user_links'''

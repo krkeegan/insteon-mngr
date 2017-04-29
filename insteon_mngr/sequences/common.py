@@ -1,4 +1,4 @@
-from insteon.trigger import InsteonTrigger, PLMTrigger
+from insteon_mngr.trigger import InsteonTrigger, PLMTrigger
 
 
 class BaseSequence(object):

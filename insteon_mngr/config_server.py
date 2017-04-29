@@ -1,15 +1,19 @@
 import threading
 import json
 import re
+import pkg_resources
 
 from bottle import (route, run, Bottle, response, get, post, put, delete,
                     request, error, static_file, view, TEMPLATE_PATH,
                     WSGIRefServer, redirect)
 
-from insteon import BYTE_TO_ID
-from insteon.sequences import DeleteLinkPair
+from insteon_mngr import BYTE_TO_ID
+from insteon_mngr.sequences import DeleteLinkPair
 
 core = ''
+
+STATIC_PATH = pkg_resources.resource_filename(__name__, '/web/static')
+ROOT_PATH = pkg_resources.resource_filename(__name__, '/web')
 
 def start(passed_core):
     global core      # pylint: disable=W0603
@@ -163,15 +167,15 @@ def api_device_group_put(device_id):
 
 @get('/static/<path:path>')
 def callback(path):
-    return static_file(path, root='insteon/web/static')
+    return static_file(path, root=STATIC_PATH)
 
 @get('/modems/<:re:[A-Fa-f0-9]{6}/?>')
 def modem_page():
-    return static_file('modem.html', root='insteon/web')
+    return static_file('modem.html', root=ROOT_PATH)
 
 @get('/modems/<:re:[A-Fa-f0-9]{6}/groups/[0-9]{1,3}/?>')
 def modem_group_page():
-    return static_file('modem_group.html', root='insteon/web')
+    return static_file('modem_group.html', root=ROOT_PATH)
 
 @get('/modems/<modem_id:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}/?>')
 def device_page(modem_id, device_id):
@@ -180,11 +184,11 @@ def device_page(modem_id, device_id):
 
 @get('/modems/<:re:[A-Fa-f0-9]{6}/devices/[A-Fa-f0-9]{6}/groups/[0-9]{1,3}/?>')
 def device_group_page():
-    return static_file('device_group.html', root='insteon/web')
+    return static_file('device_group.html', root=ROOT_PATH)
 
 @get('/')
 def index_page():
-    return static_file('index.html', root='insteon/web')
+    return static_file('index.html', root=ROOT_PATH)
 
 ###################################################################
 ##

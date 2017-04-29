@@ -3,16 +3,26 @@ import time
 import atexit
 import threading
 import random
+import os
+import pkg_resources
 
-from insteon.plm import PLM
-from insteon.hub import Hub
-from insteon.config_server import start, stop
+from insteon_mngr.plm import PLM
+from insteon_mngr.hub import Hub
+from insteon_mngr.config_server import start, stop
 
 
 class Insteon_Core(object):
     '''Provides global management functions'''
 
-    def __init__(self):
+    def __init__(self, config_path=None):
+        if config_path is None:
+            os.makedirs(os.path.join(os.path.expanduser("~"),'.insteon_mngr'),
+                        exist_ok=True)
+            self._config_path = os.path.join(os.path.expanduser("~"),
+                                             '.insteon_mngr',
+                                             'config.json')
+        else:
+            self._config_path = os.path.join(config_path, 'config.json')
         self._modems = []
         self._last_saved_time = 0
         self._load_state()
@@ -21,13 +31,11 @@ class Insteon_Core(object):
         atexit.register(self._save_state, True)
 
         # Load device data
-        with open('insteon/data/device_categories.json', 'r') as myfile:
-            json_cats = myfile.read()
-        self.device_categories = json.loads(json_cats)
+        json_cats = pkg_resources.resource_string(__name__, "/data/device_categories.json")
+        self.device_categories = json.loads(json_cats.decode())
 
-        with open('insteon/data/device_models.json', 'r') as myfile:
-            json_models = myfile.read()
-        self.device_models = json.loads(json_models)
+        json_models = pkg_resources.resource_string(__name__, "/data/device_models.json")
+        self.device_models = json.loads(json_models.decode())
 
     def _get_all_user_links(self):
         ret = {}
@@ -120,7 +128,7 @@ class Insteon_Core(object):
             except Exception:
                 print('error writing config to file')
             else:
-                outfile = open('config.json', 'w')
+                outfile = open(self._config_path, 'w')
                 outfile.write(json_string)
                 outfile.close()
             self._saved_state = out_data
@@ -128,7 +136,7 @@ class Insteon_Core(object):
 
     def _load_state(self):
         try:
-            with open('config.json', 'r') as infile:
+            with open(self._config_path, 'r') as infile:
                 read_data = infile.read()
             read_data = json.loads(read_data)
         except FileNotFoundError:

@@ -1,4 +1,4 @@
-from insteon.base_objects import Group
+from insteon_mngr.base_objects import Group
 
 
 class GenericFunctions(object):

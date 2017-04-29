@@ -1,5 +1,5 @@
-from insteon.trigger import PLMTrigger
-from insteon.sequences.common import WriteALDBRecord
+from insteon_mngr.trigger import PLMTrigger
+from insteon_mngr.sequences.common import WriteALDBRecord
 
 
 class WriteALDBRecordModem(WriteALDBRecord):

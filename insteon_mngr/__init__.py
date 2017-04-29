@@ -21,6 +21,6 @@ def ID_STR_TO_BYTES(dev_id_str):
     ret[2] = (int(dev_id_str[4:6], 16))
     return ret
 
-from insteon.core import Insteon_Core
+from insteon_mngr.core import Insteon_Core
 
 __all__ = ['Insteon_Core']

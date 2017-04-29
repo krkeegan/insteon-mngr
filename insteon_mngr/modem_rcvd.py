@@ -1,7 +1,7 @@
 import time
 
-from insteon.trigger import PLMTrigger
-from insteon import BYTE_TO_ID, BYTE_TO_HEX
+from insteon_mngr.trigger import PLMTrigger
+from insteon_mngr import BYTE_TO_ID, BYTE_TO_HEX
 
 
 class ModemRcvdHandler(object):

@@ -2,9 +2,9 @@ import time
 import datetime
 import pprint
 
-from insteon import ID_STR_TO_BYTES, BYTE_TO_HEX
-from insteon.user_link import UserLink
-from insteon.sequences import (WriteALDBRecordi2, WriteALDBRecordi1)
+from insteon_mngr import ID_STR_TO_BYTES, BYTE_TO_HEX
+from insteon_mngr.user_link import UserLink
+from insteon_mngr.sequences import (WriteALDBRecordi2, WriteALDBRecordi1)
 
 class Common(object):
     '''The base class inherited by groups and devices, primarily provides

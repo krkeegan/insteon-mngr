@@ -1,12 +1,12 @@
 import math
 import time
 
-from insteon import BYTE_TO_HEX
-from insteon.aldb import ALDB
-from insteon.base_objects import Root, Group
-from insteon.devices import (GenericRcvdHandler, GenericSendHandler,
+from insteon_mngr import BYTE_TO_HEX
+from insteon_mngr.aldb import ALDB
+from insteon_mngr.base_objects import Root, Group
+from insteon_mngr.devices import (GenericRcvdHandler, GenericSendHandler,
                              GenericFunctions, select_classes)
-from insteon.sequences import InitializeDevice
+from insteon_mngr.sequences import InitializeDevice
 
 
 class Device_ALDB(ALDB):

@@ -1,9 +1,9 @@
-from insteon.devices.generic_rcvd import GenericRcvdHandler
-from insteon.devices.generic_send import GenericSendHandler
-from insteon.devices.generic_functions import GenericFunctions
-from insteon.devices.dimmer import DimmerSendHandler, DimmerGroup, DimmerFunctions
-from insteon.devices.modem_send import ModemSendHandler
-from insteon.base_objects import Group
+from insteon_mngr.devices.generic_rcvd import GenericRcvdHandler
+from insteon_mngr.devices.generic_send import GenericSendHandler
+from insteon_mngr.devices.generic_functions import GenericFunctions
+from insteon_mngr.devices.dimmer import DimmerSendHandler, DimmerGroup, DimmerFunctions
+from insteon_mngr.devices.modem_send import ModemSendHandler
+from insteon_mngr.base_objects import Group
 
 
 def select_classes(dev_cat=0x00, sub_cat=0x00,

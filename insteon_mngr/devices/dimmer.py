@@ -1,5 +1,5 @@
-from insteon.devices import GenericSendHandler, GenericFunctions
-from insteon.base_objects import Group
+from insteon_mngr.devices import GenericSendHandler, GenericFunctions
+from insteon_mngr.base_objects import Group
 
 
 class DimmerFunctions(GenericFunctions):

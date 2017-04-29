@@ -1,5 +1,5 @@
 '''The base ALDB Objects'''
-from insteon import BYTE_TO_HEX, BYTE_TO_ID
+from insteon_mngr import BYTE_TO_HEX, BYTE_TO_ID
 
 
 class ALDB(object):

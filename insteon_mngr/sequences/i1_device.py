@@ -1,5 +1,5 @@
-from insteon.trigger import InsteonTrigger
-from insteon.sequences.common import SetALDBDelta, BaseSequence, WriteALDBRecord
+from insteon_mngr.trigger import InsteonTrigger
+from insteon_mngr.sequences.common import SetALDBDelta, BaseSequence, WriteALDBRecord
 
 
 class ScanDeviceALDBi1(BaseSequence):
