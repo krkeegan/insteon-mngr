@@ -30,6 +30,11 @@ class DimmerSendHandler(GenericSendHandler):
 
 
 class DimmerGroup(Group):
+
+    def __init__(self, device, **kwargs):
+        super().__init__(device, **kwargs)
+        self._type = 'dimmer'
+
     def list_data_1_options(self):
         ret = {}
         for value in range(0x00, 0xFF+1):

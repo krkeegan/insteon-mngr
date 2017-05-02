@@ -46,8 +46,14 @@ class Group(Common):
     def __init__(self, device, **kwargs):
         super().__init__(**kwargs)
         self._device = device
+        self._type = 'relay'
         self._update_callbacks = []
         self._delete_callbacks = []
+
+    @property
+    def type(self):
+        '''Returns the type of device group that this group is.'''
+        return self._type
 
     @property
     def group_number(self):
@@ -561,6 +567,7 @@ class Root(Common):
 
 
     # TODO this whole create_group seems like it needs a bit of a rework
+    # TODO we are not deleting erroneous groups
     def create_group(self, group_num, group_class):
         attributes = {}
         if group_num in self._groups_config:
@@ -572,7 +579,6 @@ class Root(Common):
                 self._groups[group_num] = group_class(self, attributes=attributes)
         elif type(self.get_object_by_group_num(group_num)) is not group_class:
             self._promote_group(group_num, group_class, attributes)
-        # What happens if we send hass groups it may already know about?
         self.core.do_group_callback({'device': self.dev_addr_str,
                                      'group_number': group_num
                                     })
@@ -594,6 +600,7 @@ class Root(Common):
             del self._groups[old_group]
             #TODO should we delete the old_group from the _groups_config as well\
             #TODO Do we need to be loading the data from _groups_config
+            #TODO do we need to call the delete group callback here
         else:
             self._groups[group_num] = group_class(self, attributes=attributes)
 

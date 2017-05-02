@@ -159,30 +159,10 @@ class Insteon_Core(object):
         '''Causes the group callback to be called. Likely should only be done,
         by the group object.'''
         for callback in self._group_callbacks:
-            callback(group)
-
-    # TODO not sure these should be methods, perhaps better as functions
-
-    def get_device_category(self, cat):
-        """Return the device category and name given the category id"""
-        cat = '{:02x}'.format(cat, 'x').upper()
-        if cat in self.device_categories:
-            return self.device_categories[cat]
-        else:
-            return False
-
-    def get_device_model(self, cat, sub_cat, key=''):
-        """Return the model name given cat/subcat or product key"""
-        cat = '{:02x}'.format(cat, 'x').upper()
-        sub_cat = '{:02x}'.format(sub_cat, 'x').upper()
-        if cat + ':' + sub_cat in self.device_models:
-            return self.device_models[cat + ':' + sub_cat]
-        else:
-            for i_val in self.device_models.values():
-                if 'key' in i_val:
-                    if i_val['key'] == key:
-                        return i_val
-            return False
+            callback({group.type: [{
+                'device': group.device.dev_addr_str,
+                'group_number': group.group_number
+            }]})
 
     ###################################################################
     #
@@ -190,61 +170,19 @@ class Insteon_Core(object):
     #
     ###################################################################
 
-    def get_switches(self):
-        '''This is likely a temporary function while I test home assistant'''
-        switches = []
+    def _get_groups_by_type(self):
+        '''Returns a dict of all groups arranged by type'''
+        groups = {}
         for modem in self.get_all_modems():
             for device in modem.get_all_devices():
                 for group in device.get_all_groups():
-                    if type(group) is Group:
-                        switches.append(group)
-        return switches
-
-    def get_lights(self):
-        '''This is likely a temporary function while I test home assistant'''
-        switches = []
-        for modem in self.get_all_modems():
-            for device in modem.get_all_devices():
-                for group in device.get_all_groups():
-                    if type(group) is DimmerGroup:
-                        switches.append(group)
-        return switches
-
-    def get_linked_devices(self):
-        '''Returns a dictionary of all devices defined in the core.'''
-        linked_devices = {}
-        for modem in self.get_all_modems():
-            for device in modem.get_all_devices():
-                dev_cat_record = self.get_device_category(device.dev_cat)
-                if dev_cat_record and 'name' in dev_cat_record:
-                    dev_cat_name = dev_cat_record['name']
-                    dev_cat_type = dev_cat_record['type']
-                else:
-                    dev_cat_name = 'unknown'
-                    dev_cat_type = 'unknown'
-
-                linked_dev_model = self.get_device_model(device.dev_cat, device.sub_cat)
-                if 'name' in linked_dev_model:
-                    dev_model_name = linked_dev_model['name']
-                else:
-                    dev_model_name = 'unknown'
-
-                if 'sku' in linked_dev_model:
-                    dev_sku = linked_dev_model['sku']
-                else:
-                    dev_sku = 'unknown'
-
-                linked_devices[device.dev_addr_str] = {
-                    'cat_name': dev_cat_name,
-                    'cat_type': dev_cat_type,
-                    'model_name' : dev_model_name,
-                    'cat': device.dev_cat,
-                    'sub_cat': device.sub_cat,
-                    'sku': dev_sku,
-                    'group': []
-                }
-
-        return linked_devices
+                    if group.type not in groups:
+                        groups[group.type] = []
+                    groups[group.type].append({
+                        'device': group.device.dev_addr_str,
+                        'group_number': group.group_number
+                    })
+        return groups
 
     def add_hub(self, **kwargs):
         '''Inform the core of a hub that should be monitored as part
@@ -316,3 +254,5 @@ class Insteon_Core(object):
         '''Registers a function to be called when a group is added to any
         device.'''
         self._group_callbacks.append(callback)
+        # perform callbacks for groups that already exist
+        callback(self._get_groups_by_type())
