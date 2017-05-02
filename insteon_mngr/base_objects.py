@@ -46,6 +46,8 @@ class Group(Common):
     def __init__(self, device, **kwargs):
         super().__init__(**kwargs)
         self._device = device
+        self._update_callbacks = []
+        self._delete_callbacks = []
 
     @property
     def group_number(self):
@@ -68,6 +70,7 @@ class Group(Common):
         want to call this'''
         self.attribute(attr='state', value=value)
         self.attribute(attr='state_time', value=time.time())
+        self._do_update_callback()
 
     def _state_commands(self):
         ret = {
@@ -78,6 +81,7 @@ class Group(Common):
 
     def set_state(self, state):
         commands = self._state_commands()
+        state = str(state)
         try:
             msg = commands[state.upper()]
         except KeyError:
@@ -89,6 +93,10 @@ class Group(Common):
     def state_age(self):
         '''Returns the age in seconds of the state value.'''
         return time.time() - self.attribute('state_time')
+
+    def _do_update_callback(self):
+        for callback in self._update_callbacks:
+            callback()
 
     @property
     def name(self):
@@ -210,6 +218,24 @@ class Group(Common):
         if self.state == 0xFF:
             ret = 'ON'
         return ret
+
+    def state_bool(self):
+        ret = False
+        if self.state == 0xFF:
+            ret = True
+        return ret
+
+    def add_update_callback(self, callback):
+        """Register as callback for when state is touched."""
+        self._update_callbacks.append(callback)
+
+    def add_delete_callback(self, callback):
+        """Register as callback for when this group is deleted."""
+        self._delete_callbacks.append(callback)
+
+    def do_delete_callback(self):
+        for callback in self._delete_callbacks:
+            callback()
 
     def list_data_1_options(self):
         return {'ON': 0xFF,
@@ -546,6 +572,10 @@ class Root(Common):
                 self._groups[group_num] = group_class(self, attributes=attributes)
         elif type(self.get_object_by_group_num(group_num)) is not group_class:
             self._promote_group(group_num, group_class, attributes)
+        # What happens if we send hass groups it may already know about?
+        self.core.do_group_callback({'device': self.dev_addr_str,
+                                     'group_number': group_num
+                                    })
 
     def _promote_group(self, group_num, group_class, attributes):
         attributes.update(self.get_object_by_group_num(group_num).get_attributes())

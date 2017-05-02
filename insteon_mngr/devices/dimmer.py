@@ -52,6 +52,16 @@ class DimmerGroup(Group):
                 '000.2 sec': 0x1e, '000.1 sec': 0x1f
         }
 
+    def _state_commands(self):
+        ret = super()._state_commands()
+        dimmer = {}
+        for i in range(0, 256):
+            msg = self.device.create_message('on')
+            msg.insert_bytes_into_raw({'on_level': i})
+            dimmer[str(i)] = msg
+        ret.update(dimmer)
+        return ret
+
     def get_features(self):
         '''Returns the intrinsic parameters of a device, these are not user
         editable so are not saved in the config.json file'''

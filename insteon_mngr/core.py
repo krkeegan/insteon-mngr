@@ -9,6 +9,8 @@ import pkg_resources
 from insteon_mngr.plm import PLM
 from insteon_mngr.hub import Hub
 from insteon_mngr.config_server import start, stop
+from insteon_mngr.base_objects import Group
+from insteon_mngr.devices import DimmerGroup
 
 
 class Insteon_Core(object):
@@ -24,8 +26,10 @@ class Insteon_Core(object):
         else:
             self._config_path = os.path.join(config_path, 'config.json')
         self._modems = []
+        self._group_callbacks = []
         self._last_saved_time = 0
         self._load_state()
+        self._exit = False
         threading.Thread(target=self._core_loop).start()
         # Be sure to save before exiting
         atexit.register(self._save_state, True)
@@ -88,7 +92,7 @@ class Insteon_Core(object):
 
     def _core_loop(self):
         server = start(self)
-        while threading.main_thread().is_alive():
+        while threading.main_thread().is_alive() and self._exit is False:
             self._loop_once()
             time.sleep(.05)
         stop(server)
@@ -151,6 +155,12 @@ class Insteon_Core(object):
                 elif modem_data['type'] == 'hub':
                     self.add_hub(attributes=modem_data, device_id=modem_id)
 
+    def do_group_callback(self, group):
+        '''Causes the group callback to be called. Likely should only be done,
+        by the group object.'''
+        for callback in self._group_callbacks:
+            callback(group)
+
     # TODO not sure these should be methods, perhaps better as functions
 
     def get_device_category(self, cat):
@@ -179,6 +189,26 @@ class Insteon_Core(object):
     # User Accessible functions
     #
     ###################################################################
+
+    def get_switches(self):
+        '''This is likely a temporary function while I test home assistant'''
+        switches = []
+        for modem in self.get_all_modems():
+            for device in modem.get_all_devices():
+                for group in device.get_all_groups():
+                    if type(group) is Group:
+                        switches.append(group)
+        return switches
+
+    def get_lights(self):
+        '''This is likely a temporary function while I test home assistant'''
+        switches = []
+        for modem in self.get_all_modems():
+            for device in modem.get_all_devices():
+                for group in device.get_all_groups():
+                    if type(group) is DimmerGroup:
+                        switches.append(group)
+        return switches
 
     def get_linked_devices(self):
         '''Returns a dictionary of all devices defined in the core.'''
@@ -276,3 +306,13 @@ class Insteon_Core(object):
         for plm in self._modems:
             ret.append(plm)
         return ret
+
+    def close(self, *kwargs):
+        '''Shutdown the core loop thread.'''
+        self._exit = True
+        self._save_state
+
+    def add_group_callback(self, callback):
+        '''Registers a function to be called when a group is added to any
+        device.'''
+        self._group_callbacks.append(callback)

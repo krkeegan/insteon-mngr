@@ -338,7 +338,7 @@ class GenericRcvdHandler(object):
         if cmd_byte == 0X11:
             self._device.base_group.set_cached_state(0xFF)
         elif cmd_byte == 0x13:
-            self._device.base_group.state.set_cached_state(0x00)
+            self._device.base_group.set_cached_state(0x00)
 
     def _shared_updated_state(self, group, is_on, msg):
         obj = self._device.get_object_by_group_num(group)
