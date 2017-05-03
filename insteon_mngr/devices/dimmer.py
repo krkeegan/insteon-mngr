@@ -30,6 +30,11 @@ class DimmerSendHandler(GenericSendHandler):
 
 
 class DimmerGroup(Group):
+
+    def __init__(self, device, **kwargs):
+        super().__init__(device, **kwargs)
+        self._type = 'dimmer'
+
     def list_data_1_options(self):
         ret = {}
         for value in range(0x00, 0xFF+1):
@@ -51,6 +56,16 @@ class DimmerGroup(Group):
                 '002 sec': 0x1b, '000.5 sec': 0x1c, '000.3 sec': 0x1d,
                 '000.2 sec': 0x1e, '000.1 sec': 0x1f
         }
+
+    def _state_commands(self):
+        ret = super()._state_commands()
+        dimmer = {}
+        for i in range(0, 256):
+            msg = self.device.create_message('on')
+            msg.insert_bytes_into_raw({'on_level': i})
+            dimmer[str(i)] = msg
+        ret.update(dimmer)
+        return ret
 
     def get_features(self):
         '''Returns the intrinsic parameters of a device, these are not user

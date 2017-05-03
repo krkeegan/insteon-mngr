@@ -14,7 +14,7 @@
   "0C": { "type": "communication", "name": "Communication" },
   "0D": { "type": "computer",      "name": "Computer Control" },
   "0E": { "type": "window",        "name": "Window Coverings" },
-  "0F": { "type": "sccess",        "name": "Access Control" },
+  "0F": { "type": "access",        "name": "Access Control" },
   "10": { "type": "security",      "name": "Secrity, Health, Safety" },
   "11": { "type": "survelliance",  "name": "Survelliance" },
   "12": { "type": "automotive",    "name": "Automotive" },

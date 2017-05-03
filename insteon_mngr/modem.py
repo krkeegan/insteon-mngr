@@ -120,6 +120,9 @@ class Modem(Root):
         '''Removes a device from the Modems list of devices'''
         device_id = device_id.upper()
         if device_id in self._devices:
+            device = self.core.get_device_by_addr(device_id)
+            for group in device.get_all_groups():
+                group.do_delete_callback()
             del self._devices[device_id]
 
     def port(self):
