@@ -44,14 +44,13 @@ class ALDB(object):
     def get_matching_records(self, attributes):
         '''Returns an array of records that matches ALL attributes'''
         ret = []
-        for position in self.aldb:
-            record = self.aldb[position]
+        for record in self.aldb.values():
             parsed_record = record.parse_record()
-            ret.append(record)
             for attribute, value in attributes.items():
                 if parsed_record[attribute] != value:
-                    ret.remove(record)
                     break
+            else:
+                ret.append(record)
         return ret
 
     def print_records(self):
