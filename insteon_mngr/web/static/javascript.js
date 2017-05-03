@@ -539,6 +539,7 @@ function updateModemPage (data) {
     }
   }
   if ($('tbody#modemDevices').length) {
+    $('tbody#modemDevices').html('')
     for (var deviceAddress in data[modemAddress]['devices']) {
       var baseGroup = data[modemAddress]['devices'][deviceAddress]['base_group_number']
       $('tbody#modemDevices').append(`
@@ -617,7 +618,7 @@ function updateDeviceGroupPage (data) {
         method: 'DELETE',
         contentType: 'application/json; charset=utf-8',
         dataType: 'json',
-        success: null   // TODO something needs to happen here
+        success: navigateToModem
       })
     })
   }
@@ -634,6 +635,11 @@ function updateDeviceGroupPage (data) {
       `)
     }
   }
+}
+
+function navigateToModem (data, status, xhr) {
+  var modemAddress = getModemAddress()
+  window.location.replace('/modems/' + modemAddress)
 }
 
 function createFormElement (label, id, type, value, readOnly) {

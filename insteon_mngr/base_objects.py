@@ -579,9 +579,7 @@ class Root(Common):
                 self._groups[group_num] = group_class(self, attributes=attributes)
         elif type(self.get_object_by_group_num(group_num)) is not group_class:
             self._promote_group(group_num, group_class, attributes)
-        self.core.do_group_callback({'device': self.dev_addr_str,
-                                     'group_number': group_num
-                                    })
+        self.core.do_group_callback(self.get_object_by_group_num(group_num))
 
     def _promote_group(self, group_num, group_class, attributes):
         attributes.update(self.get_object_by_group_num(group_num).get_attributes())
