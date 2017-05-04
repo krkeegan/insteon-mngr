@@ -54,10 +54,12 @@ class ALDB(object):
                     break
         return ret
 
-    def print_records(self):
+    def __str__(self):
+        ret = ''
         records = self.get_all_records()
         for key in sorted(records):
-            print(key, ":", BYTE_TO_HEX(records[key]))
+            ret = ret + key + " : " + BYTE_TO_HEX(records[key]) + "\n"
+        return ret
 
     def get_first_empty_addr(self):
         records = self.get_all_records()

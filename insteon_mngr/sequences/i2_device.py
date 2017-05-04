@@ -33,7 +33,7 @@ class ScanDeviceALDBi2(BaseSequence):
         aldb_key = self._device.aldb.get_aldb_key(msb, lsb)
         if self._device.aldb.get_record(aldb_key).is_last_aldb():
             self._device.remove_state_machine('query_aldb')
-            self._device.aldb.print_records()
+            print(self._device.aldb)
             aldb_sequence = SetALDBDelta(group=self._device.base_group)
             aldb_sequence.success_callback = lambda: self.on_success()
             aldb_sequence.failure_callback = lambda: self.on_failure()
