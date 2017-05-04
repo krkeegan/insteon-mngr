@@ -17,7 +17,7 @@ class Modem_ALDB(ALDB):
 
     def add_record(self, aldb):
         position = self._get_next_position()
-        record = self.get_record(position)
+        record = self[position]
         record.raw = aldb
         parsed_record = record.parse_record()
         # TODO if this is a PLM controller record, we may also know the
@@ -33,8 +33,7 @@ class Modem_ALDB(ALDB):
 
     def _get_next_position(self):
         position = 0
-        records = self.get_all_records()
-        for key in records.keys():
+        for key in self.keys():
             if int(key) > position:
                 position = int(key)
         position += 1

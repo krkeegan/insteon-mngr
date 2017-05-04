@@ -30,7 +30,7 @@ class ScanDeviceALDBi1(BaseSequence):
             insteon_cmd='set_address_msb')
         msb = msb_msg.get_byte_by_name('cmd_2')
         aldb_key = self._device.aldb.get_aldb_key(msb, lsb)
-        if self._device.aldb.get_record(aldb_key).is_last_aldb():
+        if self._device.aldb[aldb_key].is_last_aldb():
             print(self._device.aldb)
             self._device.remove_state_machine('query_aldb')
             aldb_sequence = SetALDBDelta(group=self._device.base_group)
@@ -78,13 +78,12 @@ class WriteALDBRecordi1(WriteALDBRecord):
         self._group.device.queue_device_msg(message)
 
     def _send_peek_request(self, lsb):
-        records = self._group.device.aldb.get_all_records()
         aldb_key = self._group.device.aldb.get_aldb_key(self.address[0], self.address[1])
         # This skips bytes that don't need to be written
-        if aldb_key in records:
-            record = self._group.device.aldb.get_record(
+        if aldb_key in self._group.device.aldb.keys():
+            record = self._group.device.aldb[
                 self._group.device.aldb.get_aldb_key(self.address[0], self.address[1])
-            )
+            ]
             record_parsed = record.parse_record()
             while((lsb % 8 < 7) and
                   self._addr_byte_by_lsb(lsb) ==
@@ -147,12 +146,12 @@ class WriteALDBRecordi1(WriteALDBRecord):
             self._compiled_record()['data_2'],
             self._compiled_record()['data_3']
         ])
-        record = self._group.device.aldb.get_record(
+        record = self._group.device.aldb[
             self._group.device.aldb.get_aldb_key(
                 self.address[0],
                 self.address[1]
             )
-        )
+        ]
         record.edit_record(aldb_entry)
         aldb_sequence = SetALDBDelta(group=self._group.device.base_group)
         aldb_sequence.success_callback = lambda: self.on_success()

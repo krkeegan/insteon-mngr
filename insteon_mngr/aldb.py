@@ -2,7 +2,7 @@
 from insteon_mngr import BYTE_TO_HEX, BYTE_TO_ID
 
 
-class ALDB(object):
+class ALDB(dict):
     '''The base ALDB class which is inherited by both the Device and PLM
     ALDB classes'''
     def __init__(self, device):
@@ -10,23 +10,13 @@ class ALDB(object):
         self.aldb = {}
 
     @property
-    def core(self):
-        return self._device.core
-
-    @property
     def device(self):
         return self._device
 
-    def get_record(self, position):
-        if position not in self.aldb:
-            self.aldb[position] = ALDBRecord(self)
-        return self.aldb[position]
-
-    def get_all_records(self):
-        ret = {}
-        for key, record in self.aldb.items():
-            ret[key] = record.raw
-        return ret
+    def __getitem__(self, key):
+        if key not in self:
+            self[key] = ALDBRecord(self)
+        return self[key]
 
     def get_all_records_str(self):
         ret = {}
@@ -56,16 +46,14 @@ class ALDB(object):
 
     def __str__(self):
         ret = ''
-        records = self.get_all_records()
-        for key in sorted(records):
-            ret = ret + key + " : " + BYTE_TO_HEX(records[key]) + "\n"
+        for key in sorted(self):
+            ret = ret + key + " : " + BYTE_TO_HEX(self[key]) + "\n"
         return ret
 
     def get_first_empty_addr(self):
-        records = self.get_all_records()
         ret = None
         lowest = None
-        for key in sorted(records, reverse=True):
+        for key in sorted(self, reverse=True):
             lowest = key
             if self.aldb[key].is_empty_aldb():
                 ret = key
@@ -218,7 +206,7 @@ class ALDBRecord(object):
         linked_root = self.linked_device
         parsed = self.parse_record()
         controller = True
-        records = []
+        ret = []
         if parsed['controller']:
             controller = False
         if linked_root is not None:
@@ -230,11 +218,23 @@ class ALDBRecord(object):
                 'dev_addr_low': self._database.device.dev_addr_low,
                 'in_use': True
             }
-            records = linked_root.aldb.get_matching_records(search)
-        return records
+            for record in linked_root.aldb:
+                if record.matches(search):
+                    ret.append(record)
+        return ret
 
     def edit_record(self, record):
         self.raw = record
 
     def edit_record_byte(self, byte_pos, byte):
         self.raw[byte_pos] = byte
+
+    def matches(self, attributes):
+        '''Returns true if passed attributes match ALL of record'''
+        ret = True
+        parsed_record = self.parse_record()
+        for attribute, value in attributes.items():
+            if parsed_record[attribute] != value:
+                ret = False
+                break
+        return ret

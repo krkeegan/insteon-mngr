@@ -31,7 +31,7 @@ class ScanDeviceALDBi2(BaseSequence):
         msb = self._device.last_rcvd_msg.get_byte_by_name('usr_3')
         lsb = self._device.last_rcvd_msg.get_byte_by_name('usr_4')
         aldb_key = self._device.aldb.get_aldb_key(msb, lsb)
-        if self._device.aldb.get_record(aldb_key).is_last_aldb():
+        if self._device.aldb[aldb_key].is_last_aldb():
             self._device.remove_state_machine('query_aldb')
             print(self._device.aldb)
             aldb_sequence = SetALDBDelta(group=self._device.base_group)
@@ -85,12 +85,12 @@ class WriteALDBRecordi2(WriteALDBRecord):
             self._compiled_record()['data_2'],
             self._compiled_record()['data_3']
         ])
-        record = self._group.device.aldb.get_record(
+        record = self._group.device.aldb[
             self._group.device.aldb.get_aldb_key(
                 self.address[0],
                 self.address[1]
             )
-        )
+        ]
         record.edit_record(aldb_entry)
         aldb_sequence = SetALDBDelta(group=self._group.device.base_group)
         aldb_sequence.success_callback = lambda: self.on_success()

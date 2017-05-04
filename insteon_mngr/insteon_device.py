@@ -47,7 +47,7 @@ class Device_ALDB(ALDB):
         return ret
 
     def store_peeked_byte(self, msb, lsb, byte):
-        record = self.get_record(self.get_aldb_key(msb, lsb))
+        record = self[self.get_aldb_key(msb, lsb)]
         record.edit_record_byte(
             lsb % 8,
             byte

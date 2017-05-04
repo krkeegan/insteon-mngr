@@ -104,9 +104,7 @@ class ModemRcvdHandler(object):
         for link in self._device.core.get_user_links_for_this_controller_device(self._device).values():
             if link._adoptable_controller_key() is not None:
                 link.set_controller_key(link._adoptable_controller_key())
-        records = self._device.aldb.get_all_records()
-        for key in sorted(records):
-            print(key, ":", BYTE_TO_HEX(records[key]))
+        print(self._device.aldb)
 
     def _rcvd_all_link_complete(self, msg):
         if msg.get_byte_by_name('link_code') == 0xFF:

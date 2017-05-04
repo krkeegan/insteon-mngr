@@ -219,7 +219,7 @@ class UserLink(object):
     def _is_responder_correct(self):
         ret = False
         if (self._responder_key is not None):
-            responder = self._device.aldb.get_record(self._responder_key).parse_record()
+            responder = self._device.aldb[self._responder_key].parse_record()
             if (responder['in_use'] == True and
                     responder['responder'] == True and
                     responder['group'] == self._group_number and
@@ -236,7 +236,7 @@ class UserLink(object):
     def _is_controller_correct(self):
         ret = False
         if (self._controller_key is not None):
-            controller = self.controller_device.root.aldb.get_record(self._controller_key).parse_record()
+            controller = self.controller_device.root.aldb[self._controller_key].parse_record()
             if (controller['in_use'] == True and
                     controller['controller'] == True and
                     controller['group'] == self._group_number and

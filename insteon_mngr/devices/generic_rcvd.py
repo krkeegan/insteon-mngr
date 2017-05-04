@@ -271,12 +271,12 @@ class GenericRcvdHandler(object):
                     msg.get_byte_by_name('usr_12'),
                     msg.get_byte_by_name('usr_13')
                 ])
-                record = self._device.aldb.get_record(
+                record = self._device.aldb[
                     self._device.aldb.get_aldb_key(
                         msg_msb,
                         msg_lsb
                     )
-                )
+                ]
                 record.edit_record(aldb_entry)
                 self._device.last_sent_msg.insteon_msg.device_ack = True
         else:

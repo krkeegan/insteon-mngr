@@ -112,7 +112,7 @@ def delete_defined_device_link(device_id, group_number, uid):
 @delete('/modems/<:re:[A-Fa-f0-9]{6}>/devices/<device_id:re:[A-Fa-f0-9]{6}>/groups/<group_number:re:[0-9]{1,3}>/links/unknownLinks/<key:re:[A-Fa-f0-9]{4}>.json')
 def delete_unknown_link(device_id, group_number, key):
     device_root = core.get_device_by_addr(device_id)
-    aldb_record = device_root.aldb.get_record(key)
+    aldb_record = device_root.aldb[key]
     aldb_record.delete()
     response.headers['Content-Type'] = 'application/json'
     return jsonify(json_links(device_id, int(group_number)))
@@ -129,14 +129,14 @@ def delete_undefined_device_link(device_id, group_number, responder_id,
         controller_device = core.get_device_by_addr(device_id)
         delete_sequence.set_controller_device_with_key(controller_device,
                                                        controller_key)
-        link = controller_device.aldb.get_record(controller_key)
+        link = controller_device.aldb[controller_key]
         link.link_sequence = delete_sequence
         delete_sequence.start()
     if responder_key != '----':
         responder_device = core.get_device_by_addr(responder_id)
         delete_sequence.set_responder_device_with_key(responder_device,
                                                       responder_key)
-        link = responder_device.aldb.get_record(responder_key)
+        link = responder_device.aldb[responder_key]
         link.link_sequence = delete_sequence
         delete_sequence.start()
     response.headers['Content-Type'] = 'application/json'

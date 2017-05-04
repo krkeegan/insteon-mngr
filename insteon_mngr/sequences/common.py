@@ -250,7 +250,7 @@ class WriteALDBRecord(BaseSequence):
     def _perform_write(self):
         if self.key is None:
             self.key = self._group.device.aldb.get_first_empty_addr()
-        record = self._group.device.aldb.get_record(self.key)
+        record = self._group.device.aldb[self.key]
         record.link_sequence = self
 
 

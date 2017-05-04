@@ -45,7 +45,7 @@ class WriteALDBRecordModem(WriteALDBRecord):
         del ret['msb']
         del ret['lsb']
         if not self.in_use:
-            record = self._group.device.aldb.get_record(self.key)
+            record = self._group.device.aldb[self.key]
             record_parsed = record.parse_record()
             ret['link_flags'] = record_parsed['link_flags']
             ret['group'] = record_parsed['group']
@@ -78,7 +78,7 @@ class WriteALDBRecordModem(WriteALDBRecord):
         ])
         if self.in_use is False:
             aldb_entry = bytearray(8)
-        record = self._group.device.aldb.get_record(self.key)
+        record = self._group.device.aldb[self.key]
         record.edit_record(aldb_entry)
         self.on_success()
 
