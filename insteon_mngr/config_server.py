@@ -238,109 +238,22 @@ def json_links(device_id, group_number):
     ret = {}
     controller_device = core.get_device_by_addr(device_id)
     controller_group = controller_device.get_object_by_group_num(group_number)
+    links = controller_group.get_relevant_links()
     ret['definedLinks'] = _user_link_output(controller_group)
-    ret['undefinedLinks'] = _undefined_link_output(controller_group)
-    ret['unknownLinks'] = _unknown_link_output(controller_group)
-    return ret
-
-def _unknown_link_output(device):
-    ret = {}
-    for link in device.get_unknown_device_links():
-        link_parsed = link.parse_record()
-        link_addr = BYTE_TO_ID(link_parsed['dev_addr_hi'],
-                               link_parsed['dev_addr_mid'],
-                               link_parsed['dev_addr_low'])
-        status = None
-        if link.link_sequence is not None:
-            if link.link_sequence.is_complete is False:
-                status = 'Working'
-            elif link.link_sequence.is_success is False:
-                status = 'Failed'
-        ret[link.key] = {'device': link_addr,
-                         'status': status}
-    return ret
-
-def _undefined_link_output(controller_group):
-    # Three classes of undefined links can exist
-    # TODO need to add status items to this
-    ret = {}
-    for link in controller_group.get_undefined_links():
-        link_parsed = link.parse_record()
-        link_addr = BYTE_TO_ID(link_parsed['dev_addr_hi'],
-                               link_parsed['dev_addr_mid'],
-                               link_parsed['dev_addr_low'])
-        if link_parsed['controller'] is True:
-            responder_records = link.get_reciprocal_records()
-            for responder in responder_records:
-                responder_parsed = responder.parse_record()
-                # Class 1 - controller with reciproal responders links
-                responder_group = responder.device.get_object_by_group_num(
-                    responder_parsed['data_3'])
-                # TODO this will cause an error if the group doesn't exist
-                ret[link_addr + responder.key + link.key] = {
-                    'responder_id': link_addr,
-                    'responder_name': responder_group.name,
-                    'data_1': responder_parsed['data_1'],
-                    'data_2': responder_parsed['data_2'],
-                    'data_3': responder_parsed['data_3'],
-                    'responder_key': responder.key,
-                    'controller_key': link.key
-                }
-            if len(responder_records) == 0:
-                # Class 2 - controller with no responder links
-                responder_device = core.get_device_by_addr(link_addr)
-                responder_group = responder_device.get_object_by_group_num(
-                    responder_device.base_group_number
-                )
-                ret[link_addr + '----' + link.key] = {
-                    'responder_id': link_addr,
-                    'responder_name': responder_group.name,
-                    'data_1': 0x00,
-                    'data_2': 0x00,
-                    'data_3': 0x00,
-                    'responder_key': None,
-                    'controller_key': link.key
-                }
-        else:
-            # Class 3 - responder links with no controller link on this device
-            responder_device = core.get_device_by_addr(link_addr)
-            responder_group = responder_device.get_object_by_group_num(
-                link_parsed['data_3']
-            )
-            ret[link.device.dev_addr_str + link.key + '----'] = {
-                'responder_id': link.device.dev_addr_str,
-                'responder_name': responder_group.name,
-                'data_1': link_parsed['data_1'],
-                'data_2': link_parsed['data_2'],
-                'data_3': link_parsed['data_3'],
-                'responder_key': link.key,
-                'controller_key': None
-            }
+    ret['undefinedLinks'] = {}
+    ret['unknownLinks'] = {}
+    for link in links:
+        if link.status() == 'undefined':
+            ret['undefinedLinks'].update(link.json())
+        elif link.status() == 'unknown':
+            ret['unknownLinks'].update(link.json())
     return ret
 
 def _user_link_output(controller_group):
     ret = {}
     user_links = core.get_user_links_for_this_controller(controller_group)
     for link in user_links.values():
-        status = 'Broken'
-        if link.are_aldb_records_correct() is True:
-            status = 'Good'
-        elif link.link_sequence is not None:
-            if link.link_sequence.is_complete is False:
-                status = 'Working'
-            elif link.link_sequence.is_success is False:
-                status = 'Failed'
-        ret[link.uid] = {
-            'responder_id': link.responder_device.dev_addr_str,
-            'responder_name': link.responder_group.name,
-            'responder_group': link.data_3,
-            'responder_key': link.responder_key,
-            'controller_key': link.controller_key,
-            'data_1': link.data_1,
-            'data_2': link.data_2,
-            'data_3': link.data_3,
-            'status': status
-        }
+        ret.update(link.json())
     return ret
 
 ###################################################################
