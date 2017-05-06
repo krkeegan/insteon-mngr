@@ -294,6 +294,8 @@ class ALDBRecord(object):
 
     def json(self):
         '''Returns a dict to be used as a json reprentation of the link'''
+        records = self.get_reciprocal_records()
+        parsed_record = self.parse_record()
         ret = {'responder_key': None,
                'controller_key': None,
                'responder_id': None,
@@ -302,14 +304,17 @@ class ALDBRecord(object):
                'data_1': None,
                'data_2': None,
                'data_3': None,
-               'status': self.status()}
-        records = self.get_reciprocal_records()
-        parsed_record = self.parse_record()
+               'status': self.status(),
+               'controller_raw': None,
+               'responder_raw': None,
+               'controller_group': parsed_record['group']}
         if self.is_controller():
             ret['responder_id'] = self.get_linked_device_str()
             ret['controller_key'] = self.key
+            ret['controller_raw'] = BYTE_TO_HEX(self.raw)
             if len(records) > 0:
                 ret['responder_key'] = records[0].key
+                ret['responder_raw'] = BYTE_TO_HEX(records[0].raw)                 
                 parsed_record2 = records[0].parse_record()
                 ret['data_1'] = parsed_record2['data_1']
                 ret['data_2'] = parsed_record2['data_2']
@@ -323,8 +328,10 @@ class ALDBRecord(object):
             ret['data_1'] = parsed_record['data_1']
             ret['data_2'] = parsed_record['data_2']
             ret['data_3'] = parsed_record['data_3']
+            ret['responder_raw'] = BYTE_TO_HEX(self.raw)
             if len(records) > 0:
                 ret['controller_key'] = records[0].key
+                ret['controller_raw'] = BYTE_TO_HEX(records[0].raw)
             if self.group_obj is not None:
                 ret['responder_name'] = self.group_obj.name
                 ret['responder_group'] = self.group_obj.group_number
