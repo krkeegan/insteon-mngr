@@ -242,7 +242,10 @@ def json_links(device_id, group_number):
     ret['definedLinks'] = _user_link_output(controller_group)
     ret['undefinedLinks'] = {}
     ret['unknownLinks'] = {}
-    ret['bad_links'] = _bad_links_output(controller_device)
+    ret['bad_links'] = {}
+    if controller_group.group_number == controller_device.base_group_number:
+        for link in controller_device.get_bad_links():
+            ret['bad_links'].update(link.json())
     for link in links:
         if link.status() == 'undefined':
             ret['undefinedLinks'].update(link.json())

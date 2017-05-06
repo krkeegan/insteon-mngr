@@ -434,61 +434,13 @@ class Root(Common):
         return ret
 
     def get_bad_links(self):
-        result = []
-        result.extend(self._bad_controller())
-        result.extend(self._bad_responder())
-        result.extend(self._bad_unknown())
+        '''Returns an array of all bad links on the device'''
+        links = self.aldb.get_matching_records({})
         ret = []
-        for link in result:
-            if link not in ret:
+        for link in links:
+            if (link.status() == 'bad_group' or
+                    link.status() == 'bad_linked_group'):
                 ret.append(link)
-        return ret
-
-    def _bad_controller(self):
-        # Controller link on this device is associated with an unkown group
-        # Any or no type of responder on other device
-        ret = []
-        attributes = {
-            'in_use': True,
-            'controller': True
-        }
-        records = self.aldb.get_matching_records(attributes)
-        for aldb_record in records:
-            if aldb_record.parse_record()['group'] not in self._groups:
-                ret.append(aldb_record)
-        return ret
-
-    def _bad_responder(self):
-        # No Controller link on this device
-        # Responder link on another device to an unkown group on this device
-        ret = []
-        attributes = {
-            'in_use': True,
-            'responder': True,
-            'dev_addr_hi': self.dev_addr_hi,
-            'dev_addr_mid': self.dev_addr_mid,
-            'dev_addr_low': self.dev_addr_low
-        }
-        records = self.core.get_matching_aldb_records(attributes)
-        for aldb_record in records:
-            if aldb_record.parse_record()['group'] not in self._groups:
-                ret.append(aldb_record)
-        return ret
-
-    def _bad_unknown(self):
-        # Responder link on this device is associated with an unknown group
-        # Controller is unknown
-        ret = []
-        attributes = {
-            'in_use': True,
-            'responder': True,
-        }
-        records = self.aldb.get_matching_records(attributes)
-        for aldb_record in records:
-            if aldb_record.linked_device is None:
-                # If the linked device exists, then this record will show up
-                # as an unknown device on the linked device's page
-                ret.append(aldb_record)
         return ret
 
     ##################################
