@@ -140,7 +140,7 @@ function generateLinkRow (data) {
       </td>
     </tr>
   `)
-  if ('data_1' in data) {
+  if (!('empty' in data) && data['data_1'] !== null) {
     var linkDetails = getDeviceLinkDetails(
       data['responder_id'],
       data['data_3']
@@ -150,10 +150,14 @@ function generateLinkRow (data) {
                                           linkDetails['data_1']))
     ret.find('.linkRowData2').append(generateDataSelect(data['data_2'],
                                           linkDetails['data_2']))
-  } else if ('device' in data) {
+  } else if (data['data_1'] === null) {
+    var device = data['responder_id']
+    if (device === null) {
+      device = data['controller_id']
+    }
     ret.find('th').find('label').after(`
-      ${data['device']}
-      <input type='hidden' id='newDeviceAddress' value='${data['device']}'>
+      ${device}
+      <input type='hidden' id='newDeviceAddress' value='${device}'>
     `)
   } else if ('empty' in data) {
     var responders = getResponderList()

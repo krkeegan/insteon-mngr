@@ -169,6 +169,21 @@ class ALDBRecord(object):
         device = self._core.get_device_by_addr(BYTE_TO_ID(high, mid, low))
         return device
 
+    @property
+    def linked_group(self):
+        '''Returns the reciprocal group linked to this entry.'''
+        device = self.linked_device
+        group = None
+        if device is not None:
+            if self.is_controller():
+                records = self.get_reciprocal_records()
+                if len(records) > 0:
+                    group = records[0].group_obj
+            else:
+                parsed_record = self.parse_record()
+                group = device.get_object_by_group_num(parsed_record['group'])
+        return group
+
     def is_last_aldb(self):
         ret = True
         if self.raw[0] & 0b00000010:
@@ -188,6 +203,8 @@ class ALDBRecord(object):
         return ret
 
     def is_a_defined_link(self):
+        '''Returns True if link key of this link is associated with a defined
+        user_link'''
         ret = False
         if self.is_controller():
             user_links = self._core.get_user_links_for_this_controller(self.group_obj)
@@ -201,6 +218,45 @@ class ALDBRecord(object):
                 if user_link.responder_key == self.key:
                     ret = True
                     break
+        return ret
+
+    def get_defined_link(self):
+        '''Returns the user link associated with the link key or None if doesnt
+        exist'''
+        ret = None
+        if self.is_controller():
+            user_links = self._core.get_user_links_for_this_controller(self.group_obj)
+            for user_link in user_links.values():
+                if user_link.controller_key == self.key:
+                    ret = user_link
+                    break
+        else:
+            user_links = self.device.root.get_all_user_links()
+            for user_link in user_links.values():
+                if user_link.responder_key == self.key:
+                    ret = user_link
+                    break
+        return ret
+
+    def status(self):
+        '''Returns the status of the link as a string'''
+        ret = ''
+        user_link = self.get_defined_link()
+        if self.is_empty_aldb():
+            ret = 'emtpy'
+        elif user_link is not None:
+            if user_link.are_aldb_records_correct():
+                ret = 'good'
+            else:
+                ret = 'broken'
+        elif self.linked_device is None:
+            ret = 'unknown'
+        elif self.group_obj is None:
+            ret = 'bad_group'
+        elif self.linked_group is None:
+            ret = 'bad_linked_group'
+        else:
+            ret = 'undefined'
         return ret
 
     def get_linked_device_str(self):
@@ -235,3 +291,49 @@ class ALDBRecord(object):
 
     def edit_record_byte(self, byte_pos, byte):
         self.raw[byte_pos] = byte
+
+    def json(self):
+        '''Returns a dict to be used as a json reprentation of the link'''
+        ret = {'responder_key': None,
+               'controller_key': None,
+               'responder_id': None,
+               'responder_name': None,
+               'responder_group': None,
+               'data_1': None,
+               'data_2': None,
+               'data_3': None,
+               'status': self.status()}
+        records = self.get_reciprocal_records()
+        parsed_record = self.parse_record()
+        if self.is_controller():
+            ret['responder_id'] = self.get_linked_device_str()
+            ret['controller_key'] = self.key
+            if len(records) > 0:
+                ret['responder_key'] = records[0].key
+                parsed_record2 = records[0].parse_record()
+                ret['data_1'] = parsed_record2['data_1']
+                ret['data_2'] = parsed_record2['data_2']
+                ret['data_3'] = parsed_record2['data_3']
+            if self.linked_group is not None:
+                ret['responder_name'] = self.linked_group.name
+                ret['responder_group'] = self.linked_group.group_number
+        else:
+            ret['responder_id'] = self.device.dev_addr_str
+            ret['responder_key'] = self.key
+            ret['data_1'] = parsed_record['data_1']
+            ret['data_2'] = parsed_record['data_2']
+            ret['data_3'] = parsed_record['data_3']
+            if len(records) > 0:
+                ret['controller_key'] = records[0].key
+            if self.group_obj is not None:
+                ret['responder_name'] = self.group_obj.name
+                ret['responder_group'] = self.group_obj.group_number
+
+        # Define the UID for the Link
+        rkey = '----'
+        ckey = '----'
+        if ret['responder_key'] is not None:
+            rkey = ret['responder_key']
+        if ret['controller_key'] is not None:
+            ckey = ret['controller_key']
+        return {ret['responder_id'] + rkey + ckey: ret}
