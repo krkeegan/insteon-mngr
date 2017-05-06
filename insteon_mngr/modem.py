@@ -173,28 +173,6 @@ class Modem(Root):
     #
     ##############################################################
 
-    def get_unknown_device_links(self):
-        '''Returns all links on the device which do not associated with a
-        known device.  For Modems, responder links only appear under
-        Group 1 since no group is actually controllable'''
-        ret = []
-        attributes = {
-            'controller': True,
-            'group': self.base_group
-        }
-        aldb_controller_links = self.aldb.get_matching_records(attributes)
-        for aldb_link in aldb_controller_links:
-            if aldb_link.linked_device is None:
-                ret.append(aldb_link)
-        attributes = {
-            'responder': True
-        }
-        aldb_responder_links = self.aldb.get_matching_records(attributes)
-        for aldb_link in aldb_responder_links:
-            if aldb_link.linked_device is None:
-                ret.append(aldb_link)
-        return ret
-
     def process_input(self):
         '''Called by the core loop. Reads available bytes from PLM, then parses
         the bytes into a message.  Do not call directly.'''
@@ -421,29 +399,6 @@ class Modem(Root):
 class ModemGroup(Group):
     def __init__(self, root, **kwargs):
         super().__init__(root, **kwargs)
-
-    def get_unknown_device_links(self):
-        '''Returns all links on the device which do not associated with a
-        known device.  For Modems, responder links only appear under
-        Group 1 since no group is actually controllable'''
-        ret = []
-        attributes = {
-            'controller': True,
-            'group': self.group_number
-        }
-        aldb_controller_links = self.device.aldb.get_matching_records(attributes)
-        for aldb_link in aldb_controller_links:
-            if aldb_link.linked_device is None:
-                ret.append(aldb_link)
-        if self.group_number == 0x01:
-            attributes = {
-                'responder': True
-            }
-            aldb_responder_links = self.device.aldb.get_matching_records(attributes)
-            for aldb_link in aldb_responder_links:
-                if aldb_link.linked_device is None:
-                    ret.append(aldb_link)
-        return ret
 
     def create_controller_link_sequence(self, user_link):
         '''Creates a controller link sequence based on a passed user_link,

@@ -115,71 +115,38 @@ class Group(Common):
     def name(self, value):
         return self.attribute('name', value)
 
-    def _get_undefined_responder(self):
+    def get_relevant_links(self):
+        '''Returns an array of links consisting of all controller links on this
+        device that are not associated with a user_link, plus responder links
+        on this device that are associated with an unknown device, plus any
+        responder links on other devices which link to this device but lack a
+        reciprocal controller link on this device and are not associatd with a
+        user_link.
+
+        Used to display the link status on the web interface.'''
         ret = []
         attributes = {
             'in_use': True,
-            'responder': True,
+            'group': self.group_number
+        }
+        for link in self.device.aldb.get_matching_records(attributes):
+            if link.status() == 'good' or link.status() == 'broken':
+                continue
+            if link.status() == 'unknown' or link.is_controller():
+                ret.append(link)
+        attributes = {
+            'in_use': True,
             'group': self.group_number,
+            'responder': True,
             'dev_addr_hi': self.device.dev_addr_hi,
             'dev_addr_mid': self.device.dev_addr_mid,
             'dev_addr_low': self.device.dev_addr_low
         }
-        aldb_responder_links = self.device.core.get_matching_aldb_records(attributes)
-        for aldb_link in aldb_responder_links:
-            if (len(aldb_link.get_reciprocal_records()) == 0 and
-                    aldb_link.is_a_defined_link() is False):
-                # A responder link exists on the device, this will be listed
-                # in the undefined controller function already
-                ret.append(aldb_link)
-        return ret
-
-    def _get_undefined_controller(self):
-        ret = []
-        attributes = {
-            'in_use': True,
-            'controller': True,
-            'group': self.group_number
-        }
-        aldb_controller_links = self.device.aldb.get_matching_records(attributes)
-        for aldb_link in aldb_controller_links:
-            if (aldb_link.is_a_defined_link() is False and
-                    aldb_link.linked_device is not None and # Unknown Link
-                    aldb_link.linked_device is not self.device.plm # plm link
-               ):
-                ret.append(aldb_link)
-        return ret
-
-    def get_undefined_links(self):
-        ret = []
-        # 1 Undefined Controllers on This Device
-        ret.extend(self._get_undefined_controller())
-        # 2 Orphaned Undefined Responders on Other Devices
-        ret.extend(self._get_undefined_responder())
-        return ret
-
-    def get_unknown_device_links(self):
-        '''Returns all links on the device which do not associated with a
-        known device'''
-        ret = []
-        attributes = {
-            'in_use': True,
-            'controller': True,
-            'group': self.group_number
-        }
-        aldb_controller_links = self.device.aldb.get_matching_records(attributes)
-        for aldb_link in aldb_controller_links:
-            if aldb_link.linked_device is None:
-                ret.append(aldb_link)
-        attributes = {
-            'in_use': True,
-            'responder': True,
-            'data_3': self.group_number
-        }
-        aldb_responder_links = self.device.aldb.get_matching_records(attributes)
-        for aldb_link in aldb_responder_links:
-            if aldb_link.linked_device is None:
-                ret.append(aldb_link)
+        for link in self.device.core.get_matching_aldb_records(attributes):
+            if link.status() == 'good' or link.status() == 'broken':
+                continue
+            if len(link.get_reciprocal_records()) == 0:
+                ret.append(link)
         return ret
 
     def get_features_and_attributes(self):
@@ -198,8 +165,8 @@ class Group(Common):
             link_sequence.key = user_link.controller_key
         link_sequence.controller = True
         link_sequence.linked_group = user_link.responder_group
-        link_sequence.data1 = self.device.get_controller_data1(None)
-        link_sequence.data2 = self.device.get_controller_data2(None)
+        link_sequence.data1 = self.device.functions.get_controller_data1(None)
+        link_sequence.data2 = self.device.functions.get_controller_data2(None)
         return link_sequence
 
     def create_responder_link_sequence(self, user_link):

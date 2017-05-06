@@ -178,6 +178,34 @@ class UserLink(object):
         delete_sequence.start()
         self._link_sequence = delete_sequence
 
+    def status(self):
+        '''Returns a string representing the status of the user_link'''
+        status = 'Broken'
+        if self.are_aldb_records_correct() is True:
+            status = 'Good'
+        elif self.link_sequence is not None:
+            if self.link_sequence.is_complete is False:
+                status = 'Working'
+            elif self.link_sequence.is_success is False:
+                status = 'Failed'
+        return status
+
+    def json(self):
+        '''Returns a dict to be used as a json reprentation of the user_link'''
+        ret = {}
+        ret[self.uid] = {
+            'responder_id': self.responder_device.dev_addr_str,
+            'responder_name': self.responder_group.name,
+            'responder_group': self.data_3,
+            'responder_key': self.responder_key,
+            'controller_key': self.controller_key,
+            'data_1': self.data_1,
+            'data_2': self.data_2,
+            'data_3': self.data_3,
+            'status': self.status()
+        }
+        return ret
+
     def _adoptable_responder_key(self):
         '''Looks for an existing undefined aldb entry that matches this link
         and returns that key if found'''
