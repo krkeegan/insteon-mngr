@@ -306,9 +306,18 @@ class AddPLMtoDevice(BaseSequence):
         print('plm->device link created')
         self._device.plm.remove_state_machine('link plm->device')
         self._device.remove_state_machine('link plm->device')
+        # Now scan the device, and adopt the responder link from plm
+        self._device.send_handler.query_aldb(
+            success=self._add_plm_to_dev_link_step5,
+            failure=self._add_plm_to_dev_link_fail
+        )
+
+    def _add_plm_to_dev_link_step5(self):
+        self._device.adopt_modem_i2_link()
+        # This is necessary in order to resume the InitializeDevice sequence
+        # In most cases I suspect we want to confirm this anyways
+        self._device.send_handler.get_engine_version()
         self.on_success()
-        init_sequence = InitializeDevice(device=self._device)
-        init_sequence.start()
 
     def _add_plm_to_dev_link_fail(self):
         print('Error, unable to create plm->device link')
@@ -327,6 +336,7 @@ class InitializeDevice(BaseSequence):
 
     def start(self):
         if self._device.attribute('engine_version') is None:
+            # Trigger will only fire on an ack, not an i2cs nack
             trigger = InsteonTrigger(device=self._device,
                                      command_name='engine_version')
             trigger.trigger_function = lambda: self._init_step_2()
@@ -351,5 +361,5 @@ class InitializeDevice(BaseSequence):
             trigger.queue()
             self._device.send_handler.get_device_version()
         else:
-            # TODO is this needed self._group.device.update_device_classes()
+            # TODO this is really only necessary to check aldb delta
             self._device.send_handler.get_status()

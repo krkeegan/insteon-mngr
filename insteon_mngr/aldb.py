@@ -259,6 +259,26 @@ class ALDBRecord(object):
             ret = 'undefined'
         return ret
 
+    def _is_modem_notify_link(str):
+        # this is for device links, not sure how to handle modem links
+        # perhaps all responder links on modem if group exists
+        pass
+        # if is the group modem_link_key
+        # if record matches expected
+        # then modem_link_good
+        # else modem_link_bad
+
+
+    def _is_modem_link_i2_key(self):
+        # this is for device links, not sure how to handle modem links
+        # perhaps all controller links from a specific group on modem if
+        # device exists
+        pass
+        # if is the device modem_link_i2_key
+        # if record matches expected
+        # then modem_link_i2_good
+        # else modem_link_i2_bad
+
     def get_linked_device_str(self):
         parsed_record = self.parse_record()
         high = parsed_record['dev_addr_hi']
@@ -314,7 +334,7 @@ class ALDBRecord(object):
             ret['controller_raw'] = BYTE_TO_HEX(self.raw)
             if len(records) > 0:
                 ret['responder_key'] = records[0].key
-                ret['responder_raw'] = BYTE_TO_HEX(records[0].raw)                 
+                ret['responder_raw'] = BYTE_TO_HEX(records[0].raw)
                 parsed_record2 = records[0].parse_record()
                 ret['data_1'] = parsed_record2['data_1']
                 ret['data_2'] = parsed_record2['data_2']
