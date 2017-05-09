@@ -243,8 +243,8 @@ class Modem(Root):
             if self._last_sent_msg:
                 last_device = self._last_sent_msg.device
             if (last_device is not None and
-                    last_device.next_msg_create_time() is not None):
-                send_msg = last_device.pop_device_queue()
+                    last_device.queue.next_msg_create_time() is not None):
+                send_msg = last_device.queue.pop_device_queue()
             else:
                 devices = [self, ]
                 msg_time = 0
@@ -252,13 +252,13 @@ class Modem(Root):
                 for device in self._devices.values():
                     devices.append(device)
                 for device in devices:
-                    dev_msg_time = device.next_msg_create_time()
+                    dev_msg_time = device.queue.next_msg_create_time()
                     if dev_msg_time and (msg_time == 0 or
                                          dev_msg_time < msg_time):
                         sending_device = device
                         msg_time = dev_msg_time
                 if sending_device:
-                    send_msg = sending_device.pop_device_queue()
+                    send_msg = sending_device.queue.pop_device_queue()
             if send_msg:
                 if send_msg.insteon_msg:
                     device = send_msg.device
