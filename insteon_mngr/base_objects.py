@@ -1,6 +1,4 @@
 import time
-import datetime
-import pprint
 
 from insteon_mngr import ID_STR_TO_BYTES, BYTE_TO_HEX
 from insteon_mngr.user_link import UserLink

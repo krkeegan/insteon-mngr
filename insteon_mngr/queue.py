@@ -3,7 +3,6 @@ sent to the device.'''
 
 import time
 import datetime
-import pprint
 from collections import UserList, UserDict
 
 class QueueManager(UserDict):
@@ -97,9 +96,5 @@ class Queue(UserList):
 
     @property
     def name(self):
+        '''Returns the name of this Queue'''
         return self._manager.get_queue_name(self)
-
-class ALDBQueue(Queue):
-    '''An abstracted Queue that provides addition outgoing message support for
-    ALDB specific messages.'''
-    pass
