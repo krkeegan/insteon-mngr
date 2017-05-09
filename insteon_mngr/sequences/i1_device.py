@@ -32,7 +32,7 @@ class ScanDeviceALDBi1(BaseSequence):
         aldb_key = self._device.aldb.get_aldb_key(msb, lsb)
         if self._device.aldb.get_record(aldb_key).is_last_aldb():
             self._device.aldb.print_records()
-            self._device.remove_state_machine('query_aldb')
+            del self._device.queue['query_aldb']
             aldb_sequence = SetALDBDelta(group=self._device.base_group)
             aldb_sequence.success_callback = lambda: self.on_success()
             aldb_sequence.failure_callback = lambda: self.on_failure()
@@ -136,7 +136,7 @@ class WriteALDBRecordi1(WriteALDBRecord):
         self.on_failure()
 
     def _write_complete(self):
-        self._group.device.remove_state_machine('write_aldb')
+        del self._group.device.queue['write_aldb']
         aldb_entry = bytearray([
             self._compiled_record()['link_flags'],
             self._compiled_record()['group'],

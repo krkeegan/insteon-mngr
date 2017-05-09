@@ -304,16 +304,16 @@ class AddPLMtoDevice(BaseSequence):
 
     def _add_plm_to_dev_link_step4(self):
         print('plm->device link created')
-        self._device.plm.remove_state_machine('link plm->device')
-        self._device.remove_state_machine('link plm->device')
+        del self._device.plm.queue['link plm->device']
+        del self._device.queue['link plm->device']
         self.on_success()
         init_sequence = InitializeDevice(device=self._device)
         init_sequence.start()
 
     def _add_plm_to_dev_link_fail(self):
         print('Error, unable to create plm->device link')
-        self._device.plm.remove_state_machine('link plm->device')
-        self._device.remove_state_machine('link plm->device')
+        del self._device.plm.queue['link plm->device']
+        del self._device.queue['link plm->device']
         self.on_failure()
 
 
