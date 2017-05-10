@@ -251,7 +251,7 @@ class BaseSendHandler(object):
         to the device using the state_machine of state of defined'''
         return NotImplemented
 
-    def query_aldb(self):
+    def query_aldb(self, success=None, failure=None):
         '''Initiates the process to query the all link database on the device'''
         return NotImplemented
 
@@ -534,5 +534,5 @@ class Root(Common):
     def send_command(self, command_name, state=''):
         return self.send_handler.send_command(command_name, state)
 
-    def query_aldb(self):
+    def query_aldb(self, success=None, failure=None):
         return self.send_handler.query_aldb()

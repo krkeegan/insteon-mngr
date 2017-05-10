@@ -25,7 +25,7 @@ class ModemSendHandler(BaseSendHandler):
         link_sequence.in_use = False
         return link_sequence
 
-    def query_aldb(self):
+    def query_aldb(self, success=None, failure=None):
         '''Queries the PLM for a list of the link records saved on
         the PLM and stores them in the cache'''
         self._device.aldb.clear_all_records()
