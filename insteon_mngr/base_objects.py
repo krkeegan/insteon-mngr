@@ -337,10 +337,7 @@ class Root(Common):
 
     def _resend_msg(self, message):
         state = message.state_machine
-        if state not in self._device_msg_queue:
-            self._device_msg_queue[state] = []
-        self._device_msg_queue[state].insert(0, message)
-        self._state_machine_time = time.time()
+        self.queue[state].insert(0, message)
 
     def update_message_history(self, msg):
         # Remove old messages first
