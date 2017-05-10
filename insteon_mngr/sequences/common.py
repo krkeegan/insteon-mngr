@@ -2,49 +2,47 @@ from insteon_mngr.trigger import InsteonTrigger, PLMTrigger
 
 
 class BaseSequence(object):
+    '''The base class inherited by all sequnce objects'''
     def __init__(self):
-        self._success_callback = None
-        self._failure_callback = None
+        self._success_callback = []
+        self._failure_callback = []
         self._complete = False
         self._success = False
 
     @property
-    def success_callback(self):
-        return self._success_callback
-
-    @success_callback.setter
-    def success_callback(self, callback):
-        self._success_callback = callback
-
-    @property
-    def failure_callback(self):
-        return self._failure_callback
-
-    @failure_callback.setter
-    def failure_callback(self, callback):
-        self._failure_callback = callback
-
-    @property
     def is_complete(self):
+        '''Returns true if the sequence is complete, else false'''
         return self._complete
 
     @property
     def is_success(self):
+        '''Returns true of the sequence completed successfully, else false'''
         return self._success
 
-    def on_success(self):
+    def add_success_callback(self, callback):
+        '''Add a callback to be called on success of the sequence'''
+        if callback is not None:
+            self._success_callback.append(callback)
+
+    def add_failure_callback(self, callback):
+        '''Add a callback to be called on failure of the sequence'''
+        if callback is not None:
+            self._failure_callback.append(callback)
+
+    def _on_success(self):
         self._complete = True
         self._success = True
-        if self.success_callback is not None:
-            self.success_callback()
+        for callback in self._success_callback:
+            callback()
 
-    def on_failure(self):
+    def _on_failure(self):
         self._complete = True
         self._success = False
-        if self.failure_callback is not None:
-            self._failure()
+        for callback in self._failure_callback:
+            callback()
 
     def start(self):
+        '''Start the sequence'''
         return NotImplemented
 
 
@@ -79,8 +77,10 @@ class StatusRequest(BaseSequence):
         aldb_delta = msg.get_byte_by_name('cmd_1')
         if self._group.device.attribute('aldb_delta') != aldb_delta:
             print('aldb has changed, rescanning')
-            self._group.device.query_aldb()
-        self.on_success()
+            self._group.device.query_aldb(success=self._on_success,
+                                          failure=self._on_failure)
+        else:
+            self._on_success()
 
 
 class SetALDBDelta(StatusRequest):
@@ -94,7 +94,7 @@ class SetALDBDelta(StatusRequest):
         self._group.set_cached_state(msg.get_byte_by_name('cmd_2'))
         self._group.device.set_aldb_delta(msg.get_byte_by_name('cmd_1'))
         print('cached aldb_delta')
-        self.on_success()
+        self._on_success()
 
 
 class WriteALDBRecord(BaseSequence):
@@ -201,6 +201,10 @@ class WriteALDBRecord(BaseSequence):
     def address(self, address):
         self._address = address
 
+    @property
+    def msb(self):
+        return self.address[0]
+
     def _compiled_record(self):
         msg_attributes = {
             'msb': self.address[0],
@@ -242,10 +246,10 @@ class WriteALDBRecord(BaseSequence):
         if self.linked_group is None and self.in_use:
             print('error no linked_group defined')
         else:
-            status_sequence = StatusRequest(group=self._group)
-            callback = lambda: self._perform_write()  # pylint: disable=W0108
-            status_sequence.success_callback = callback
-            status_sequence.start()
+            self._group.device.aldb.aldb_sequence.add_sequence(self)
+
+    def aldb_start(self):
+        self._perform_write()
 
     def _perform_write(self):
         if self.key is None:
@@ -306,7 +310,7 @@ class AddPLMtoDevice(BaseSequence):
         print('plm->device link created')
         del self._device.plm.queue['link plm->device']
         del self._device.queue['link plm->device']
-        self.on_success()
+        self._on_success()
         init_sequence = InitializeDevice(device=self._device)
         init_sequence.start()
 
@@ -314,7 +318,7 @@ class AddPLMtoDevice(BaseSequence):
         print('Error, unable to create plm->device link')
         del self._device.plm.queue['link plm->device']
         del self._device.queue['link plm->device']
-        self.on_failure()
+        self._on_failure()
 
 
 class InitializeDevice(BaseSequence):

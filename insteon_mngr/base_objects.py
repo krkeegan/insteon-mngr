@@ -251,7 +251,7 @@ class BaseSendHandler(object):
         to the device using the state_machine of state of defined'''
         return NotImplemented
 
-    def query_aldb(self):
+    def query_aldb(self, success=None, failure=None):
         '''Initiates the process to query the all link database on the device'''
         return NotImplemented
 
@@ -337,10 +337,7 @@ class Root(Common):
 
     def _resend_msg(self, message):
         state = message.state_machine
-        if state not in self._device_msg_queue:
-            self._device_msg_queue[state] = []
-        self._device_msg_queue[state].insert(0, message)
-        self._state_machine_time = time.time()
+        self.queue[state].insert(0, message)
 
     def update_message_history(self, msg):
         # Remove old messages first
@@ -534,5 +531,5 @@ class Root(Common):
     def send_command(self, command_name, state=''):
         return self.send_handler.send_command(command_name, state)
 
-    def query_aldb(self):
+    def query_aldb(self, success=None, failure=None):
         return self.send_handler.query_aldb()

@@ -62,8 +62,8 @@ class GenericSendHandler(BaseSendHandler):
             scan_object = ScanDeviceALDBi1(device=self._device)
         else:
             scan_object = ScanDeviceALDBi2(device=self._device)
-        scan_object.success_callback = success
-        scan_object.failure_callback = failure
+        scan_object.add_success_callback(success)
+        scan_object.add_failure_callback(failure)
         scan_object.start()
 
     def send_all_link_clean(self, group, cmd):

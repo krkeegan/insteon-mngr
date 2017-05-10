@@ -34,8 +34,8 @@ class ScanDeviceALDBi1(BaseSequence):
             self._device.aldb.print_records()
             del self._device.queue['query_aldb']
             aldb_sequence = SetALDBDelta(group=self._device.base_group)
-            aldb_sequence.success_callback = lambda: self.on_success()
-            aldb_sequence.failure_callback = lambda: self.on_failure()
+            aldb_sequence.add_success_callback(lambda: self._on_success())
+            aldb_sequence.add_failure_callback(lambda: self._on_failure())
             aldb_sequence.start()
         else:
             dev_bytes = self._device.aldb.get_next_aldb_address(msb, lsb)
@@ -57,27 +57,40 @@ class ScanDeviceALDBi1(BaseSequence):
         message.state_machine = 'query_aldb'
         self._device.queue_device_msg(message)
 
+class _WriteMSBi1(BaseSequence):
+    def __init__(self, device=None):
+        super().__init__()
+        self._device = device
+        self._msb = 0x00
+
+    @property
+    def msb(self):
+        return self._msb
+
+    @msb.setter
+    def msb(self, value):
+        self._msb = value
+
+    def aldb_start(self):
+        if self._msb == 0x00:
+            self._on_failure()
+        else:
+            trigger_attributes = {'cmd_2': self._msb}
+            trigger = InsteonTrigger(device=self._device,
+                                     command_name='set_address_msb',
+                                     attributes=trigger_attributes)
+            trigger.trigger_function = lambda: self._on_success()
+            trigger.name = self._device.dev_addr_str + 'set_msb'
+            trigger.queue()
+            message = self._device.create_message('set_address_msb')
+            message.insert_bytes_into_raw({'msb': self._msb})
+            message.state_machine = 'write_aldb'
+            self._device.queue_device_msg(message)
 
 class WriteALDBRecordi1(WriteALDBRecord):
-    def _perform_write(self):
-        super()._perform_write()
-        # TODO we can skip setting the msb if we can find the last msb
-        # requested in the sent message queue
-        msb = self.address[0]
-        lsb = self.address[1] - 0x07  # i1 devices start at low end
-        trigger_attributes = {'cmd_2': msb}
-        trigger = InsteonTrigger(device=self._group.device,
-                                 command_name='set_address_msb',
-                                 attributes=trigger_attributes)
-        trigger.trigger_function = lambda: self._send_peek_request(lsb)
-        trigger.name = self._group.device.dev_addr_str + 'write_aldb'
-        trigger.queue()
-        message = self._group.device.create_message('set_address_msb')
-        message.insert_bytes_into_raw({'msb': msb})
-        message.state_machine = 'write_aldb'
-        self._group.device.queue_device_msg(message)
-
-    def _send_peek_request(self, lsb):
+    def _perform_write(self, lsb=None):
+        if lsb is None:
+            lsb = self.address[1] - 0x07  # i1 devices start at low end
         records = self._group.device.aldb.get_all_records()
         aldb_key = self._group.device.aldb.get_aldb_key(self.address[0], self.address[1])
         # This skips bytes that don't need to be written
@@ -95,7 +108,7 @@ class WriteALDBRecordi1(WriteALDBRecord):
         else:
             trigger = InsteonTrigger(device=self._group.device,
                                      command_name='peek_one_byte')
-            trigger.trigger_function = lambda: self._send_poke_request(lsb)
+            trigger.trigger_function = lambda: self._send_poke_request(lsb=lsb)
             trigger.name = self._group.device.dev_addr_str + 'write_aldb'
             trigger.queue()
             message = self._group.device.create_message('peek_one_byte')
@@ -113,7 +126,7 @@ class WriteALDBRecordi1(WriteALDBRecord):
         msg_attributes = self._compiled_record()
         return msg_attributes[self._name_position(lsb)]
 
-    def _send_poke_request(self, lsb):
+    def _send_poke_request(self, lsb=None):
         lsb_byte = self._addr_byte_by_lsb(lsb)
         trigger_attributes = {'cmd_2': lsb_byte}
         trigger = InsteonTrigger(device=self._group.device,
@@ -121,7 +134,7 @@ class WriteALDBRecordi1(WriteALDBRecord):
                                  attributes=trigger_attributes)
         if (lsb % 8) < 7:
             next_lsb = lsb + 0x01
-            callback = lambda: self._send_peek_request(next_lsb)
+            callback = lambda: self._perform_write(lsb=next_lsb)
         else:
             callback = lambda: self._write_complete()
         trigger.trigger_function = callback
@@ -133,7 +146,7 @@ class WriteALDBRecordi1(WriteALDBRecord):
         self._group.device.queue_device_msg(message)
 
     def _write_failure(self):
-        self.on_failure()
+        self._on_failure()
 
     def _write_complete(self):
         del self._group.device.queue['write_aldb']
@@ -155,6 +168,6 @@ class WriteALDBRecordi1(WriteALDBRecord):
         )
         record.edit_record(aldb_entry)
         aldb_sequence = SetALDBDelta(group=self._group.device.base_group)
-        aldb_sequence.success_callback = lambda: self.on_success()
-        aldb_sequence.failure_callback = lambda: self.on_failure()
+        aldb_sequence.add_success_callback(lambda: self._on_success())
+        aldb_sequence.add_failure_callback(lambda: self._on_failure())
         aldb_sequence.start()

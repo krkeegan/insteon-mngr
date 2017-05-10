@@ -4,3 +4,4 @@ from insteon_mngr.sequences.common import (StatusRequest, WriteALDBRecord,
     SetALDBDelta, AddPLMtoDevice, InitializeDevice)
 from insteon_mngr.sequences.modem import WriteALDBRecordModem
 from insteon_mngr.sequences.link_management import DeleteLinkPair
+from insteon_mngr.sequences.aldb import _ALDBSequence

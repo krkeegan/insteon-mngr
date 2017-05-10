@@ -24,14 +24,14 @@ class DeleteLinkPair(BaseSequence):
         responder_sequence = self._get_link_sequence(self._responder_device,
                                                      self._responder_key)
         if responder_sequence is not None and controller_sequence is not None:
-            responder_sequence.success_callback = lambda: self.on_success()
-            controller_sequence.success_callback = lambda: responder_sequence.start()
+            responder_sequence.add_success_callback(lambda: self._on_success())
+            controller_sequence.add_success_callback(lambda: responder_sequence.start())
             controller_sequence.start()
         elif responder_sequence is not None:
-            responder_sequence.success_callback = lambda: self.on_success()
+            responder_sequence.add_success_callback(lambda: self._on_success())
             responder_sequence.start()
         elif controller_sequence is not None:
-            controller_sequence.success_callback = lambda: self.on_success()
+            controller_sequence.add_success_callback(lambda: self._on_success())
             controller_sequence.start()
 
     def _get_link_sequence(self, device, key):
