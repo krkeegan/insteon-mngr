@@ -2,6 +2,7 @@ from insteon_mngr.trigger import InsteonTrigger, PLMTrigger
 
 
 class BaseSequence(object):
+    '''The base class inherited by all sequnce objects'''
     def __init__(self):
         self._success_callback = []
         self._failure_callback = []
@@ -10,10 +11,12 @@ class BaseSequence(object):
 
     @property
     def is_complete(self):
+        '''Returns true if the sequence is complete, else false'''
         return self._complete
 
     @property
     def is_success(self):
+        '''Returns true of the sequence completed successfully, else false'''
         return self._success
 
     def add_success_callback(self, callback):
@@ -39,6 +42,7 @@ class BaseSequence(object):
             callback()
 
     def start(self):
+        '''Start the sequence'''
         return NotImplemented
 
 
@@ -73,8 +77,10 @@ class StatusRequest(BaseSequence):
         aldb_delta = msg.get_byte_by_name('cmd_1')
         if self._group.device.attribute('aldb_delta') != aldb_delta:
             print('aldb has changed, rescanning')
-            self._group.device.query_aldb()
-        self.on_success()
+            self._group.device.query_aldb(success=self._on_success,
+                                          failure=self._on_failure)
+        else:
+            self._on_success()
 
 
 class SetALDBDelta(StatusRequest):
@@ -195,6 +201,10 @@ class WriteALDBRecord(BaseSequence):
     def address(self, address):
         self._address = address
 
+    @property
+    def msb(self):
+        return self.address[0]
+
     def _compiled_record(self):
         msg_attributes = {
             'msb': self.address[0],
@@ -236,10 +246,10 @@ class WriteALDBRecord(BaseSequence):
         if self.linked_group is None and self.in_use:
             print('error no linked_group defined')
         else:
-            status_sequence = StatusRequest(group=self._group)
-            callback = lambda: self._perform_write()  # pylint: disable=W0108
-            status_sequence.success_callback = callback
-            status_sequence.start()
+            self._group.device.aldb.aldb_sequence.add_sequence(self)
+
+    def aldb_start(self):
+        self._perform_write()
 
     def _perform_write(self):
         if self.key is None:
