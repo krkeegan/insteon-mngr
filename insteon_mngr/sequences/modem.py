@@ -80,10 +80,10 @@ class WriteALDBRecordModem(WriteALDBRecord):
             aldb_entry = bytearray(8)
         record = self._group.device.aldb.get_record(self.key)
         record.edit_record(aldb_entry)
-        self.on_success()
+        self._on_success()
 
     def _write_failure(self):
-        self.on_failure()
+        self._on_failure()
 
     def start(self):
         '''Starts the sequence to write the aldb record'''

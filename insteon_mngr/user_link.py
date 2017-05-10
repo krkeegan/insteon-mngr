@@ -149,19 +149,23 @@ class UserLink(object):
             else:
                 responder_sequence = self.responder_group.create_responder_link_sequence(self)
         if responder_sequence is not None and controller_sequence is not None:
-            responder_sequence.success_callback = lambda: (
+            responder_sequence.add_success_callback(lambda: (
                 self.set_controller_key(controller_sequence.key),
                 self.set_responder_key(responder_sequence.key),
-                )
-            controller_sequence.success_callback = lambda: responder_sequence.start()
+                ))
+            controller_sequence.add_success_callback(lambda: responder_sequence.start())
             ret = controller_sequence
             controller_sequence.start()
         elif responder_sequence is not None:
-            responder_sequence.success_callback = lambda: self.set_responder_key(responder_sequence.key)
+            responder_sequence.add_success_callback(
+                lambda: self.set_responder_key(responder_sequence.key)
+            )
             ret = responder_sequence
             responder_sequence.start()
         elif controller_sequence is not None:
-            controller_sequence.success_callback = lambda: self.set_controller_key(controller_sequence.key)
+            controller_sequence.add_success_callback(
+                lambda: self.set_controller_key(controller_sequence.key)
+            )
             ret = controller_sequence
             controller_sequence.start()
         self._link_sequence = ret
@@ -174,7 +178,9 @@ class UserLink(object):
                                                        self.controller_key)
         delete_sequence.set_responder_device_with_key(self._device,
                                                       self.responder_key)
-        delete_sequence.success_callback = lambda: self._device.delete_user_link(self.uid)
+        delete_sequence.add_success_callback(
+            lambda: self._device.delete_user_link(self.uid)
+        )
         delete_sequence.start()
         self._link_sequence = delete_sequence
 

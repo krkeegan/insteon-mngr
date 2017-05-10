@@ -127,8 +127,7 @@ class GenericRcvdHandler(object):
                 print('nack received, senders ID not in database')
                 self._device.attribute('engine_version', 0x02)
                 self._device.last_sent_msg.insteon_msg.device_ack = True
-                self._device.remove_state_machine(
-                    self._device.last_sent_msg.state_machine)
+                del self._device.queue[self._device.last_sent_msg.state_machine]
                 print('creating plm->device link')
                 self._device.send_handler.add_plm_to_dev_link()
             elif cmd_2 == 0xFE:

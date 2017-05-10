@@ -6,13 +6,14 @@ from insteon_mngr.aldb import ALDB
 from insteon_mngr.base_objects import Root, Group
 from insteon_mngr.devices import (GenericRcvdHandler, GenericSendHandler,
                              GenericFunctions, select_classes)
-from insteon_mngr.sequences import InitializeDevice
+from insteon_mngr.sequences import InitializeDevice, _ALDBSequence
 
 
 class Device_ALDB(ALDB):
 
     def __init__(self, parent):
         super().__init__(parent)
+        self.aldb_sequence = _ALDBSequence(device=self._device)
 
     def get_aldb_key(self, msb, lsb):
         offset = 7 - (lsb % 8)

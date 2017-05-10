@@ -32,11 +32,11 @@ class ScanDeviceALDBi2(BaseSequence):
         lsb = self._device.last_rcvd_msg.get_byte_by_name('usr_4')
         aldb_key = self._device.aldb.get_aldb_key(msb, lsb)
         if self._device.aldb.get_record(aldb_key).is_last_aldb():
-            self._device.remove_state_machine('query_aldb')
+            del self._device.queue['query_aldb']
             self._device.aldb.print_records()
             aldb_sequence = SetALDBDelta(group=self._device.base_group)
-            aldb_sequence.success_callback = lambda: self.on_success()
-            aldb_sequence.failure_callback = lambda: self.on_failure()
+            aldb_sequence.add_success_callback(lambda: self._on_success())
+            aldb_sequence.add_failure_callback(lambda: self._on_failure())
             aldb_sequence.start()
         else:
             dev_bytes = self._device.aldb.get_next_aldb_address(msb, lsb)
@@ -92,10 +92,7 @@ class WriteALDBRecordi2(WriteALDBRecord):
             )
         )
         record.edit_record(aldb_entry)
-        aldb_sequence = SetALDBDelta(group=self._group.device.base_group)
-        aldb_sequence.success_callback = lambda: self.on_success()
-        aldb_sequence.failure_callback = lambda: self.on_failure()
-        aldb_sequence.start()
+        self._on_success()
 
     def _write_failure(self):
-        self.on_failure()
+        self._on_failure()
