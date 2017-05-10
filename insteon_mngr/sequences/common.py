@@ -3,26 +3,10 @@ from insteon_mngr.trigger import InsteonTrigger, PLMTrigger
 
 class BaseSequence(object):
     def __init__(self):
-        self._success_callback = None
-        self._failure_callback = None
+        self._success_callback = []
+        self._failure_callback = []
         self._complete = False
         self._success = False
-
-    @property
-    def success_callback(self):
-        return self._success_callback
-
-    @success_callback.setter
-    def success_callback(self, callback):
-        self._success_callback = callback
-
-    @property
-    def failure_callback(self):
-        return self._failure_callback
-
-    @failure_callback.setter
-    def failure_callback(self, callback):
-        self._failure_callback = callback
 
     @property
     def is_complete(self):
@@ -32,17 +16,27 @@ class BaseSequence(object):
     def is_success(self):
         return self._success
 
-    def on_success(self):
+    def add_success_callback(self, callback):
+        '''Add a callback to be called on success of the sequence'''
+        if callback is not None:
+            self._success_callback.append(callback)
+
+    def add_failure_callback(self, callback):
+        '''Add a callback to be called on failure of the sequence'''
+        if callback is not None:
+            self._failure_callback.append(callback)
+
+    def _on_success(self):
         self._complete = True
         self._success = True
-        if self.success_callback is not None:
-            self.success_callback()
+        for callback in self._success_callback:
+            callback()
 
-    def on_failure(self):
+    def _on_failure(self):
         self._complete = True
         self._success = False
-        if self.failure_callback is not None:
-            self._failure()
+        for callback in self._failure_callback:
+            callback()
 
     def start(self):
         return NotImplemented
@@ -94,7 +88,7 @@ class SetALDBDelta(StatusRequest):
         self._group.set_cached_state(msg.get_byte_by_name('cmd_2'))
         self._group.device.set_aldb_delta(msg.get_byte_by_name('cmd_1'))
         print('cached aldb_delta')
-        self.on_success()
+        self._on_success()
 
 
 class WriteALDBRecord(BaseSequence):
@@ -306,7 +300,7 @@ class AddPLMtoDevice(BaseSequence):
         print('plm->device link created')
         del self._device.plm.queue['link plm->device']
         del self._device.queue['link plm->device']
-        self.on_success()
+        self._on_success()
         init_sequence = InitializeDevice(device=self._device)
         init_sequence.start()
 
@@ -314,7 +308,7 @@ class AddPLMtoDevice(BaseSequence):
         print('Error, unable to create plm->device link')
         del self._device.plm.queue['link plm->device']
         del self._device.queue['link plm->device']
-        self.on_failure()
+        self._on_failure()
 
 
 class InitializeDevice(BaseSequence):
