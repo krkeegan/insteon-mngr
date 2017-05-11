@@ -1,5 +1,6 @@
 import time
 import datetime
+import binascii
 
 from insteon_mngr import BYTE_TO_HEX, BYTE_TO_ID
 from insteon_mngr.insteon_device import InsteonDevice
@@ -319,7 +320,8 @@ class Modem(Root):
             else:
                 print("error, I don't know this prefix",
                       format(cmd_prefix, 'x'))
-                index = self._read_buffer.find(bytes.fromhex('02'),1)
+                index = self._read_buffer.find(bytes.fromhex('02'), 1)
+                print("removing", binascii.hexlify(self._read_buffer[0:index]))
                 del self._read_buffer[0:index]
         return ret
 
