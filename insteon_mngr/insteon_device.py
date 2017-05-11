@@ -192,7 +192,7 @@ class InsteonDevice(Root):
     def remove_cleanup_msgs(self, msg):
         cmd_1 = msg.get_byte_by_name('cmd_1')
         cmd_2 = msg.get_byte_by_name('cmd_2')
-        for state, msgs in self._device_msg_queue.items():
+        for state, msgs in self.queue.items():
             i = 0
             to_delete = []
             for msg in msgs:
@@ -201,7 +201,7 @@ class InsteonDevice(Root):
                     to_delete.append(i)
                 i += 1
             for position in reversed(to_delete):
-                del self._device_msg_queue[state][position]
+                del self.queue[state][position]
 
     ###################################################################
     #
