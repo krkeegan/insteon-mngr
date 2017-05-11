@@ -95,6 +95,8 @@ class GenericRcvdHandler(object):
             version = msg.get_byte_by_name('cmd_2')
             self._device.set_engine_version(version)
             ret = True
+        elif cmd_byte == 0x09: # enter_link_mode
+            ret = self._common_prelim_ack(msg)
         elif cmd_byte == 0x10:  # ID Request
             ret = self._common_prelim_ack(msg)
         elif cmd_byte == 0x11:  # ON
@@ -319,7 +321,8 @@ class GenericRcvdHandler(object):
 
     def _set_button_responder(self, msg):
         last_insteon_msg = self._device.last_sent_msg.insteon_msg
-        if (last_insteon_msg.device_cmd_name == 'id_request' and
+        if ((last_insteon_msg.device_cmd_name == 'id_request' or
+                last_insteon_msg.device_cmd_name == 'enter_link_mode') and
                 last_insteon_msg.device_prelim_ack is True and
                 last_insteon_msg.device_ack is False):
             dev_cat = msg.get_byte_by_name('to_addr_hi')
