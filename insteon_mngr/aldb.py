@@ -246,6 +246,11 @@ class ALDBRecord(object):
             ret = 'emtpy'
         elif self._is_i2_modem_link():
             ret = 'i2_modem_link'
+        elif self._is_notify_modem_link():
+            if len(self.get_reciprocal_records()) > 0:
+                ret = 'notify_modem_link_good'
+            else:
+                ret = 'notify_modem_link_bad'
         elif user_link is not None:
             if user_link.are_aldb_records_correct():
                 ret = 'good'
@@ -261,14 +266,17 @@ class ALDBRecord(object):
             ret = 'undefined'
         return ret
 
-    def _is_modem_notify_link(str):
+    def _is_notify_modem_link(self):
         # this is for device links, not sure how to handle modem links
         # perhaps all responder links on modem if group exists
-        pass
-        # if is the group modem_link_key
-        # if record matches expected
-        # then modem_link_good
-        # else modem_link_bad
+        ret = False
+        parsed = self.parse_record()
+        if (parsed['controller'] is True and
+                parsed['dev_addr_hi'] == self._device.plm.dev_addr_hi and
+                parsed['dev_addr_mid'] == self._device.plm.dev_addr_mid and
+                parsed['dev_addr_low'] == self._device.plm.dev_addr_low):
+            ret = True
+        return ret
 
 
     def _is_i2_modem_link(self):

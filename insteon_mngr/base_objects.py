@@ -55,14 +55,6 @@ class Group(Common):
         return self._type
 
     @property
-    def modem_link_key(self):
-        return self.attribute('modem_link_key')
-
-    @modem_link_key.setter
-    def modem_link_key(self, value):
-        self.attribute('modem_link_key', value)
-
-    @property
     def group_number(self):
         ret = self._device.get_group_number_by_object(self)
         if ret is not None:
