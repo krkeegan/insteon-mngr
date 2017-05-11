@@ -287,14 +287,6 @@ class Root(Common):
         return self
 
     @property
-    def modem_link_i2_key(self):
-        return self.attribute('modem_link_i2_key')
-
-    @modem_link_i2_key.setter
-    def modem_link_i2_key(self, value):
-        self.attribute('modem_link_i2_key', value)
-
-    @property
     def base_group_number(self):
         return self.attribute('base_group_number')
 
@@ -556,20 +548,4 @@ class Root(Common):
         return self.send_handler.send_command(command_name, state)
 
     def query_aldb(self, success=None, failure=None):
-        return self.send_handler.query_aldb()
-
-    def adopt_modem_i2_link(self):
-        '''Searches all records in the device aldb, and if it finds a link that
-        is a responder from the 0x00 group of the modem then enters the key of
-        this link into the device modem_link_i2_key attribute.  Returns None.'''
-        attributes = {
-            'in_use':  True,
-            'responder': True,
-            'group': 0x00,
-            'dev_addr_hi': self.plm.dev_addr_hi,
-            'dev_addr_mid': self.plm.dev_addr_mid,
-            'dev_addr_low': self.plm.dev_addr_low
-        }
-        records = self.aldb.get_matching_aldb_records({})
-        if len(records) > 0:
-            self.modem_link_i2_key = records[0].key
+        return self.send_handler.query_aldb(success=success, failure=failure)

@@ -310,9 +310,8 @@ class AddPLMtoDevice(BaseSequence):
         print('plm->device link created')
         del self._device.plm.queue['link plm->device']
         del self._device.queue['link plm->device']
-        self._on_success()
-        init_sequence = InitializeDevice(device=self._device)
-        init_sequence.start()
+        self._device.query_aldb(success=self._on_success,
+                                failure=self._on_failure)
 
     def _add_plm_to_dev_link_fail(self):
         print('Error, unable to create plm->device link')

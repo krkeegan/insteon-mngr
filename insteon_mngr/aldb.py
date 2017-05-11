@@ -244,6 +244,8 @@ class ALDBRecord(object):
         user_link = self.get_defined_link()
         if self.is_empty_aldb():
             ret = 'emtpy'
+        elif self._is_i2_modem_link():
+            ret = 'i2_modem_link'
         elif user_link is not None:
             if user_link.are_aldb_records_correct():
                 ret = 'good'
@@ -269,15 +271,19 @@ class ALDBRecord(object):
         # else modem_link_bad
 
 
-    def _is_modem_link_i2_key(self):
+    def _is_i2_modem_link(self):
         # this is for device links, not sure how to handle modem links
         # perhaps all controller links from a specific group on modem if
         # device exists
-        pass
-        # if is the device modem_link_i2_key
-        # if record matches expected
-        # then modem_link_i2_good
-        # else modem_link_i2_bad
+        ret = False
+        parsed = self.parse_record()
+        if (parsed['responder'] is True and
+                parsed['group'] == 0x00 and
+                parsed['dev_addr_hi'] == self._device.plm.dev_addr_hi and
+                parsed['dev_addr_mid'] == self._device.plm.dev_addr_mid and
+                parsed['dev_addr_low'] == self._device.plm.dev_addr_low):
+            ret = True
+        return ret
 
     def get_linked_device_str(self):
         parsed_record = self.parse_record()
