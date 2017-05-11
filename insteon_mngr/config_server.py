@@ -243,6 +243,7 @@ def json_links(device_id, group_number):
     ret['undefinedLinks'] = {}
     ret['unknownLinks'] = {}
     ret['bad_links'] = {}
+    ret['modemLinks'] = {}
     if controller_group.group_number == controller_device.base_group_number:
         for link in controller_device.get_bad_links():
             ret['bad_links'].update(link.json())
@@ -251,6 +252,9 @@ def json_links(device_id, group_number):
             ret['undefinedLinks'].update(link.json())
         elif link.status() == 'unknown':
             ret['unknownLinks'].update(link.json())
+        elif (link.status() == 'notify_modem_link_bad' or
+              link.status() == 'notify_modem_link_good'):
+            ret['modemLinks'].update(link.json())
     return ret
 
 def _bad_links_output(controller_device):
