@@ -30,6 +30,7 @@ class ScanDeviceALDBi1(BaseSequence):
             insteon_cmd='set_address_msb')
         msb = msb_msg.get_byte_by_name('cmd_2')
         aldb_key = self._device.aldb.get_aldb_key(msb, lsb)
+        # TODO is this right?  Don't we need to wait until the end of the record?
         if self._device.aldb.get_record(aldb_key).is_last_aldb():
             self._device.aldb.print_records()
             del self._device.queue['query_aldb']

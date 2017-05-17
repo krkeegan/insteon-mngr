@@ -92,13 +92,6 @@ class GenericSendHandler(BaseSendHandler):
         message.state_machine = state_machine
         self._device.queue_device_msg(message)
 
-    def peek_aldb(self, lsb, state_machine=''):
-        '''Sends a peek_one_byte command to the device for the lsb'''
-        message = self.create_message('peek_one_byte')
-        message.insert_bytes_into_raw({'lsb': lsb})
-        message.state_machine = state_machine
-        self._device.queue_device_msg(message)
-
     def delete_record(self, key=None):
         if self._device.engine_version > 0x00:
             link_sequence = WriteALDBRecordi2(group=self._device.base_group)

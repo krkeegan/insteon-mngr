@@ -82,7 +82,9 @@ class ALDB(object):
 class ALDBRecord(object):
     '''The base ALDB class which is inherited by both the Device and PLM
     ALDB classes'''
-    def __init__(self, database, raw=bytearray(8)):
+    def __init__(self, database, raw=None):
+        if raw is None:
+            raw = bytearray(8)
         self._raw = raw
         self._database = database
         self._core = self._database.core
