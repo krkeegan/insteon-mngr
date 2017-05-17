@@ -391,6 +391,16 @@ class Root(Common):
             ret[group.group_number] = group._attributes.copy()
         return ret
 
+    def get_bad_links(self):
+        '''Returns an array of all bad links on the device'''
+        links = self.aldb.get_matching_records({})
+        ret = []
+        for link in links:
+            if (link.status() == 'bad_group' or
+                    link.status() == 'bad_linked_group'):
+                ret.append(link)
+        return ret
+
     ##################################
     # Public functions
     ##################################
@@ -469,9 +479,7 @@ class Root(Common):
                 self._groups[group_num] = group_class(self, attributes=attributes)
         elif type(self.get_object_by_group_num(group_num)) is not group_class:
             self._promote_group(group_num, group_class, attributes)
-        self.core.do_group_callback({'device': self.dev_addr_str,
-                                     'group_number': group_num
-                                    })
+        self.core.do_group_callback(self.get_object_by_group_num(group_num))
 
     def _promote_group(self, group_num, group_class, attributes):
         attributes.update(self.get_object_by_group_num(group_num).get_attributes())
@@ -532,4 +540,4 @@ class Root(Common):
         return self.send_handler.send_command(command_name, state)
 
     def query_aldb(self, success=None, failure=None):
-        return self.send_handler.query_aldb()
+        return self.send_handler.query_aldb(success=success, failure=failure)

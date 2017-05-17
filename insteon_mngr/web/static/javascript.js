@@ -1,6 +1,8 @@
 /* global $ */
 var coreJSON = {}
 
+// Ajax response functions
+
 function coreData (data, status, xhr) {
   if (status === 'success') {
     coreJSON = data
@@ -14,6 +16,197 @@ function coreData (data, status, xhr) {
       $.getJSON(path + '/links.json', linksData)
     }
   }
+}
+
+function linksData (data, status, xhr) {
+  if (status === 'success') {
+    if ($('tbody#definedLinks').length) {
+      generateDefinedLinks(data)
+    } // End Defined Links
+    if ($('tbody#addLinks').length) {
+      $('tbody#addLinks').html('')
+      var empty = {}
+      empty['empty'] = true
+      var row = generateLinkRow(empty)
+      row.find('.linkRowButtons').append(`
+      <button type="button" class="btn btn-success addLinkButton">
+        Add Link
+      </button>
+      `)
+      row.find('select').removeAttr('disabled')
+      $('tbody#addLinks').append(row)
+      $('.responderInput').change(function () {
+        // Update Data Fields when Responder is Changed
+        var linkDetails = getDeviceLinkDetails(
+          $(this).find(':selected').data('responder_id'),
+          $(this).find(':selected').data('responder_group')
+        )
+        var dataRow = $(this).parents('tr')
+        dataRow.find('.linkRowData1').html(
+          generateDataSelect(dataRow.data('data_1'), linkDetails['data_1'])
+        )
+        dataRow.find('.linkRowData2').html(
+          generateDataSelect(dataRow.data('data_2'), linkDetails['data_2'])
+        )
+      })
+      $('.addLinkButton').click(function () {
+        var row = $(this).parents('tr')
+        var jsonData = {
+          'responder_id': row.find('.responderInput').find(':selected').data('responder_id'),
+          'data_1': parseInt(row.find('.linkRowData1').find(':selected').val()),
+          'data_2': parseInt(row.find('.linkRowData2').find(':selected').val()),
+          'data_3': parseInt(row.find('.responderInput').find(':selected').data('responder_group'))
+        }
+        var path = window.location.pathname.replace(/\/$/, '')
+        $.ajax({
+          url: path + '/links/definedLinks.json',
+          method: 'POST',
+          data: JSON.stringify(jsonData),
+          contentType: 'application/json; charset=utf-8',
+          dataType: 'json',
+          success: linksData
+        })
+      })
+    }
+    if ($('tbody#undefinedLinks').length) {
+      $('tbody#undefinedLinks').html('')
+      for (var uid in data['undefinedLinks']) {
+        $('tbody#undefinedLinks').append(outputUndefinedLinkRow(uid, data['undefinedLinks'][uid]))
+      }
+      if ($('tbody#undefinedLinks').is(':empty')) {
+        $('#undefinedLinksContainer').hide()
+      } else {
+        $('#undefinedLinksContainer').show()
+      }
+      $('.undefinedLinkImport').click(function () {
+        var jsonData = {}
+        for (var key in $(this).parents('tr').data()) {
+          jsonData[key] = $(this).parents('tr').data(key)
+        }
+        var path = window.location.pathname.replace(/\/$/, '')
+        $.ajax({
+          url: path + '/links/definedLinks.json',
+          method: 'POST',
+          data: JSON.stringify(jsonData),
+          contentType: 'application/json; charset=utf-8',
+          dataType: 'json',
+          success: linksData
+        })
+      })
+      $('.undefinedLinkDelete').click(function () {
+        var row = $(this).parents('tr')
+        var uid = row.data('uid')
+        var path = window.location.pathname.replace(/\/$/, '')
+        $.ajax({
+          url: path + '/links/undefinedLinks/' + uid + '.json',
+          method: 'DELETE',
+          dataType: 'json',
+          success: linksData
+        })
+      })
+    }
+    if ($('tbody#unknownLinks').length) {
+      $('tbody#unknownLinks').html('')
+      for (var key in data['unknownLinks']) {
+        var row = generateLinkRow(data['unknownLinks'][key])
+        row.find('.linkRowButtons').append(`
+        <button type="button" class="btn btn-default addDevice">
+          Add Device
+        </button>
+        <button type="button" class="btn btn-danger unknownLinkDelete">
+          Delete
+        </button>
+        `)
+        row.data('key', key)
+        $('tbody#unknownLinks').append(row)
+      }
+      $('.unknownLinkDelete').click(function () {
+        var row = $(this).parents('tr')
+        var key = row.data('key')
+        var path = window.location.pathname.replace(/\/$/, '')
+        $.ajax({
+          url: path + '/links/unknownLinks/' + key + '.json',
+          method: 'DELETE',
+          dataType: 'json',
+          success: linksData
+        })
+      })
+      if ($('tbody#unknownLinks').is(':empty')) {
+        $('#unknownLinksContainer').hide()
+      } else {
+        $('#unknownLinksContainer').show()
+        registerAddDevice()
+      }
+    }
+  }
+}
+
+function generateDefinedLinks (data) {
+  $('tbody#definedLinks').html('')
+  for (var uid in data['modemLinks']) {
+    $('tbody#definedLinks').append(outputModemLinkRow(uid, data['modemLinks'][uid]))
+  }
+  for (var uid in data['definedLinks']) {
+    $('tbody#definedLinks').append(outputDefinedLinkRow(uid, data['definedLinks'][uid]))
+  }
+  if ($('tbody#definedLinks').is(':empty')) {
+    $('#definedLinksContainer').hide()
+  } else {
+    $('#definedLinksContainer').show()
+  }
+  $('.definedLinkEdit').click(function () {
+    $(this).parents('tr').find('select').removeAttr('disabled')
+    $(this).parents('tr').find('.definedLinkEdit').hide()
+    $(this).parents('tr').find('.definedLinkFix').hide()
+    $(this).parents('tr').find('.definedLinkDelete').hide()
+    $(this).parents('tr').find('.definedLinkSave').show()
+    $(this).parents('tr').find('.definedLinkCancel').show()
+    $(this).parents('tr').removeClass('danger')
+  })
+  $('.definedLinkCancel').click(function () {
+    // Reset data fields back to how they appeared on load
+    $(this).parents('tr').find('select').val(function () {
+      return $(this).find('option').filter(function () {
+        return $(this).prop('defaultSelected')
+      }).val()
+    })
+    $(this).parents('tr').find('select').attr('disabled', true)
+    $(this).parents('tr').find('.definedLinkEdit').show()
+    $(this).parents('tr').find('.definedLinkDelete').show()
+    $(this).parents('tr').find('.definedLinkSave').hide()
+    $(this).parents('tr').find('.definedLinkCancel').hide()
+    if ($(this).parents('tr').data('status') === 'Broken') {
+      $(this).parents('tr').find('.definedLinkFix').show()
+      $(this).parents('tr').addClass('warning')
+    }
+  })
+  $('.responderInput').change(function () {
+    // Update Data Fields when Responder is Changed
+    var linkDetails = getDeviceLinkDetails(
+      $(this).find(':selected').data('responder_id'),
+      $(this).find(':selected').data('responder_group')
+    )
+    var dataRow = $(this).parents('tr')
+    dataRow.find('.linkRowData1').html(
+      generateDataSelect(dataRow.data('data_1'), linkDetails['data_1'])
+    )
+    dataRow.find('.linkRowData2').html(
+      generateDataSelect(dataRow.data('data_2'), linkDetails['data_2'])
+    )
+  })
+  $('.definedLinkSave').click(saveLink)
+  $('.definedLinkFix').click(saveLink)
+  $('.definedLinkDelete').click(function () {
+    var row = $(this).parents('tr')
+    var uid = row.data('uid')
+    var path = window.location.pathname.replace(/\/$/, '')
+    $.ajax({
+      url: path + '/links/definedLinks/' + uid + '.json',
+      method: 'DELETE',
+      dataType: 'json',
+      success: linksData
+    })
+  })
 }
 
 function registerAddDevice () {
@@ -185,6 +378,27 @@ function generateLinkRow (data) {
   return ret
 }
 
+function outputModemLinkRow (uid, data) {
+  var ret = generateLinkRow(data)
+  ret.find('.linkRowButtons').append(`
+        <button type="button" class="btn btn-warning btn-sm linkFix" style="display: none">
+          Fix
+        </button>
+  `)
+  ret.data('uid', uid)
+  if (data['status'] === 'notify_modem_link_bad') {
+    ret.find('.linkFix').show()
+    ret.addClass('warning')
+  } else if (data['status'] === 'Working') {
+    ret.addClass('info')
+  } else if (data['status'] === 'Failed') {
+    ret.find('.definedLinkFix').show()
+    // need to do something to notify user here?? maybe an alert?
+    ret.addClass('warning')
+  }
+  return ret
+}
+
 function outputDefinedLinkRow (uid, data) {
   var ret = generateLinkRow(data)
   ret.find('.linkRowButtons').append(`
@@ -253,196 +467,6 @@ function saveLink () {
     dataType: 'json',
     success: linksData
   })
-}
-
-function linksData (data, status, xhr) {
-  if (status === 'success') {
-    if ($('tbody#definedLinks').length) {
-      $('tbody#definedLinks').html('')
-      for (var uid in data['definedLinks']) {
-        $('tbody#definedLinks').append(outputDefinedLinkRow(uid, data['definedLinks'][uid]))
-      }
-      if ($('tbody#definedLinks').is(':empty')) {
-        $('#definedLinksContainer').hide()
-      } else {
-        $('#definedLinksContainer').show()
-      }
-      $('.definedLinkEdit').click(function () {
-        $(this).parents('tr').find('select').removeAttr('disabled')
-        $(this).parents('tr').find('.definedLinkEdit').hide()
-        $(this).parents('tr').find('.definedLinkFix').hide()
-        $(this).parents('tr').find('.definedLinkDelete').hide()
-        $(this).parents('tr').find('.definedLinkSave').show()
-        $(this).parents('tr').find('.definedLinkCancel').show()
-        $(this).parents('tr').removeClass('danger')
-      })
-      $('.definedLinkCancel').click(function () {
-        // Reset data fields back to how they appeared on load
-        $(this).parents('tr').find('.responderInput').val(function () {
-          return $(this).find('option').filter(function () {
-            return $(this).prop('defaultSelected')
-          }).val()
-        })
-        $(this).parents('tr').find('.responderInput').trigger('change')
-        $(this).parents('tr').find('select').val(function () {
-          return $(this).find('option').filter(function () {
-            return $(this).prop('defaultSelected')
-          }).val()
-        })
-        $(this).parents('tr').find('select').attr('disabled', true)
-        $(this).parents('tr').find('.definedLinkEdit').show()
-        $(this).parents('tr').find('.definedLinkDelete').show()
-        $(this).parents('tr').find('.definedLinkSave').hide()
-        $(this).parents('tr').find('.definedLinkCancel').hide()
-        if ($(this).parents('tr').data('status') === 'Broken') {
-          $(this).parents('tr').find('.definedLinkFix').show()
-          $(this).parents('tr').addClass('danger')
-        }
-      })
-      $('.responderInput').change(function () {
-        // Update Data Fields when Responder is Changed
-        var linkDetails = getDeviceLinkDetails(
-          $(this).find(':selected').data('responder_id'),
-          $(this).find(':selected').data('responder_group')
-        )
-        var dataRow = $(this).parents('tr')
-        dataRow.find('.linkRowData1').html(
-          generateDataSelect(dataRow.data('data_1'), linkDetails['data_1'])
-        )
-        dataRow.find('.linkRowData2').html(
-          generateDataSelect(dataRow.data('data_2'), linkDetails['data_2'])
-        )
-      })
-      $('.definedLinkSave').click(saveLink)
-      $('.definedLinkFix').click(saveLink)
-      $('.definedLinkDelete').click(function () {
-        var row = $(this).parents('tr')
-        var uid = row.data('uid')
-        var path = window.location.pathname.replace(/\/$/, '')
-        $.ajax({
-          url: path + '/links/definedLinks/' + uid + '.json',
-          method: 'DELETE',
-          dataType: 'json',
-          success: linksData
-        })
-      })
-    } // End Defined Links
-    if ($('tbody#addLinks').length) {
-      $('tbody#addLinks').html('')
-      var empty = {}
-      empty['empty'] = true
-      var row = generateLinkRow(empty)
-      row.find('.linkRowButtons').append(`
-      <button type="button" class="btn btn-success addLinkButton">
-        Add Link
-      </button>
-      `)
-      row.find('select').removeAttr('disabled')
-      $('tbody#addLinks').append(row)
-      $('.responderInput').change(function () {
-        // Update Data Fields when Responder is Changed
-        var linkDetails = getDeviceLinkDetails(
-          $(this).find(':selected').data('responder_id'),
-          $(this).find(':selected').data('responder_group')
-        )
-        var dataRow = $(this).parents('tr')
-        dataRow.find('.linkRowData1').html(
-          generateDataSelect(dataRow.data('data_1'), linkDetails['data_1'])
-        )
-        dataRow.find('.linkRowData2').html(
-          generateDataSelect(dataRow.data('data_2'), linkDetails['data_2'])
-        )
-      })
-      $('.addLinkButton').click(function () {
-        var row = $(this).parents('tr')
-        var jsonData = {
-          'responder_id': row.find('.responderInput').find(':selected').data('responder_id'),
-          'data_1': parseInt(row.find('.linkRowData1').find(':selected').val()),
-          'data_2': parseInt(row.find('.linkRowData2').find(':selected').val()),
-          'data_3': parseInt(row.find('.responderInput').find(':selected').data('responder_group'))
-        }
-        var path = window.location.pathname.replace(/\/$/, '')
-        $.ajax({
-          url: path + '/links/definedLinks.json',
-          method: 'POST',
-          data: JSON.stringify(jsonData),
-          contentType: 'application/json; charset=utf-8',
-          dataType: 'json',
-          success: linksData
-        })
-      })
-    }
-    if ($('tbody#undefinedLinks').length) {
-      $('tbody#undefinedLinks').html('')
-      for (var uid in data['undefinedLinks']) {
-        $('tbody#undefinedLinks').append(outputUndefinedLinkRow(uid, data['undefinedLinks'][uid]))
-      }
-      if ($('tbody#undefinedLinks').is(':empty')) {
-        $('#undefinedLinksContainer').hide()
-      } else {
-        $('#undefinedLinksContainer').show()
-      }
-      $('.undefinedLinkImport').click(function () {
-        var jsonData = {}
-        for (var key in $(this).parents('tr').data()) {
-          jsonData[key] = $(this).parents('tr').data(key)
-        }
-        var path = window.location.pathname.replace(/\/$/, '')
-        $.ajax({
-          url: path + '/links/definedLinks.json',
-          method: 'POST',
-          data: JSON.stringify(jsonData),
-          contentType: 'application/json; charset=utf-8',
-          dataType: 'json',
-          success: linksData
-        })
-      })
-      $('.undefinedLinkDelete').click(function () {
-        var row = $(this).parents('tr')
-        var uid = row.data('uid')
-        var path = window.location.pathname.replace(/\/$/, '')
-        $.ajax({
-          url: path + '/links/undefinedLinks/' + uid + '.json',
-          method: 'DELETE',
-          dataType: 'json',
-          success: linksData
-        })
-      })
-    }
-    if ($('tbody#unknownLinks').length) {
-      $('tbody#unknownLinks').html('')
-      for (var key in data['unknownLinks']) {
-        var row = generateLinkRow(data['unknownLinks'][key])
-        row.find('.linkRowButtons').append(`
-        <button type="button" class="btn btn-default addDevice">
-          Add Device
-        </button>
-        <button type="button" class="btn btn-danger unknownLinkDelete">
-          Delete
-        </button>
-        `)
-        row.data('key', key)
-        $('tbody#unknownLinks').append(row)
-      }
-      $('.unknownLinkDelete').click(function () {
-        var row = $(this).parents('tr')
-        var key = row.data('key')
-        var path = window.location.pathname.replace(/\/$/, '')
-        $.ajax({
-          url: path + '/links/unknownLinks/' + key + '.json',
-          method: 'DELETE',
-          dataType: 'json',
-          success: linksData
-        })
-      })
-      if ($('tbody#unknownLinks').is(':empty')) {
-        $('#unknownLinksContainer').hide()
-      } else {
-        $('#unknownLinksContainer').show()
-        registerAddDevice()
-      }
-    }
-  }
 }
 
 function updateModemList (data) {
@@ -543,6 +567,7 @@ function updateModemPage (data) {
     }
   }
   if ($('tbody#modemDevices').length) {
+    $('tbody#modemDevices').html('')
     for (var deviceAddress in data[modemAddress]['devices']) {
       var baseGroup = data[modemAddress]['devices'][deviceAddress]['base_group_number']
       $('tbody#modemDevices').append(`
@@ -592,10 +617,11 @@ function updateDeviceGroupPage (data) {
     var deviceAddress = getDeviceAddress()
     var deviceGroup = getDeviceGroup()
     $('form#deviceGroupSettings').html('')
+    var groupName = data[modemAddress]['devices'][deviceAddress]['groups'][deviceGroup]['name']
     $('form#deviceGroupSettings').append(createFormElement(
-      'Group Name', 'name', 'text', data[modemAddress]['devices'][deviceAddress]['groups'][deviceGroup]['name'])
+      'Group Name', 'name', 'text', groupName)
     )
-    $('form#deviceSettings').append(createFormElement(
+    $('form#deviceGroupSettings').append(createFormElement(
       'Device Address', 'name', 'text', deviceAddress, true)
     )
     $('form#deviceGroupSettings').append(`
@@ -621,7 +647,7 @@ function updateDeviceGroupPage (data) {
         method: 'DELETE',
         contentType: 'application/json; charset=utf-8',
         dataType: 'json',
-        success: null   // TODO something needs to happen here
+        success: navigateToModem
       })
     })
   }
@@ -638,6 +664,11 @@ function updateDeviceGroupPage (data) {
       `)
     }
   }
+}
+
+function navigateToModem (data, status, xhr) {
+  var modemAddress = getModemAddress()
+  window.location.replace('/modems/' + modemAddress)
 }
 
 function createFormElement (label, id, type, value, readOnly) {

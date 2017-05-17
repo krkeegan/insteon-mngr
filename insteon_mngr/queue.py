@@ -33,6 +33,7 @@ class QueueManager(UserDict):
         elif self._current_queue.expire_time <= time.time():
             now = datetime.datetime.now().strftime("%M:%S.%f")
             print(now, self._current_queue.name, "state expired")
+            del self.data[self._current_queue.name]
             self._current_queue = self._get_next_state_machine()
 
     def _get_next_state_machine(self):

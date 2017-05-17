@@ -310,9 +310,8 @@ class AddPLMtoDevice(BaseSequence):
         print('plm->device link created')
         del self._device.plm.queue['link plm->device']
         del self._device.queue['link plm->device']
-        self._on_success()
-        init_sequence = InitializeDevice(device=self._device)
-        init_sequence.start()
+        self._device.query_aldb(success=self._on_success,
+                                failure=self._on_failure)
 
     def _add_plm_to_dev_link_fail(self):
         print('Error, unable to create plm->device link')
@@ -331,6 +330,7 @@ class InitializeDevice(BaseSequence):
 
     def start(self):
         if self._device.attribute('engine_version') is None:
+            # Trigger will only fire on an ack, not an i2cs nack
             trigger = InsteonTrigger(device=self._device,
                                      command_name='engine_version')
             trigger.trigger_function = lambda: self._init_step_2()
@@ -355,5 +355,5 @@ class InitializeDevice(BaseSequence):
             trigger.queue()
             self._device.send_handler.get_device_version()
         else:
-            # TODO is this needed self._group.device.update_device_classes()
+            # TODO this is really only necessary to check aldb delta
             self._device.send_handler.get_status()

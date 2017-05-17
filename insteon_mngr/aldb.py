@@ -44,14 +44,13 @@ class ALDB(object):
     def get_matching_records(self, attributes):
         '''Returns an array of records that matches ALL attributes'''
         ret = []
-        for position in self.aldb:
-            record = self.aldb[position]
+        for record in self.aldb.values():
             parsed_record = record.parse_record()
-            ret.append(record)
             for attribute, value in attributes.items():
                 if parsed_record[attribute] != value:
-                    ret.remove(record)
                     break
+            else:
+                ret.append(record)
         return ret
 
     def print_records(self):
@@ -245,6 +244,13 @@ class ALDBRecord(object):
         user_link = self.get_defined_link()
         if self.is_empty_aldb():
             ret = 'emtpy'
+        elif self._is_i2_modem_link():
+            ret = 'i2_modem_link'
+        elif self._is_notify_modem_link():
+            if len(self.get_reciprocal_records()) > 0:
+                ret = 'notify_modem_link_good'
+            else:
+                ret = 'notify_modem_link_bad'
         elif user_link is not None:
             if user_link.are_aldb_records_correct():
                 ret = 'good'
@@ -258,6 +264,33 @@ class ALDBRecord(object):
             ret = 'bad_linked_group'
         else:
             ret = 'undefined'
+        return ret
+
+    def _is_notify_modem_link(self):
+        # this is for device links, not sure how to handle modem links
+        # perhaps all responder links on modem if group exists
+        ret = False
+        parsed = self.parse_record()
+        if (parsed['controller'] is True and
+                parsed['dev_addr_hi'] == self._device.plm.dev_addr_hi and
+                parsed['dev_addr_mid'] == self._device.plm.dev_addr_mid and
+                parsed['dev_addr_low'] == self._device.plm.dev_addr_low):
+            ret = True
+        return ret
+
+
+    def _is_i2_modem_link(self):
+        # this is for device links, not sure how to handle modem links
+        # perhaps all controller links from a specific group on modem if
+        # device exists
+        ret = False
+        parsed = self.parse_record()
+        if (parsed['responder'] is True and
+                parsed['group'] == 0x00 and
+                parsed['dev_addr_hi'] == self._device.plm.dev_addr_hi and
+                parsed['dev_addr_mid'] == self._device.plm.dev_addr_mid and
+                parsed['dev_addr_low'] == self._device.plm.dev_addr_low):
+            ret = True
         return ret
 
     def get_linked_device_str(self):
@@ -295,6 +328,8 @@ class ALDBRecord(object):
 
     def json(self):
         '''Returns a dict to be used as a json reprentation of the link'''
+        records = self.get_reciprocal_records()
+        parsed_record = self.parse_record()
         ret = {'responder_key': None,
                'controller_key': None,
                'responder_id': None,
@@ -303,14 +338,17 @@ class ALDBRecord(object):
                'data_1': None,
                'data_2': None,
                'data_3': None,
-               'status': self.status()}
-        records = self.get_reciprocal_records()
-        parsed_record = self.parse_record()
+               'status': self.status(),
+               'controller_raw': None,
+               'responder_raw': None,
+               'controller_group': parsed_record['group']}
         if self.is_controller():
             ret['responder_id'] = self.get_linked_device_str()
             ret['controller_key'] = self.key
+            ret['controller_raw'] = BYTE_TO_HEX(self.raw)
             if len(records) > 0:
                 ret['responder_key'] = records[0].key
+                ret['responder_raw'] = BYTE_TO_HEX(records[0].raw)
                 parsed_record2 = records[0].parse_record()
                 ret['data_1'] = parsed_record2['data_1']
                 ret['data_2'] = parsed_record2['data_2']
@@ -324,8 +362,10 @@ class ALDBRecord(object):
             ret['data_1'] = parsed_record['data_1']
             ret['data_2'] = parsed_record['data_2']
             ret['data_3'] = parsed_record['data_3']
+            ret['responder_raw'] = BYTE_TO_HEX(self.raw)
             if len(records) > 0:
                 ret['controller_key'] = records[0].key
+                ret['controller_raw'] = BYTE_TO_HEX(records[0].raw)
             if self.group_obj is not None:
                 ret['responder_name'] = self.group_obj.name
                 ret['responder_group'] = self.group_obj.group_number

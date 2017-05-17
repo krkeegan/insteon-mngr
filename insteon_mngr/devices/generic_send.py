@@ -76,9 +76,9 @@ class GenericSendHandler(BaseSendHandler):
         self._device.queue_device_msg(message)
 
     def add_plm_to_dev_link(self):
-        '''Create a plm->device link using the manual method, rather than
-        inserting the ALDB record into the device.  Generally this needs
-        to be used for i2 devices before the modem can talk to them'''
+        '''Create a plm->device link using the "manual method."  This link is
+        otherwise uselss, but is reuired by i2 devices before they will respond
+        to the modem'''
         link_object = AddPLMtoDevice(device=self._device)
         link_object.start()
 

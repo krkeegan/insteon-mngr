@@ -10,7 +10,7 @@ from bottle import (route, run, Bottle, response, get, post, put, delete,
 from insteon_mngr import BYTE_TO_ID
 from insteon_mngr.sequences import DeleteLinkPair
 
-core = ''
+core = None
 
 STATIC_PATH = pkg_resources.resource_filename(__name__, '/web/static')
 ROOT_PATH = pkg_resources.resource_filename(__name__, '/web')
@@ -242,11 +242,39 @@ def json_links(device_id, group_number):
     ret['definedLinks'] = _user_link_output(controller_group)
     ret['undefinedLinks'] = {}
     ret['unknownLinks'] = {}
+    ret['bad_links'] = {}
+    ret['modemLinks'] = {}
+    if controller_group.group_number == controller_device.base_group_number:
+        for link in controller_device.get_bad_links():
+            ret['bad_links'].update(link.json())
     for link in links:
         if link.status() == 'undefined':
             ret['undefinedLinks'].update(link.json())
         elif link.status() == 'unknown':
             ret['unknownLinks'].update(link.json())
+        elif (link.status() == 'notify_modem_link_bad' or
+              link.status() == 'notify_modem_link_good'):
+            ret['modemLinks'].update(link.json())
+    return ret
+
+def _bad_links_output(controller_device):
+    ret = {}
+    for link in controller_device.get_bad_links():
+        link_parsed = link.parse_record()
+        if (link_parsed['controller'] is True or
+                controller_device == link.device):
+            # Controller links are on this device
+            # if not responder then this is an orphaned responder on this dev
+            link_addr = controller_device.dev_addr_str
+            link_key = link.key
+            group_number = link_parsed['group']
+        else:
+            # Responder link on other device, no controller on this device
+            link_addr = link.device.dev_addr_str
+            link_key = link.key
+            group_number = link_parsed['data_3']
+        ret[link_addr + '-' + link_key] = {'device': link.device.dev_addr_str,
+                                           'group_number': group_number}
     return ret
 
 def _user_link_output(controller_group):
@@ -291,7 +319,7 @@ def is_valid_DevID(DevID):
 
 def is_unique_DevID(DevID):
     is_unique = True
-    plms = core.get_all_plms()
+    plms = core.get_all_modems()
     for plm in plms:
         if plm.dev_addr_str == DevID:
             is_unique = False
