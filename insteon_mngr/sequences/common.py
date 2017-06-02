@@ -274,7 +274,6 @@ class AddPLMtoDevice(BaseSequence):
         message.insert_bytes_into_raw(plm_bytes)
         message.plm_success_callback = self._add_plm_to_dev_link_step2
         message.msg_failure_callback = self._add_plm_to_dev_link_fail
-        message.state_machine = 'link plm->device'
         self._device.plm.queue_device_msg(message)
 
     def _add_plm_to_dev_link_step2(self):
@@ -288,7 +287,6 @@ class AddPLMtoDevice(BaseSequence):
             self._add_plm_to_dev_link_step3
         )
         message.msg_failure_callback = self._add_plm_to_dev_link_fail
-        message.state_machine = 'link plm->device'
         self._device.queue_device_msg(message)
 
     def _add_plm_to_dev_link_step3(self):
@@ -308,15 +306,11 @@ class AddPLMtoDevice(BaseSequence):
 
     def _add_plm_to_dev_link_step4(self):
         print('plm->device link created')
-        del self._device.plm.queue['link plm->device']
-        del self._device.queue['link plm->device']
         self._device.query_aldb(success=self._on_success,
                                 failure=self._on_failure)
 
     def _add_plm_to_dev_link_fail(self):
         print('Error, unable to create plm->device link')
-        del self._device.plm.queue['link plm->device']
-        del self._device.queue['link plm->device']
         self._on_failure()
 
 

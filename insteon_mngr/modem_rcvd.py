@@ -87,7 +87,7 @@ class ModemRcvdHandler(object):
             self._device._last_sent_msg.plm_ack = True
             self._device._last_sent_msg.time_plm_ack = time.time()
             self._device.aldb.add_record(msg.raw_msg[2:])
-            self._device.send_command('all_link_next_rec', 'query_aldb')
+            self._device.send_command('all_link_next_rec')
         else:
             msg.allow_trigger = False
             print('received spurious plm aldb record')
@@ -95,7 +95,6 @@ class ModemRcvdHandler(object):
     def _rcvd_end_of_aldb(self, msg):
         # pylint: disable=W0613
         self._device._last_sent_msg.plm_ack = True
-        del self._device.queue['query_aldb']
         print('reached the end of the PLMs ALDB')
         # Reassign the PLM ALDB keys, they are not permanent
         for link in self._device.get_all_user_links().values():
@@ -161,7 +160,6 @@ class ModemRcvdHandler(object):
             if msg.plm_resp_ack:
                 self._device._last_sent_msg.plm_ack = True
                 print('Send All Link - Success')
-                del self._device.queue['all_link_send']
             elif msg.plm_resp_nack:
                 print('Send All Link - Error')
                 self._device._last_sent_msg.plm_ack = True
@@ -171,7 +169,6 @@ class ModemRcvdHandler(object):
                 # It doesn't seem to happen when a destination device sends a
                 # NACK, possibly only when PLM is interrupted, in which case do
                 # we want to try and send again?
-                del self._device.queue['all_link_send']
         else:
             msg.allow_trigger = False
             print('Ignored spurious all link clean status')

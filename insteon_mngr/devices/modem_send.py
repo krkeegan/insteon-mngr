@@ -5,9 +5,8 @@ from insteon_mngr.sequences import WriteALDBRecordModem
 class ModemSendHandler(BaseSendHandler):
     '''Provides the generic command handling for the Modem.  This is a
     seperate class for consistence with devices.'''
-    def send_command(self, command, state=''):
+    def send_command(self, command):
         message = self.create_message(command)
-        message.state_machine = state
         self._device.queue_device_msg(message)
 
     def create_message(self, command):
@@ -29,4 +28,4 @@ class ModemSendHandler(BaseSendHandler):
         '''Queries the PLM for a list of the link records saved on
         the PLM and stores them in the cache'''
         self._device.aldb.clear_all_records()
-        self.send_command('all_link_first_rec', 'query_aldb')
+        self.send_command('all_link_first_rec')

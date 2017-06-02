@@ -3,7 +3,6 @@ import time
 from insteon_mngr import ID_STR_TO_BYTES, BYTE_TO_HEX
 from insteon_mngr.user_link import UserLink
 from insteon_mngr.sequences import (WriteALDBRecordi2, WriteALDBRecordi1)
-from insteon_mngr.queue import QueueManager
 
 class Common(object):
     '''The base class inherited by groups and devices, primarily provides
@@ -246,9 +245,9 @@ class BaseSendHandler(object):
         '''Creates a message object based on the command_name passed'''
         return NotImplemented
 
-    def send_command(self, command_name, state=''):
+    def send_command(self, command_name):
         '''Creates a message based on the command_name and queues it to be sent
-        to the device using the state_machine of state of defined'''
+        to the device'''
         return NotImplemented
 
     def query_aldb(self, success=None, failure=None):
@@ -259,7 +258,7 @@ class BaseSendHandler(object):
 class Root(Common):
     '''The root object of an insteon device, inherited by Devices and Modems'''
     def __init__(self, core, plm, **kwargs):
-        self.queue = QueueManager(self)
+        self.out_queue = []
         self._groups = {}
         self._groups_config = {}
         self._user_links = {}
@@ -336,8 +335,7 @@ class Root(Common):
     ##################################
 
     def _resend_msg(self, message):
-        state = message.state_machine
-        self.queue[state].insert(0, message)
+        self.out_queue.insert(0, message)
 
     def update_message_history(self, msg):
         # Remove old messages first
@@ -406,8 +404,7 @@ class Root(Common):
     ##################################
 
     def queue_device_msg(self, message):
-        state_machine = message.state_machine
-        self.queue[state_machine].append(message)
+        self.out_queue.append(message)
 
     def add_user_link(self, controller_group, data, uid):
         controller_id = controller_group.device.dev_addr_str
@@ -537,7 +534,7 @@ class Root(Common):
         return self.send_handler.create_message(command_name)
 
     def send_command(self, command_name, state=''):
-        return self.send_handler.send_command(command_name, state)
+        return self.send_handler.send_command(command_name)
 
     def query_aldb(self, success=None, failure=None):
         return self.send_handler.query_aldb(success=success, failure=failure)

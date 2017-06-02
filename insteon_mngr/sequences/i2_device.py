@@ -14,7 +14,6 @@ class ScanDeviceALDBi2(BaseSequence):
         dev_bytes = {'msb': 0x00, 'lsb': 0x00}
         message = self._device.create_message('read_aldb')
         message.insert_bytes_into_raw(dev_bytes)
-        message.state_machine = 'query_aldb'
         self._device.queue_device_msg(message)
         # It would be nice to link the trigger to the msb and lsb, but we
         # don't technically have that yet at this point
@@ -32,7 +31,6 @@ class ScanDeviceALDBi2(BaseSequence):
         lsb = self._device.last_rcvd_msg.get_byte_by_name('usr_4')
         aldb_key = self._device.aldb.get_aldb_key(msb, lsb)
         if self._device.aldb.get_record(aldb_key).is_last_aldb():
-            del self._device.queue['query_aldb']
             self._device.aldb.print_records()
             aldb_sequence = SetALDBDelta(group=self._device.base_group)
             aldb_sequence.add_success_callback(lambda: self._on_success())
@@ -40,7 +38,7 @@ class ScanDeviceALDBi2(BaseSequence):
             aldb_sequence.start()
         else:
             dev_bytes = self._device.aldb.get_next_aldb_address(msb, lsb)
-            self._device.send_handler.i2_get_aldb(dev_bytes, 'query_aldb')
+            self._device.send_handler.i2_get_aldb(dev_bytes)
             trigger_attributes = {
                 'usr_3': dev_bytes['msb'],
                 'usr_4': dev_bytes['lsb'],

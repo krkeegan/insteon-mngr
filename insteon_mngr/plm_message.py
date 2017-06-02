@@ -26,7 +26,6 @@ class PLM_Message(object):
         self._time_sent = 0
         self._plm_success_callback = lambda: None
         self._msg_failed_callback = lambda: None
-        self._state_machine = 'default'
         if 'is_incomming' in kwargs:
             self._is_incomming = True
         self._device = None
@@ -307,13 +306,3 @@ class PLM_Message(object):
     @msg_failure_callback.setter
     def msg_failure_callback(self, value):
         self._msg_failed_callback = value
-
-    @property
-    def state_machine(self):
-        return self._state_machine
-
-    @state_machine.setter
-    def state_machine(self, state):
-        if state == '':
-            state = 'default'
-        self._state_machine = state

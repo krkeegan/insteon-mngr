@@ -15,17 +15,6 @@ class QueueManager(UserDict):
         self.data['default'] = Queue(self)
         self._current_queue = self.data['default']
 
-    def __delitem__(self, key):
-        if key != 'default': # Add other protected queues
-            print('removing', key, 'queue')
-            del self.data[key]
-        self._check_current_queue()
-
-
-    def __missing__(self, key):
-        self.data[key] = Queue(self)
-        return self.data[key]
-
     def _check_current_queue(self):
         if self._current_queue.name == 'default':
             # Always check for other queues besides default
