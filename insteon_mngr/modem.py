@@ -302,6 +302,9 @@ class Modem(Root):
         if len(self._read_buffer) >= 2:
             # Process the message
             cmd_prefix = self._read_buffer[1]
+            if cmd_prefix == 0x5C:
+                cmd_prefix = self._read_buffer[1] = 0x50
+                print('HIT 5C PREFIX ODDITY')
             if cmd_prefix in PLM_SCHEMA:
                 byte_length = PLM_SCHEMA[cmd_prefix]['rcvd_len']
                 # This solves Insteon stupidity.  0x62 messages can
