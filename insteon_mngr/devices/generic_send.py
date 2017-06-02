@@ -35,10 +35,9 @@ class GenericSendHandler(BaseSendHandler):
                               dev_cmd=command)
         return ret
 
-    def send_command(self, command_name, state=''):
+    def send_command(self, command_name):
         message = self.create_message(command_name)
         if message is not None:
-            message.state_machine = state
             self._device.queue_device_msg(message)
 
     #################################################################
@@ -47,15 +46,15 @@ class GenericSendHandler(BaseSendHandler):
     #
     #################################################################
 
-    def get_status(self, state_machine=''):
+    def get_status(self):
         status_sequence = StatusRequest(group=self._device.base_group)
         status_sequence.start()
 
-    def get_engine_version(self, state_machine=''):
-        self.send_command('get_engine_version', state_machine)
+    def get_engine_version(self):
+        self.send_command('get_engine_version')
 
-    def get_device_version(self, state_machine=''):
-        self.send_command('id_request', state_machine)
+    def get_device_version(self):
+        self.send_command('id_request')
 
     def query_aldb(self, success=None, failure=None):
         if self._device.attribute('engine_version') == 0:
@@ -86,10 +85,9 @@ class GenericSendHandler(BaseSendHandler):
     # ALDB commands
     ######################
 
-    def i2_get_aldb(self, dev_bytes, state_machine=''):
+    def i2_get_aldb(self, dev_bytes,):
         message = self.create_message('read_aldb')
         message.insert_bytes_into_raw(dev_bytes)
-        message.state_machine = state_machine
         self._device.queue_device_msg(message)
 
     def delete_record(self, key=None):

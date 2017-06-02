@@ -232,11 +232,7 @@ class Modem(Root):
 
     def process_queue(self):
         '''Called by the core loop. Determines and sends the next message.
-        Preferentially sends a message from the same device with the same
-        state_machine as the perviously sent message.
-        Otherwise, loops through all of the devices and sends the
-        oldest message currently waiting in a device queue
-        if there are no other conflicts. Do not call directly'''
+        Do not call directly'''
         if (not self._is_ack_pending() and
                 time.time() > self.wait_to_send):
             last_device = None
@@ -244,25 +240,27 @@ class Modem(Root):
             if self._last_sent_msg:
                 last_device = self._last_sent_msg.device
             if (last_device is not None and
-                    last_device.queue.next_msg_create_time() is not None):
-                send_msg = last_device.queue.pop_device_queue()
+                    len(last_device.out_queue) > 0):
+                send_msg = last_device.out_queue.pop(0)
             else:
                 devices = [self, ]
                 msg_time = 0
-                sending_device = False
+                sending_device = None
                 for device in self._devices.values():
                     devices.append(device)
                 for device in devices:
-                    dev_msg_time = device.queue.next_msg_create_time()
-                    if dev_msg_time and (msg_time == 0 or
-                                         dev_msg_time < msg_time):
-                        sending_device = device
-                        msg_time = dev_msg_time
-                if sending_device:
-                    send_msg = sending_device.queue.pop_device_queue()
-            if send_msg:
+                    if len(device.out_queue) > 0:
+                        dev_msg_time = device.out_queue[0].creation_time
+                        if dev_msg_time and (msg_time == 0 or
+                                             dev_msg_time < msg_time):
+                            sending_device = device
+                            msg_time = dev_msg_time
+                if sending_device is not None:
+                    send_msg = sending_device.out_queue.pop(0)
+            if send_msg is not None:
                 if send_msg.insteon_msg:
                     device = send_msg.device
+                    device.update_message_history(send_msg)
                     device.last_sent_msg = send_msg
                 self._send_msg(send_msg)
 
@@ -321,7 +319,9 @@ class Modem(Root):
                 print("error, I don't know this prefix",
                       format(cmd_prefix, 'x'))
                 index = self._read_buffer.find(bytes.fromhex('02'), 1)
-                print("removing", binascii.hexlify(self._read_buffer[0:index]))
+                if index == -1:
+                    index = len(self._read_buffer)
+                print("removing bytes", binascii.hexlify(self._read_buffer[0:index]))
                 del self._read_buffer[0:index]
         return ret
 
@@ -444,7 +444,6 @@ class ModemGroup(Group):
         except KeyError:
             print('This group doesn\'t know the state', state)
         else:
-            message.state_machine = 'all_link_send'
             records = self.device.plm.aldb.get_matching_records({
                 'controller': True,
                 'group': self.group_number,

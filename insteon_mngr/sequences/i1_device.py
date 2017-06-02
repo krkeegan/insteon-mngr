@@ -21,7 +21,6 @@ class ScanDeviceALDBi1(BaseSequence):
         trigger.queue()
         message = self._device.create_message('set_address_msb')
         message.insert_bytes_into_raw({'msb': msb})
-        message.state_machine = 'query_aldb'
         self._device.queue_device_msg(message)
 
     def _get_byte_address(self):
@@ -33,7 +32,6 @@ class ScanDeviceALDBi1(BaseSequence):
         # TODO is this right?  Don't we need to wait until the end of the record?
         if self._device.aldb.get_record(aldb_key).is_last_aldb():
             self._device.aldb.print_records()
-            del self._device.queue['query_aldb']
             aldb_sequence = SetALDBDelta(group=self._device.base_group)
             aldb_sequence.add_success_callback(lambda: self._on_success())
             aldb_sequence.add_failure_callback(lambda: self._on_failure())
@@ -55,7 +53,6 @@ class ScanDeviceALDBi1(BaseSequence):
         trigger.queue()
         message = self._device.create_message('peek_one_byte')
         message.insert_bytes_into_raw({'lsb': lsb})
-        message.state_machine = 'query_aldb'
         self._device.queue_device_msg(message)
 
 class _WriteMSBi1(BaseSequence):
@@ -85,7 +82,6 @@ class _WriteMSBi1(BaseSequence):
             trigger.queue()
             message = self._device.create_message('set_address_msb')
             message.insert_bytes_into_raw({'msb': self._msb})
-            message.state_machine = 'write_aldb'
             self._device.queue_device_msg(message)
 
 class WriteALDBRecordi1(WriteALDBRecord):
@@ -114,7 +110,6 @@ class WriteALDBRecordi1(WriteALDBRecord):
             trigger.queue()
             message = self._group.device.create_message('peek_one_byte')
             message.insert_bytes_into_raw({'lsb': lsb})
-            message.state_machine = 'write_aldb'
             self._group.device.queue_device_msg(message)
 
     def _name_position(self, lsb):
@@ -143,14 +138,12 @@ class WriteALDBRecordi1(WriteALDBRecord):
         trigger.queue()
         message = self._group.device.create_message('poke_one_byte')
         message.insert_bytes_into_raw({'lsb': lsb_byte})
-        message.state_machine = 'write_aldb'
         self._group.device.queue_device_msg(message)
 
     def _write_failure(self):
         self._on_failure()
 
     def _write_complete(self):
-        del self._group.device.queue['write_aldb']
         aldb_entry = bytearray([
             self._compiled_record()['link_flags'],
             self._compiled_record()['group'],
