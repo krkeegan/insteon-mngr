@@ -1,3 +1,11 @@
+# Abandoned
+
+I started work on this and then Insteon abandoned me.  Insteon stopped updating the Hub as new devices were released.  As a result, the Hub was never able to fulfill my hopes of handling the device config.  In addition, Insteon stopped allowing people to sign up for API keys, so very few people would even be able to use this software.
+
+This is probably all of the best, as I found [Insteon-MQTT](https://github.com/TD22057/insteon-mqtt), and its local control is not subject to cloud restrictions.
+
+I am going to leave this code here for reference, but in an archived state since it will never be revived.
+
 # The Problem
 The Insteon Hub can:
 - control devices (on/off)
